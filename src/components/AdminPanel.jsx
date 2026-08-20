@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { API_BASE } from '../config';
+import { API_BASE, getAdminToken, adminFetch } from '../config';
 import * as XLSX from 'xlsx';
 import { CATEGORIES } from '../data/products';
 
@@ -214,17 +214,10 @@ export default function AdminPanel({
   const [isUploadingRental, setIsUploadingRental] = useState(false);
   const [rentalDeleteModalItem, setRentalDeleteModalItem] = useState(null);
 
-  const getAdminToken = () => {
-    return localStorage.getItem('jiza_admin_token') || sessionStorage.getItem('jiza_admin_token') || '';
-  };
-
   const fetchRentalGallery = async () => {
     try {
-      const token = getAdminToken();
-      const res = await fetch(`${API_BASE}/api/admin/rental-gallery`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const data = await res.json();
+      const res = await adminFetch('/api/admin/rental-gallery');
+      const data = await res.json().catch(() => ({}));
       if (res.ok && data.items) {
         setRentalGalleryList(data.items);
       }
@@ -261,20 +254,15 @@ export default function AdminPanel({
     setIsUploadingRental(true);
 
     try {
-      const token = getAdminToken();
       const imageUrls = selectedRentalFiles.map(f => f.dataUrl);
 
-      const res = await fetch(`${API_BASE}/api/admin/rental-gallery/upload`, {
+      const res = await adminFetch('/api/admin/rental-gallery/upload', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
         body: JSON.stringify({ images: imageUrls })
       });
 
-      const data = await res.json();
-      if (res.ok && data.success) {
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && (data.success || data.items)) {
         showAdminToast(`✅ Uploaded ${data.items ? data.items.length : selectedRentalFiles.length} photo(s) to Rental Gallery!`);
         setSelectedRentalFiles([]);
         await fetchRentalGallery();
@@ -291,13 +279,11 @@ export default function AdminPanel({
 
   const handleDeleteRentalImageConfirm = async (id) => {
     try {
-      const token = getAdminToken();
-      const res = await fetch(`${API_BASE}/api/admin/rental-gallery/${id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
+      const res = await adminFetch(`/api/admin/rental-gallery/${id}`, {
+        method: 'DELETE'
       });
-      const data = await res.json();
-      if (res.ok && data.success) {
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && (data.success || res.status === 200)) {
         showAdminToast('🗑️ Rental gallery image deleted successfully.');
         setRentalDeleteModalItem(null);
         await fetchRentalGallery();
@@ -327,11 +313,8 @@ export default function AdminPanel({
 
   const fetchAdminReviews = async () => {
     try {
-      const token = getAdminToken();
-      const res = await fetch(`${API_BASE}/api/admin/reviews`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const data = await res.json();
+      const res = await adminFetch('/api/admin/reviews');
+      const data = await res.json().catch(() => ({}));
       if (res.ok && data.reviews) {
         setAdminReviews(data.reviews);
       }
@@ -342,20 +325,15 @@ export default function AdminPanel({
 
   const handleUpdateReviewStatus = async (reviewId, newStatus) => {
     try {
-      const token = getAdminToken();
-      const res = await fetch(`${API_BASE}/api/admin/reviews/${reviewId}/status`, {
+      const res = await adminFetch(`/api/admin/reviews/${reviewId}/status`, {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
         body: JSON.stringify({ status: newStatus })
       });
       if (res.ok) {
         showAdminToast(`Review marked as ${newStatus}`);
         fetchAdminReviews();
       } else {
-        const err = await res.json();
+        const err = await res.json().catch(() => ({}));
         alert(err.error || 'Failed to update review status');
       }
     } catch (e) {
@@ -371,16 +349,14 @@ export default function AdminPanel({
       isDanger: true,
       onConfirm: async () => {
         try {
-          const token = getAdminToken();
-          const res = await fetch(`${API_BASE}/api/admin/reviews/${reviewId}`, {
-            method: 'DELETE',
-            headers: { 'Authorization': `Bearer ${token}` }
+          const res = await adminFetch(`/api/admin/reviews/${reviewId}`, {
+            method: 'DELETE'
           });
           if (res.ok) {
             showAdminToast('Review deleted permanently.');
             fetchAdminReviews();
           } else {
-            const err = await res.json();
+            const err = await res.json().catch(() => ({}));
             alert(err.error || 'Failed to delete review');
           }
         } catch (e) {
@@ -400,11 +376,8 @@ export default function AdminPanel({
 
   const fetchAdminProblems = async () => {
     try {
-      const token = getAdminToken();
-      const res = await fetch(`${API_BASE}/api/admin/problems`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const data = await res.json();
+      const res = await adminFetch('/api/admin/problems');
+      const data = await res.json().catch(() => ({}));
       if (res.ok && data.problems) {
         setAdminProblems(data.problems);
       }
@@ -418,13 +391,8 @@ export default function AdminPanel({
     if (!selectedProblemModal) return;
 
     try {
-      const token = getAdminToken();
-      const res = await fetch(`${API_BASE}/api/admin/problems/${selectedProblemModal.id}`, {
+      const res = await adminFetch(`/api/admin/problems/${selectedProblemModal.id}`, {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
         body: JSON.stringify({
           status: problemModalStatus,
           admin_notes: problemModalNotes
@@ -436,7 +404,7 @@ export default function AdminPanel({
         setSelectedProblemModal(null);
         fetchAdminProblems();
       } else {
-        const err = await res.json();
+        const err = await res.json().catch(() => ({}));
         alert(err.error || 'Failed to update problem ticket');
       }
     } catch (e) {
@@ -495,19 +463,14 @@ export default function AdminPanel({
     if (!catForm.name.trim()) return;
 
     try {
-      const token = getAdminToken();
-      const res = await fetch(`${API_BASE}/api/admin/categories`, {
+      const res = await adminFetch('/api/categories', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
         body: JSON.stringify(catForm)
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
 
-      if (res.ok && data.success) {
-        showAdminToast(`Category "${data.category.name}" created successfully!`);
+      if (res.ok && (data.success || data.category || data.id)) {
+        showAdminToast(`Category "${data.category?.name || catForm.name}" created successfully!`);
         setIsAddCatModalOpen(false);
         setCatForm({ name: '', img: '', display_order: 1, active: true });
         if (onRefreshCategories) onRefreshCategories();
@@ -525,19 +488,14 @@ export default function AdminPanel({
     if (!editingCategory || !editingCategory.name.trim()) return;
 
     try {
-      const token = getAdminToken();
-      const res = await fetch(`${API_BASE}/api/admin/categories/${editingCategory.id}`, {
+      const res = await adminFetch(`/api/categories/${editingCategory.id}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
         body: JSON.stringify(editingCategory)
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
 
-      if (res.ok && data.success) {
-        showAdminToast(`Category "${data.category.name}" updated successfully!`);
+      if (res.ok && (data.success || data.category || data.id)) {
+        showAdminToast(`Category "${data.category?.name || editingCategory.name}" updated successfully!`);
         setEditingCategory(null);
         if (onRefreshCategories) onRefreshCategories();
       } else {
@@ -552,13 +510,8 @@ export default function AdminPanel({
   const handleToggleCategoryActive = async (cat) => {
     const nextState = !(cat.active !== undefined ? Boolean(cat.active) : true);
     try {
-      const token = getAdminToken();
-      const res = await fetch(`${API_BASE}/api/admin/categories/${cat.id}`, {
+      const res = await adminFetch(`/api/categories/${cat.id}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
         body: JSON.stringify({ active: nextState })
       });
       if (res.ok) {
@@ -578,13 +531,11 @@ export default function AdminPanel({
       isDanger: true,
       onConfirm: async () => {
         try {
-          const token = getAdminToken();
-          const res = await fetch(`${API_BASE}/api/admin/categories/${catId}`, {
-            method: 'DELETE',
-            headers: { 'Authorization': `Bearer ${token}` }
+          const res = await adminFetch(`/api/categories/${catId}`, {
+            method: 'DELETE'
           });
-          const data = await res.json();
-          if (res.ok && data.success) {
+          const data = await res.json().catch(() => ({}));
+          if (res.ok && (data.success || res.status === 200)) {
             showAdminToast(`Category "${catName}" deleted successfully.`);
             if (onRefreshCategories) onRefreshCategories();
           } else {
@@ -606,19 +557,14 @@ export default function AdminPanel({
     }
 
     try {
-      const token = getAdminToken();
-      const res = await fetch(`${API_BASE}/api/admin/subcategories`, {
+      const res = await adminFetch('/api/subcategories', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
         body: JSON.stringify(subCatForm)
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
 
-      if (res.ok && data.success) {
-        showAdminToast(`Sub-category "${data.subcategory.name}" created!`);
+      if (res.ok && (data.success || data.subcategory || data.id)) {
+        showAdminToast(`Sub-category "${data.subcategory?.name || subCatForm.name}" created!`);
         setIsAddSubModalOpen(false);
         setSubCatForm({ categoryId: '', name: '', img: '', display_order: 1, active: true });
         if (onRefreshCategories) onRefreshCategories();
@@ -636,19 +582,14 @@ export default function AdminPanel({
     if (!editingSubcategory || !editingSubcategory.name.trim()) return;
 
     try {
-      const token = getAdminToken();
-      const res = await fetch(`${API_BASE}/api/admin/subcategories/${editingSubcategory.id}`, {
+      const res = await adminFetch(`/api/subcategories/${editingSubcategory.id}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
         body: JSON.stringify(editingSubcategory)
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
 
-      if (res.ok && data.success) {
-        showAdminToast(`Sub-category "${data.subcategory.name}" updated!`);
+      if (res.ok && (data.success || data.subcategory || data.id)) {
+        showAdminToast(`Sub-category "${data.subcategory?.name || editingSubcategory.name}" updated!`);
         setEditingSubcategory(null);
         if (onRefreshCategories) onRefreshCategories();
       } else {
@@ -663,13 +604,8 @@ export default function AdminPanel({
   const handleToggleSubCategoryActive = async (subObj) => {
     const nextState = !(subObj.active !== undefined ? Boolean(subObj.active) : true);
     try {
-      const token = getAdminToken();
-      const res = await fetch(`${API_BASE}/api/admin/subcategories/${subObj.id}`, {
+      const res = await adminFetch(`/api/subcategories/${subObj.id}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
         body: JSON.stringify({ active: nextState })
       });
       if (res.ok) {
@@ -689,13 +625,11 @@ export default function AdminPanel({
       isDanger: true,
       onConfirm: async () => {
         try {
-          const token = getAdminToken();
-          const res = await fetch(`${API_BASE}/api/admin/subcategories/${subId}`, {
-            method: 'DELETE',
-            headers: { 'Authorization': `Bearer ${token}` }
+          const res = await adminFetch(`/api/subcategories/${subId}`, {
+            method: 'DELETE'
           });
-          const data = await res.json();
-          if (res.ok && data.success) {
+          const data = await res.json().catch(() => ({}));
+          if (res.ok && (data.success || res.status === 200)) {
             showAdminToast(`Sub-category "${subName}" deleted.`);
             if (onRefreshCategories) onRefreshCategories();
           } else {

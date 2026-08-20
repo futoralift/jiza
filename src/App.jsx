@@ -1,5 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { API_BASE } from './config';
+import { 
+  API_BASE, 
+  getAdminToken, 
+  setAdminTokenStorage, 
+  clearAdminTokenStorage, 
+  adminFetch, 
+  ADMIN_ROUTE_KEY 
+} from './config';
 import Header from './components/Header';
 import BottomNav from './components/BottomNav';
 import HomeView from './components/HomeView';
@@ -54,25 +61,38 @@ export default function App() {
   const [flyingItem, setFlyingItem] = useState(null);
   const [cartNeedsBounce, setCartNeedsBounce] = useState(false);
 
-  // ENTERPRISE ADMIN SECURITY STATE
+  // ENTERPRISE ADMIN SECURITY STATE & RESTORATION
   const [isAdminSecretRoute, setIsAdminSecretRoute] = useState(false);
   const [isAdminLoginOpen, setIsAdminLoginOpen] = useState(false);
-  const [adminToken, setAdminToken] = useState(() => sessionStorage.getItem('jiza_admin_token') || '');
+  const [adminToken, setAdminToken] = useState(() => getAdminToken());
 
   useEffect(() => {
-    // Secret Non-Guessable Admin Path Verification
+    // Secret Non-Guessable Admin Path Verification & Persistent Session Restoration
     const params = new URLSearchParams(window.location.search);
     const secretKey = params.get('secretAdminKey') || params.get('adminSecret') || window.location.hash.replace('#', '');
-    
-    if (secretKey === 'jiza-studio-secure-mgmt-x9872') {
+    const isStoredAdminRoute = localStorage.getItem(ADMIN_ROUTE_KEY) === 'true' || sessionStorage.getItem(ADMIN_ROUTE_KEY) === 'true';
+    const isDirectAdminUrl = window.location.pathname.startsWith('/admin') || window.location.hash.startsWith('#admin') || params.get('view') === 'admin';
+
+    if (secretKey === 'jiza-studio-secure-mgmt-x9872' || isStoredAdminRoute || isDirectAdminUrl) {
       setIsAdminSecretRoute(true);
-      if (!adminToken) {
+      const token = getAdminToken();
+      if (!token) {
         setIsAdminLoginOpen(true);
       } else {
+        setAdminToken(token);
         setActiveView('admin');
       }
     }
   }, [adminToken]);
+
+  // Global handler for unauthorized admin responses (401 token expiry)
+  useEffect(() => {
+    const handleUnauthorized = () => {
+      handleAdminUnauthorized();
+    };
+    window.addEventListener('jiza:admin:unauthorized', handleUnauthorized);
+    return () => window.removeEventListener('jiza:admin:unauthorized', handleUnauthorized);
+  }, []);
 
   // Dynamic SEO, GEO & AEO Title & Metadata Management
   useEffect(() => {
@@ -155,7 +175,7 @@ export default function App() {
   };
 
   const handleAdminUnauthorized = () => {
-    sessionStorage.removeItem('jiza_admin_token');
+    clearAdminTokenStorage();
     setAdminToken('');
     setIsAdminSecretRoute(true);
     setIsAdminLoginOpen(true);
@@ -163,11 +183,9 @@ export default function App() {
 
   const fetchDbOrders = async () => {
     try {
-      const token = sessionStorage.getItem('jiza_admin_token');
+      const token = getAdminToken();
       if (token) {
-        const res = await fetch(`${API_BASE}/api/orders`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
+        const res = await adminFetch('/api/orders');
         if (res.status === 401) {
           handleAdminUnauthorized();
           return;
@@ -209,11 +227,9 @@ export default function App() {
 
   const fetchDbCustomers = async () => {
     try {
-      const token = sessionStorage.getItem('jiza_admin_token');
+      const token = getAdminToken();
       if (!token) return;
-      const res = await fetch(`${API_BASE}/api/admin/customers`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const res = await adminFetch('/api/admin/customers');
       if (res.status === 401) {
         handleAdminUnauthorized();
         return;
@@ -244,10 +260,11 @@ export default function App() {
     const interval = setInterval(() => {
       fetchDbCategories();
       fetchDbProducts();
-      if (sessionStorage.getItem('jiza_admin_token') || currentUser) {
+      const currentToken = getAdminToken();
+      if (currentToken || currentUser) {
         fetchDbOrders();
       }
-      if (sessionStorage.getItem('jiza_admin_token')) {
+      if (currentToken) {
         fetchDbCustomers();
       }
     }, 15000);
@@ -934,25 +951,25 @@ export default function App() {
     }
   };
 
-  // ADMIN PANEL CONTROLLERS
+  // ADMIN PANEL CONTROLLERS (WITH AUTOMATIC AUTH & LIVE POSTGRES SYNC)
   const handleAddProduct = async (newProduct) => {
-    const stockQty = newProduct.stockQuantity !== undefined ? Number(newProduct.stockQuantity) : 10;
-    setProductsList((prev) => [{ ...newProduct, stockQuantity: stockQty, inStock: stockQty > 0, soldOut: stockQty === 0 }, ...prev]);
-    showToast(`✨ Product "${newProduct.title}" published live to storefront!`);
-
     try {
-      const token = sessionStorage.getItem('jiza_admin_token');
-      await fetch(`${API_BASE}/api/products`, {
+      const res = await adminFetch('/api/products', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
         body: JSON.stringify(newProduct)
       });
-      fetchDbProducts();
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to save product to database');
+      }
+      await fetchDbProducts();
+      showToast(`✨ Product "${newProduct.title}" published live to storefront!`);
+      return true;
     } catch (err) {
       console.error('Error persisting product to DB:', err);
+      showToast(`❌ Product save error: ${err.message}`);
+      await fetchDbProducts();
+      throw err;
     }
   };
 
@@ -960,141 +977,123 @@ export default function App() {
   const handleUpdateProductStock = async (productId, newQuantity) => {
     const qty = Math.max(0, Number(newQuantity));
     const isSoldOut = qty === 0;
-    setProductsList((prev) =>
-      prev.map((p) => {
-        if (p.id !== productId) return p;
-        return {
-          ...p,
-          stockQuantity: qty,
-          inStock: !isSoldOut,
-          soldOut: isSoldOut,
-          badge: isSoldOut ? 'Sold Out' : (p.badge === 'Sold Out' ? 'New Arrival' : p.badge)
-        };
-      })
-    );
-    showToast(isSoldOut ? '⚠️ Product marked Sold Out automatically!' : `✅ Stock updated to ${qty} units.`);
 
     try {
-      const token = sessionStorage.getItem('jiza_admin_token');
-      await fetch(`${API_BASE}/api/products/${productId}/stock`, {
+      const res = await adminFetch(`/api/products/${productId}/stock`, {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
         body: JSON.stringify({ newQuantity: qty })
       });
-      fetchDbProducts();
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to update stock');
+      }
+      await fetchDbProducts();
+      showToast(isSoldOut ? '⚠️ Product marked Sold Out automatically!' : `✅ Stock updated to ${qty} units.`);
     } catch (err) {
       console.error('Error updating stock on backend:', err);
+      showToast(`❌ Stock update error: ${err.message}`);
+      await fetchDbProducts();
     }
   };
 
   const handleUpdateProductPrice = async (productId, newPrice) => {
-    setProductsList((prev) =>
-      prev.map((p) => (p.id === productId ? { ...p, price: newPrice, sellingPrice: newPrice } : p))
-    );
-    showToast('Product price updated live!');
+    const prod = productsList.find(p => p.id === productId);
+    if (!prod) return;
 
     try {
-      const token = sessionStorage.getItem('jiza_admin_token');
-      const prod = productsList.find(p => p.id === productId);
-      if (prod) {
-        await fetch(`${API_BASE}/api/products/${productId}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({ ...prod, sellingPrice: newPrice, price: newPrice })
-        });
-        fetchDbProducts();
+      const res = await adminFetch(`/api/products/${productId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ ...prod, sellingPrice: newPrice, price: newPrice })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to update price');
       }
+      await fetchDbProducts();
+      showToast('✅ Product price updated live!');
     } catch (err) {
       console.error('Error updating price on backend:', err);
+      showToast(`❌ Price update error: ${err.message}`);
+      await fetchDbProducts();
     }
   };
 
   const handleUpdateSpecialSection = async (productId, newSection) => {
-    setProductsList((prev) =>
-      prev.map((p) => (p.id === productId ? { ...p, specialSection: newSection } : p))
-    );
-    showToast(`Special Section updated to '${newSection}'`);
-
     try {
-      const token = sessionStorage.getItem('jiza_admin_token');
-      await fetch(`${API_BASE}/api/products/${productId}/special-section`, {
+      const res = await adminFetch(`/api/products/${productId}/special-section`, {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
         body: JSON.stringify({ specialSection: newSection })
       });
-      fetchDbProducts();
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to update special section');
+      }
+      await fetchDbProducts();
+      showToast(`✅ Special Section updated to '${newSection}'`);
     } catch (err) {
       console.error('Error updating special section on backend:', err);
+      showToast(`❌ Section update error: ${err.message}`);
+      await fetchDbProducts();
     }
   };
 
   const handleUpdateOrderStatus = async (orderId, newStatus) => {
-    setOrdersList((prev) =>
-      prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o))
-    );
-    showToast(`Order ${orderId} status set to ${newStatus}`);
-
     try {
-      const token = sessionStorage.getItem('jiza_admin_token');
-      await fetch(`${API_BASE}/api/orders/${orderId}/status`, {
+      const res = await adminFetch(`/api/orders/${orderId}/status`, {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
         body: JSON.stringify({ status: newStatus })
       });
-      fetchDbOrders();
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to update order status');
+      }
+      await fetchDbOrders();
+      showToast(`Order ${orderId} status set to ${newStatus}`);
     } catch (err) {
       console.error('Error updating order status on backend:', err);
+      showToast(`❌ Order status error: ${err.message}`);
+      await fetchDbOrders();
     }
   };
 
-
   const handleFullUpdateProduct = async (updatedProd) => {
-    setProductsList((prev) =>
-      prev.map((p) => (p.id === updatedProd.id ? { ...p, ...updatedProd } : p))
-    );
-    showToast(`✅ Product "${updatedProd.title}" updated successfully!`);
-
     try {
-      const token = sessionStorage.getItem('jiza_admin_token');
-      await fetch(`${API_BASE}/api/products/${updatedProd.id}`, {
+      const res = await adminFetch(`/api/products/${updatedProd.id}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
         body: JSON.stringify(updatedProd)
       });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to update product');
+      }
+      await fetchDbProducts();
+      showToast(`✅ Product "${updatedProd.title}" updated successfully!`);
+      return true;
     } catch (err) {
       console.error('Error updating product on backend:', err);
+      showToast(`❌ Product update error: ${err.message}`);
+      await fetchDbProducts();
+      throw err;
     }
   };
 
   const handleDeleteProduct = async (productId) => {
-    setProductsList((prev) => prev.filter((p) => p.id !== productId));
-    showToast(`🗑️ Product deleted successfully.`);
-
     try {
-      const token = sessionStorage.getItem('jiza_admin_token');
-      await fetch(`${API_BASE}/api/products/${productId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+      const res = await adminFetch(`/api/products/${productId}`, {
+        method: 'DELETE'
       });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to delete product');
+      }
+      await fetchDbProducts();
+      showToast(`🗑️ Product deleted successfully.`);
+      return true;
     } catch (err) {
       console.error('Error deleting product on backend:', err);
+      showToast(`❌ Product delete error: ${err.message}`);
+      await fetchDbProducts();
+      throw err;
     }
   };
 
@@ -1313,15 +1312,19 @@ export default function App() {
         isOpen={isAdminLoginOpen}
         onClose={() => {
           setIsAdminLoginOpen(false);
-          if (!adminToken) setActiveView('404');
+          if (!getAdminToken()) setActiveView('404');
         }}
         onLoginSuccess={(token) => {
-          sessionStorage.setItem('jiza_admin_token', token);
+          setAdminTokenStorage(token);
           setAdminToken(token);
           setIsAdminLoginOpen(false);
           setIsAdminSecretRoute(true);
           setActiveView('admin');
           showToast('✅ 4FA Authentication Successful! Welcome Admin.');
+          fetchDbProducts();
+          fetchDbCategories();
+          fetchDbOrders();
+          fetchDbCustomers();
         }}
       />
 

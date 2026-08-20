@@ -44,22 +44,58 @@ app.use((req, res, next) => {
 });
 
 // CORS Configuration
-const allowedOrigins = process.env.ALLOWED_ORIGINS
-  ? process.env.ALLOWED_ORIGINS.split(',')
-  : ['http://localhost:5173', 'http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002', 'http://localhost:5000', 'http://127.0.0.1:3000', 'http://127.0.0.1:3001', 'http://127.0.0.1:3002', 'http://127.0.0.1:5173'];
+const DEFAULT_ALLOWED_ORIGINS = [
+  'https://jizajewellerystudio.com',
+  'https://www.jizajewellerystudio.com',
+  'http://jizajewellerystudio.com',
+  'http://www.jizajewellerystudio.com',
+  'https://jizajewellery.com',
+  'https://www.jizajewellery.com',
+  'http://localhost:5173',
+  'http://localhost:3000',
+  'http://localhost:3001',
+  'http://localhost:3002',
+  'http://localhost:5000',
+  'http://127.0.0.1:3000',
+  'http://127.0.0.1:3001',
+  'http://127.0.0.1:3002',
+  'http://127.0.0.1:5173',
+  'http://127.0.0.1:5000'
+];
 
-app.use(cors({
+const envOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',').map(s => s.trim().replace(/\/$/, '')).filter(Boolean)
+  : [];
+
+const allowedOrigins = Array.from(new Set([...DEFAULT_ALLOWED_ORIGINS, ...envOrigins]));
+
+const corsOptions = {
   origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else if (process.env.NODE_ENV !== 'production') {
+    if (!origin) {
+      return callback(null, true);
+    }
+    const cleanOrigin = origin.trim().replace(/\/$/, '');
+    const isAllowed = allowedOrigins.includes(cleanOrigin) ||
+      cleanOrigin.endsWith('.jizajewellerystudio.com') ||
+      cleanOrigin.endsWith('jizajewellerystudio.com') ||
+      cleanOrigin.endsWith('.jizajewellery.com') ||
+      cleanOrigin.endsWith('jizajewellery.com') ||
+      cleanOrigin.includes('localhost:') ||
+      cleanOrigin.includes('127.0.0.1:');
+
+    if (isAllowed || process.env.NODE_ENV !== 'production') {
       callback(null, true);
     } else {
-      callback(new Error('Blocked by CORS policy: Origin not allowed'));
+      callback(new Error(`Blocked by CORS policy: Origin ${origin} not allowed`));
     }
   },
-  credentials: true
-}));
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin']
+};
+
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 
 // Express Body Parsers (Payload limit for images/screenshots)
 app.use(express.json({ limit: '10mb' }));
@@ -921,7 +957,7 @@ function invalidateApiCache() {
 }
 
 // GET All Categories (with subcategories, display_order, active status, and auto product counts)
-app.get('/api/categories', async (req, res) => {
+app.get(['/api/categories', '/api/admin/categories'], async (req, res) => {
   try {
     const now = Date.now();
     if (memoryCache.categories.data && (now - memoryCache.categories.timestamp < CACHE_TTL_MS)) {
@@ -979,10 +1015,8 @@ app.get('/api/categories', async (req, res) => {
   }
 });
 
-
-
 // POST Create Category (Admin Only - Smart Shift Position)
-app.post('/api/categories', requireAdminAuth, async (req, res) => {
+app.post(['/api/categories', '/api/admin/categories'], requireAdminAuth, async (req, res) => {
   try {
     const db = await getDb();
     const { name, img, display_order, active } = req.body;
@@ -997,34 +1031,44 @@ app.post('/api/categories', requireAdminAuth, async (req, res) => {
     if (targetOrder > existingCats.length + 1) targetOrder = existingCats.length + 1;
 
     const newCatObj = { id, name: name.trim(), img: img || '', display_order: targetOrder, active: isActive };
+    
+    // Check if category ID already exists
+    const duplicate = existingCats.find(c => c.id === id);
+    if (duplicate) {
+      return res.status(400).json({ error: `Category '${name.trim()}' already exists.` });
+    }
+
     existingCats.splice(targetOrder - 1, 0, newCatObj);
 
-    await db.run('BEGIN TRANSACTION');
+    await db.run(
+      'INSERT INTO categories (id, name, img, display_order, active) VALUES (?, ?, ?, ?, ?)',
+      [newCatObj.id, newCatObj.name, newCatObj.img, targetOrder, newCatObj.active]
+    );
+
     for (let i = 0; i < existingCats.length; i++) {
       const c = existingCats[i];
-      if (c.id === id) {
-        await db.run(
-          'INSERT INTO categories (id, name, img, display_order, active) VALUES (?, ?, ?, ?, ?)',
-          [c.id, c.name, c.img, i + 1, c.active]
-        );
-      } else {
+      if (c.id !== id) {
         await db.run('UPDATE categories SET display_order = ? WHERE id = ?', [i + 1, c.id]);
       }
     }
-    await db.run('COMMIT');
+
     invalidateApiCache();
-    res.status(201).json({ message: 'Category created successfully', id, name: name.trim(), display_order: targetOrder });
+    res.status(201).json({ 
+      success: true, 
+      message: 'Category created successfully', 
+      category: newCatObj, 
+      id, 
+      name: name.trim(), 
+      display_order: targetOrder 
+    });
   } catch (err) {
-    try {
-      const db = await getDb();
-      await db.run('ROLLBACK');
-    } catch (_) {}
+    console.error('Error creating category:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
 // PUT Update Category (Admin Only - Smart Shift Position)
-app.put('/api/categories/:id', requireAdminAuth, async (req, res) => {
+app.put(['/api/categories/:id', '/api/admin/categories/:id'], requireAdminAuth, async (req, res) => {
   try {
     const db = await getDb();
     const { id } = req.params;
@@ -1056,7 +1100,6 @@ app.put('/api/categories/:id', requireAdminAuth, async (req, res) => {
       existingCats.splice(targetIdx, 0, moved);
     }
 
-    await db.run('BEGIN TRANSACTION');
     for (let i = 0; i < existingCats.length; i++) {
       const c = existingCats[i];
       await db.run(
@@ -1067,20 +1110,25 @@ app.put('/api/categories/:id', requireAdminAuth, async (req, res) => {
     if (newName !== cat.name) {
       await db.run('UPDATE products SET category_label = ? WHERE category_id = ?', [newName, id]);
     }
-    await db.run('COMMIT');
+
     invalidateApiCache();
-    res.json({ message: 'Category updated successfully', id, name: newName, display_order: targetIdx + 1 });
+    const updatedCategory = { id, name: newName, img: newImg, display_order: targetIdx + 1, active: newActive };
+    res.json({ 
+      success: true, 
+      message: 'Category updated successfully', 
+      category: updatedCategory, 
+      id, 
+      name: newName, 
+      display_order: targetIdx + 1 
+    });
   } catch (err) {
-    try {
-      const db = await getDb();
-      await db.run('ROLLBACK');
-    } catch (_) {}
+    console.error('Error updating category:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
 // DELETE Category (Admin Only - Safety check for Sub-Categories and Products)
-app.delete('/api/categories/:id', requireAdminAuth, async (req, res) => {
+app.delete(['/api/categories/:id', '/api/admin/categories/:id'], requireAdminAuth, async (req, res) => {
   try {
     const db = await getDb();
     const { id } = req.params;
@@ -1093,8 +1141,8 @@ app.delete('/api/categories/:id', requireAdminAuth, async (req, res) => {
     const subCountRes = await db.get('SELECT COUNT(*) as count FROM subcategories WHERE category_id = ?', [id]);
     const prodCountRes = await db.get('SELECT COUNT(*) as count FROM products WHERE category_id = ?', [id]);
 
-    const subCount = subCountRes ? subCountRes.count : 0;
-    const prodCount = prodCountRes ? prodCountRes.count : 0;
+    const subCount = subCountRes ? Number(subCountRes.count) : 0;
+    const prodCount = prodCountRes ? Number(prodCountRes.count) : 0;
 
     if (subCount > 0 || prodCount > 0) {
       return res.status(400).json({ 
@@ -1110,21 +1158,34 @@ app.delete('/api/categories/:id', requireAdminAuth, async (req, res) => {
       await db.run('UPDATE categories SET display_order = ? WHERE id = ?', [i + 1, remainingCats[i].id]);
     }
     invalidateApiCache();
-    res.json({ message: `Category '${cat.name}' deleted successfully.` });
+    res.json({ success: true, message: `Category '${cat.name}' deleted successfully.` });
+  } catch (err) {
+    console.error('Error deleting category:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET All Subcategories
+app.get(['/api/subcategories', '/api/admin/subcategories'], async (req, res) => {
+  try {
+    const db = await getDb();
+    const subcategories = await db.all('SELECT * FROM subcategories ORDER BY category_id ASC, display_order ASC, name ASC');
+    res.json(subcategories);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-
-
 // POST Create Subcategory (Admin Only - Smart Shift Position)
-app.post('/api/categories/:id/subcategories', requireAdminAuth, async (req, res) => {
+app.post(['/api/categories/:id/subcategories', '/api/subcategories', '/api/admin/subcategories'], requireAdminAuth, async (req, res) => {
   try {
     const db = await getDb();
-    const { id: categoryId } = req.params;
+    const categoryId = req.params.id || req.body.categoryId || req.body.category_id;
     const { name, img, display_order, active } = req.body;
 
+    if (!categoryId) {
+      return res.status(400).json({ error: 'Parent category ID is required' });
+    }
     if (!name || !name.trim()) {
       return res.status(400).json({ error: 'Sub-category name is required' });
     }
@@ -1133,38 +1194,48 @@ app.post('/api/categories/:id/subcategories', requireAdminAuth, async (req, res)
     const isActive = active !== undefined ? (active ? 1 : 0) : 1;
 
     const existingSubs = await db.all('SELECT * FROM subcategories WHERE category_id = ? ORDER BY display_order ASC, name ASC', [categoryId]);
+    
+    const duplicate = existingSubs.find(s => s.id === subId || s.name.toLowerCase() === name.trim().toLowerCase());
+    if (duplicate) {
+      return res.status(400).json({ error: `Sub-category '${name.trim()}' already exists in this category.` });
+    }
+
     let targetOrder = display_order !== undefined && display_order !== '' ? Math.max(1, Number(display_order)) : existingSubs.length + 1;
     if (targetOrder > existingSubs.length + 1) targetOrder = existingSubs.length + 1;
 
     const newSubObj = { id: subId, category_id: categoryId, name: name.trim(), img: img || '', display_order: targetOrder, active: isActive };
     existingSubs.splice(targetOrder - 1, 0, newSubObj);
 
-    await db.run('BEGIN TRANSACTION');
+    await db.run(
+      'INSERT INTO subcategories (id, category_id, name, img, display_order, active) VALUES (?, ?, ?, ?, ?, ?)',
+      [newSubObj.id, newSubObj.category_id, newSubObj.name, newSubObj.img, targetOrder, newSubObj.active]
+    );
+
     for (let i = 0; i < existingSubs.length; i++) {
       const s = existingSubs[i];
-      if (s.id === subId) {
-        await db.run(
-          'INSERT INTO subcategories (id, category_id, name, img, display_order, active) VALUES (?, ?, ?, ?, ?, ?)',
-          [s.id, s.category_id, s.name, s.img, i + 1, s.active]
-        );
-      } else {
+      if (s.id !== subId) {
         await db.run('UPDATE subcategories SET display_order = ? WHERE id = ?', [i + 1, s.id]);
       }
     }
-    await db.run('COMMIT');
+
     invalidateApiCache();
-    res.status(201).json({ message: 'Sub-category created successfully', id: subId, name: name.trim(), categoryId, display_order: targetOrder });
+    res.status(201).json({ 
+      success: true, 
+      message: 'Sub-category created successfully', 
+      subcategory: newSubObj, 
+      id: subId, 
+      name: name.trim(), 
+      categoryId, 
+      display_order: targetOrder 
+    });
   } catch (err) {
-    try {
-      const db = await getDb();
-      await db.run('ROLLBACK');
-    } catch (_) {}
+    console.error('Error creating subcategory:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
 // PUT Update Subcategory (Admin Only - Smart Shift Position)
-app.put('/api/subcategories/:id', requireAdminAuth, async (req, res) => {
+app.put(['/api/subcategories/:id', '/api/admin/subcategories/:id'], requireAdminAuth, async (req, res) => {
   try {
     const db = await getDb();
     const { id } = req.params;
@@ -1196,7 +1267,6 @@ app.put('/api/subcategories/:id', requireAdminAuth, async (req, res) => {
       existingSubs.splice(targetIdx, 0, moved);
     }
 
-    await db.run('BEGIN TRANSACTION');
     for (let i = 0; i < existingSubs.length; i++) {
       const s = existingSubs[i];
       await db.run(
@@ -1210,20 +1280,25 @@ app.put('/api/subcategories/:id', requireAdminAuth, async (req, res) => {
         [newName, id, sub.name]
       );
     }
-    await db.run('COMMIT');
+
     invalidateApiCache();
-    res.json({ message: 'Sub-category updated successfully', id, name: newName, display_order: targetIdx + 1 });
+    const updatedSubcategory = { id, category_id: sub.category_id, name: newName, img: newImg, display_order: targetIdx + 1, active: newActive };
+    res.json({ 
+      success: true, 
+      message: 'Sub-category updated successfully', 
+      subcategory: updatedSubcategory, 
+      id, 
+      name: newName, 
+      display_order: targetIdx + 1 
+    });
   } catch (err) {
-    try {
-      const db = await getDb();
-      await db.run('ROLLBACK');
-    } catch (_) {}
+    console.error('Error updating subcategory:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
 // DELETE Subcategory (Admin Only - Safety check for assigned products)
-app.delete('/api/subcategories/:id', requireAdminAuth, async (req, res) => {
+app.delete(['/api/subcategories/:id', '/api/admin/subcategories/:id'], requireAdminAuth, async (req, res) => {
   try {
     const db = await getDb();
     const { id } = req.params;
@@ -1237,26 +1312,28 @@ app.delete('/api/subcategories/:id', requireAdminAuth, async (req, res) => {
       'SELECT COUNT(*) as count FROM products WHERE subcategory_id = ? OR subcategory_label = ?',
       [id, sub.name]
     );
-    if (countRes.count > 0) {
+    const assignedCount = countRes ? Number(countRes.count) : 0;
+    if (assignedCount > 0) {
       return res.status(400).json({ 
-        error: `Cannot delete Sub-Category '${sub.name}'. ${countRes.count} product(s) are currently assigned to it. Please reassign or delete assigned products first.` 
+        error: `Cannot delete Sub-Category '${sub.name}'. ${assignedCount} product(s) are currently assigned to it. Please reassign or delete assigned products first.` 
       });
     }
 
     await db.run('DELETE FROM subcategories WHERE id = ?', [id]);
     invalidateApiCache();
-    res.json({ message: `Sub-Category '${sub.name}' deleted successfully.` });
+    res.json({ success: true, message: `Sub-Category '${sub.name}' deleted successfully.` });
   } catch (err) {
+    console.error('Error deleting subcategory:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
 // ======================================================
-// PUBLIC PRODUCTS API (STOREFRONT READ)
+// PUBLIC & PROTECTED PRODUCTS API
 // ======================================================
 
 // GET all products
-app.get('/api/products', async (req, res) => {
+app.get(['/api/products', '/api/admin/products'], async (req, res) => {
   try {
     const now = Date.now();
     if (memoryCache.products.data && (now - memoryCache.products.timestamp < CACHE_TTL_MS)) {
@@ -1293,12 +1370,8 @@ app.get('/api/products', async (req, res) => {
   }
 });
 
-// ======================================================
-// PROTECTED ADMIN PRODUCTS & INVENTORY API (REQUIRE ADMIN AUTH)
-// ======================================================
-
 // POST Add Product (Protected)
-app.post('/api/products', requireAdminAuth, async (req, res) => {
+app.post(['/api/products', '/api/admin/products'], requireAdminAuth, async (req, res) => {
   try {
     const db = await getDb();
     const { title, category, categoryLabel, subcategory, subcategoryLabel, sellingPrice, mrp, discount, description, material, colour, careInstructions, deliveryTime, images, badge, specialSection, stockQuantity } = req.body;
@@ -1332,7 +1405,7 @@ app.post('/api/products', requireAdminAuth, async (req, res) => {
         'SELECT COUNT(*) as count FROM products WHERE special_section = ? OR badge = ?',
         [sec, sec]
       );
-      if (countRes.count >= 4) {
+      if (countRes && Number(countRes.count) >= 4) {
         return res.status(400).json({ 
           error: `⚠️ Limit Reached: Maximum 4 products allowed in '${sec}'. Please remove an existing product first.` 
         });
@@ -1358,14 +1431,21 @@ app.post('/api/products', requireAdminAuth, async (req, res) => {
     );
 
     invalidateApiCache();
-    res.status(201).json({ message: 'Product created successfully', productId: id, productCode });
+    res.status(201).json({ 
+      success: true, 
+      message: 'Product created successfully', 
+      productId: id, 
+      productCode, 
+      id 
+    });
   } catch (err) {
+    console.error('Error creating product:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
 // PUT Edit/Update Product (Protected)
-app.put('/api/products/:id', requireAdminAuth, async (req, res) => {
+app.put(['/api/products/:id', '/api/admin/products/:id'], requireAdminAuth, async (req, res) => {
   try {
     const db = await getDb();
     const { id } = req.params;
@@ -1414,28 +1494,41 @@ app.put('/api/products/:id', requireAdminAuth, async (req, res) => {
     );
 
     invalidateApiCache();
-    res.json({ message: 'Product updated successfully', productId: id, productCode });
+    res.json({ 
+      success: true, 
+      message: 'Product updated successfully', 
+      productId: id, 
+      productCode, 
+      id 
+    });
   } catch (err) {
+    console.error('Error updating product:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
 // DELETE Product (Protected)
-app.delete('/api/products/:id', requireAdminAuth, async (req, res) => {
+app.delete(['/api/products/:id', '/api/admin/products/:id'], requireAdminAuth, async (req, res) => {
   try {
     const db = await getDb();
     const { id } = req.params;
 
     await db.run('DELETE FROM products WHERE id = ?', [id]);
     invalidateApiCache();
-    res.json({ message: 'Product deleted successfully', productId: id });
+    res.json({ 
+      success: true, 
+      message: 'Product deleted successfully', 
+      productId: id, 
+      id 
+    });
   } catch (err) {
+    console.error('Error deleting product:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
 // PATCH Update Product Stock (Protected)
-app.patch('/api/products/:id/stock', requireAdminAuth, async (req, res) => {
+app.patch(['/api/products/:id/stock', '/api/admin/products/:id/stock'], requireAdminAuth, async (req, res) => {
   try {
     const db = await getDb();
     const { newQuantity } = req.body;
@@ -1450,14 +1543,21 @@ app.patch('/api/products/:id/stock', requireAdminAuth, async (req, res) => {
     );
 
     invalidateProductCache();
-    res.json({ message: 'Stock updated', id: req.params.id, stockQuantity: qty, soldOut: isSoldOut });
+    res.json({ 
+      success: true, 
+      message: 'Stock updated', 
+      id: req.params.id, 
+      stockQuantity: qty, 
+      soldOut: isSoldOut 
+    });
   } catch (err) {
+    console.error('Error updating product stock:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
 // PATCH Update Special Section (Protected)
-app.patch('/api/products/:id/special-section', requireAdminAuth, async (req, res) => {
+app.patch(['/api/products/:id/special-section', '/api/admin/products/:id/special-section'], requireAdminAuth, async (req, res) => {
   try {
     const db = await getDb();
     const { specialSection } = req.body;
@@ -1468,7 +1568,7 @@ app.patch('/api/products/:id/special-section', requireAdminAuth, async (req, res
         'SELECT COUNT(*) as count FROM products WHERE id != ? AND (special_section = ? OR badge = ?)',
         [productId, specialSection, specialSection]
       );
-      if (countRes.count >= 4) {
+      if (countRes && Number(countRes.count) >= 4) {
         return res.status(400).json({ 
           error: `⚠️ Limit Reached: Maximum 4 products allowed in '${specialSection}'. Please remove an existing product first.` 
         });
@@ -1481,8 +1581,15 @@ app.patch('/api/products/:id/special-section', requireAdminAuth, async (req, res
     );
 
     invalidateProductCache();
-    res.json({ message: 'Special section updated successfully', productId, specialSection });
+    res.json({ 
+      success: true, 
+      message: 'Special section updated successfully', 
+      productId, 
+      specialSection, 
+      id: productId 
+    });
   } catch (err) {
+    console.error('Error updating special section:', err);
     res.status(500).json({ error: err.message });
   }
 });

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { API_BASE } from '../../../config';
+import { adminFetch } from '../../../config';
 
 export default function CustomersTab({
   handleExportCustomers,
@@ -18,15 +18,11 @@ export default function CustomersTab({
   const fetchCustomers = async (searchVal = '', pageNum = 1) => {
     setLoading(true);
     try {
-      const token = adminToken || sessionStorage.getItem('jiza_admin_token');
-      if (!token) return;
       const params = new URLSearchParams({ paged: 'true', page: pageNum, limit: LIMIT });
       if (searchVal.trim()) params.set('search', searchVal.trim());
-      const res = await fetch(`${API_BASE}/api/admin/customers?${params.toString()}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const res = await adminFetch(`/api/admin/customers?${params.toString()}`);
       if (res.ok) {
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
         const list = Array.isArray(data) ? data : (data.customers || []);
         setCustomersList(list);
         setTotal(data.total ?? list.length);

@@ -31,29 +31,30 @@ export default function AdminLoginModal({ isOpen, onClose, onLoginSuccess }) {
   const handleVerifyCredentials = async (e) => {
     e.preventDefault();
     setErrorMsg('');
+    setSuccessMsg('');
     setLoading(true);
 
     try {
-      // Client-side & Server API 4FA Step 1 Validation
-      const res = await fetch(`${API_BASE}/api/admin/auth/verify-credentials`, {
+      const cleanEndpoint = `${API_BASE}/api/admin/auth/verify-credentials`;
+      const res = await fetch(cleanEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, phone, password })
-      }).catch(() => null);
+        body: JSON.stringify({ email: email.trim(), phone: phone.trim(), password })
+      });
 
-      if (res && !res.ok) {
-        const data = await res.json().catch(() => ({}));
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
         setErrorMsg(data.error || 'Invalid credentials');
         setLoading(false);
         return;
       }
 
-      // Offline / Static OTP Mode
       setStep(2);
       setOtpTimer(300);
-      setSuccessMsg(`Step 1 verified. Enter OTP code 123456 to complete Admin login.`);
+      setSuccessMsg(data.message || 'Step 1 verified. Enter OTP code 123456 to complete Admin login.');
     } catch (err) {
-      setErrorMsg('Invalid credentials');
+      console.error('Admin credential verification error:', err);
+      setErrorMsg('Network error connecting to authentication server. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -66,26 +67,23 @@ export default function AdminLoginModal({ isOpen, onClose, onLoginSuccess }) {
     setLoading(true);
 
     try {
-      const res = await fetch(`${API_BASE}/api/admin/auth/verify-otp`, {
+      const cleanEndpoint = `${API_BASE}/api/admin/auth/verify-otp`;
+      const res = await fetch(cleanEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, otp })
-      }).catch(() => null);
+        body: JSON.stringify({ email: email.trim(), otp: otp.trim() })
+      });
 
-      if (res && res.ok) {
-        const data = await res.json();
-        onLoginSuccess(data.token || 'demo-admin-token-2026');
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.token) {
+        onLoginSuccess(data.token);
         return;
       }
 
-      // If server is offline or returned error, validate OTP format
-      if (otp.trim().length === 6) {
-        onLoginSuccess('demo-admin-token-2026');
-      } else {
-        setErrorMsg('Invalid credentials');
-      }
+      setErrorMsg(data.error || 'Invalid OTP code. Please enter the correct 6-digit OTP.');
     } catch (err) {
-      setErrorMsg('Invalid credentials');
+      console.error('Admin OTP verification error:', err);
+      setErrorMsg('Network error verifying OTP code. Please try again.');
     } finally {
       setLoading(false);
     }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { API_BASE } from '../../../config';
+import { adminFetch } from '../../../config';
 
 export default function StoreSettingsTab() {
   const [pickupSettings, setPickupSettings] = useState({
@@ -27,9 +27,9 @@ export default function StoreSettingsTab() {
   const fetchSettings = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/api/admin/store-settings/pickup`);
+      const res = await adminFetch('/api/admin/store-settings/pickup');
       if (res.ok) {
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
         if (data && data.storeName) {
           setPickupSettings(data);
         }
@@ -48,13 +48,12 @@ export default function StoreSettingsTab() {
     setErrorMsg('');
 
     try {
-      const res = await fetch(`${API_BASE}/api/admin/store-settings/pickup`, {
+      const res = await adminFetch('/api/admin/store-settings/pickup', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(pickupSettings)
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         throw new Error(data.error || 'Failed to save settings');
       }
