@@ -13,7 +13,8 @@ export default function AdminSidebar({
   fetchRentalGallery,
   fetchAdminReviews,
   fetchAdminProblems,
-  setSelectedPremiumFeature
+  setSelectedPremiumFeature,
+  onExitAdmin
 }) {
   return (
     <aside className="w-52 h-[calc(100vh-48px)] border-r border-[#F7C5C0] bg-[#FFF0F2] fixed left-0 top-12 z-40 flex flex-col shadow-sm">
@@ -244,6 +245,19 @@ export default function AdminSidebar({
             </span>
           </button>
         </div>
+
+        {onExitAdmin && (
+          <div className="pt-2 border-t border-[#F7C5C0] my-1">
+            <button
+              type="button"
+              onClick={onExitAdmin}
+              className="w-full flex items-center space-x-2 px-2.5 py-2 rounded-lg text-[11px] font-label-md transition-all text-red-700 hover:bg-red-50 hover:text-red-900 font-bold border border-red-200 cursor-pointer bg-white/70 shadow-xs active:scale-95"
+            >
+              <span className="material-symbols-outlined text-[17px]">logout</span>
+              <span>Exit Admin</span>
+            </button>
+          </div>
+        )}
 
       </nav>
 

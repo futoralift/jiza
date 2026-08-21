@@ -1,7 +1,7 @@
 import React from 'react';
 import { getAdminRole, getAdminEmail, isReadOnlyAdmin } from '../../config';
 
-export default function AdminHeader() {
+export default function AdminHeader({ onExitAdmin }) {
   const isReadOnly = isReadOnlyAdmin();
   const adminEmail = getAdminEmail();
 
@@ -28,18 +28,32 @@ export default function AdminHeader() {
         </span>
       </div>
 
-      {/* FAR RIGHT: Dynamic Role Badge */}
+      {/* FAR RIGHT: Dynamic Role Badge + Exit Button */}
       <div className="ml-auto flex items-center gap-2">
         {isReadOnly ? (
           <span className="bg-amber-900 text-amber-100 text-[10px] px-2.5 py-0.5 rounded-md border border-amber-700 font-bold flex items-center gap-1 shadow-xs" title="Secondary Admin: Read & Export Only">
             <span className="material-symbols-outlined text-[12px] text-amber-200">visibility</span>
-            <span>Read + Export Only (Agency)</span>
+            <span className="hidden md:inline">Read + Export Only (Agency)</span>
+            <span className="md:hidden">Agency</span>
           </span>
         ) : (
           <span className="bg-black text-[#FCDAD7] text-[10px] px-2.5 py-0.5 rounded-md border border-black/20 font-bold flex items-center gap-1 shadow-xs" title="Primary Admin: Full Management Access">
             <span className="material-symbols-outlined text-[12px] text-[#FCDAD7]">verified_user</span>
-            <span>Full Admin (Owner)</span>
+            <span className="hidden md:inline">Full Admin (Owner)</span>
+            <span className="md:hidden">Owner</span>
           </span>
+        )}
+
+        {onExitAdmin && (
+          <button
+            type="button"
+            onClick={onExitAdmin}
+            className="px-2.5 py-1 bg-white hover:bg-red-50 text-red-700 hover:text-red-800 text-[11px] font-bold rounded-lg border border-red-200 shadow-xs flex items-center gap-1 transition-all active:scale-95 cursor-pointer"
+            title="Sign out and return to Storefront"
+          >
+            <span className="material-symbols-outlined text-[14px]">logout</span>
+            <span>Exit Admin</span>
+          </button>
         )}
       </div>
 

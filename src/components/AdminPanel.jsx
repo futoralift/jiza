@@ -1366,7 +1366,7 @@ export default function AdminPanel({
     <div className="min-h-screen bg-[#FDF0ED] text-on-surface font-body-md flex flex-col relative">
       
       {/* 1. FIXED TOP NAVIGATION BAR */}
-      <AdminHeader />
+      <AdminHeader onExitAdmin={onExitAdmin} />
 
       {/* BODY WRAPPER */}
       <div className="flex flex-1 pt-12 min-h-screen">
@@ -1386,6 +1386,7 @@ export default function AdminPanel({
           fetchAdminReviews={fetchAdminReviews}
           fetchAdminProblems={fetchAdminProblems}
           setSelectedPremiumFeature={setSelectedPremiumFeature}
+          onExitAdmin={onExitAdmin}
         />
 
         {/* 3. MAIN DASHBOARD CONTENT AREA */}

@@ -74,16 +74,17 @@ export default function App() {
     const isDirectAdminUrl = window.location.pathname.startsWith('/admin') || window.location.hash.startsWith('#admin') || params.get('view') === 'admin';
 
     if (secretKey === 'jiza-studio-secure-mgmt-x9872' || isStoredAdminRoute || isDirectAdminUrl) {
-      setIsAdminSecretRoute(true);
       const token = getAdminToken();
-      if (!token) {
-        setIsAdminLoginOpen(true);
-      } else {
+      if (token) {
+        setIsAdminSecretRoute(true);
         setAdminToken(token);
         setActiveView('admin');
+      } else if (secretKey === 'jiza-studio-secure-mgmt-x9872' || isDirectAdminUrl) {
+        setIsAdminSecretRoute(true);
+        setIsAdminLoginOpen(true);
       }
     }
-  }, [adminToken]);
+  }, []);
 
   // Global handler for unauthorized admin responses (401 token expiry)
   useEffect(() => {
@@ -179,6 +180,25 @@ export default function App() {
     setAdminToken('');
     setIsAdminSecretRoute(true);
     setIsAdminLoginOpen(true);
+  };
+
+  const handleExitAdmin = () => {
+    clearAdminTokenStorage();
+    setAdminToken('');
+    setIsAdminSecretRoute(false);
+    setIsAdminLoginOpen(false);
+
+    // Clean URL query parameters and hashes (?view=admin, #admin, ?secretAdminKey=...)
+    try {
+      if (window.history && window.history.replaceState) {
+        const cleanUrl = window.location.pathname || '/';
+        window.history.replaceState({}, document.title, cleanUrl);
+      }
+    } catch (e) {}
+
+    setActiveView('home');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    showToast('Signed out of Admin Panel successfully');
   };
 
   const fetchDbOrders = async () => {
@@ -1140,12 +1160,7 @@ export default function App() {
             onUpdateProductPrice={handleUpdateProductPrice}
             onUpdateSpecialSection={handleUpdateSpecialSection}
             onUpdateOrderStatus={handleUpdateOrderStatus}
-            onExitAdmin={() => {
-              sessionStorage.removeItem('jiza_admin_token');
-              setAdminToken('');
-              setIsAdminSecretRoute(false);
-              setActiveView('home');
-            }}
+            onExitAdmin={handleExitAdmin}
           />
         ) : (
           <NotFoundView onGoHome={() => setActiveView('home')} />
