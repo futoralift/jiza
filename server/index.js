@@ -28,6 +28,9 @@ if (!JWT_SECRET) {
   process.exit(1);
 }
 
+// Trust Nginx Reverse Proxy Headers
+app.set('trust proxy', 1);
+
 // Production HTTP Security Headers
 app.use(helmet({
   contentSecurityPolicy: false,
