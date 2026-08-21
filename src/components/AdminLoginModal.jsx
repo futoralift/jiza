@@ -76,7 +76,7 @@ export default function AdminLoginModal({ isOpen, onClose, onLoginSuccess }) {
 
       const data = await res.json().catch(() => ({}));
       if (res.ok && data.token) {
-        onLoginSuccess(data.token);
+        onLoginSuccess(data.token, data.role, data.email || email.trim());
         return;
       }
 

@@ -14,7 +14,8 @@ export default function OrdersTab({
   filteredOrders = [],
   filteredOrdersValue = 0,
   onUpdateOrderStatus,
-  setSelectedOrderDetails
+  setSelectedOrderDetails,
+  isReadOnly = false
 }) {
   const [fulfillmentFilter, setFulfillmentFilter] = useState('all'); // 'all', 'ship', 'pickup'
   const [nowMs, setNowMs] = useState(Date.now());
@@ -391,7 +392,20 @@ export default function OrdersTab({
 
                       {/* 7. STATUS DROPDOWN */}
                       <td className="p-3">
-                        {o.status === 'Cancelled' ? (
+                        {isReadOnly ? (
+                          <span className={`px-2.5 py-1 rounded text-[11px] font-bold border inline-block ${
+                            o.status === 'Delivered' ? 'bg-emerald-100 text-emerald-800 border-emerald-300' :
+                            o.status === 'Shipped' ? 'bg-blue-100 text-blue-800 border-blue-300' :
+                            o.status === 'Processing' ? 'bg-amber-100 text-amber-800 border-amber-300' :
+                            o.status === 'Cancelled' ? 'bg-red-100 text-red-800 border-red-300' :
+                            'bg-gray-100 text-gray-800 border-gray-300'
+                          }`}>
+                            {o.status === 'Cancelled' ? '❌ Cancelled' :
+                             o.status === 'Delivered' ? (isPickup ? '✅ Collected' : '✅ Delivered') :
+                             o.status === 'Shipped' ? (isPickup ? '🏬 Ready for Pickup' : '🚚 Shipped') :
+                             o.status === 'Processing' ? '⚙️ Processing' : '⏳ Pending'}
+                          </span>
+                        ) : o.status === 'Cancelled' ? (
                           <span className="px-2.5 py-1 rounded text-[11px] font-bold border bg-red-100 text-red-800 border-red-300 inline-block">
                             ❌ Cancelled
                           </span>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { API_BASE, getAdminToken, adminFetch } from '../config';
+import { API_BASE, getAdminToken, adminFetch, isReadOnlyAdmin } from '../config';
 import * as XLSX from 'xlsx';
 import { CATEGORIES } from '../data/products';
 
@@ -142,6 +142,7 @@ export default function AdminPanel({
   onUpdateOrderStatus,
   onExitAdmin 
 }) {
+  const isReadOnly = isReadOnlyAdmin(); // true for SUPER_READONLY_ADMIN (Agency), false for SUPER_ADMIN (Owner)
   const [activeTab, setActiveTab] = useState('overview');
   const [selectedPremiumFeature, setSelectedPremiumFeature] = useState(null);
   const [unlockedModuleIds, setUnlockedModuleIds] = useState([]);
@@ -1494,6 +1495,7 @@ export default function AdminPanel({
               onUpdateProductStock={onUpdateProductStock}
               handleOpenEditProduct={handleOpenEditProduct}
               handleDeleteProductClick={handleDeleteProductClick}
+              isReadOnly={isReadOnly}
             />
           )}
 
@@ -1514,6 +1516,7 @@ export default function AdminPanel({
               filteredOrdersValue={filteredOrdersValue}
               onUpdateOrderStatus={onUpdateOrderStatus}
               setSelectedOrderDetails={setSelectedOrderDetails}
+              isReadOnly={isReadOnly}
             />
           )}
 
@@ -1535,6 +1538,7 @@ export default function AdminPanel({
               fetchAdminReviews={fetchAdminReviews}
               handleUpdateReviewStatus={handleUpdateReviewStatus}
               handleDeleteReview={handleDeleteReview}
+              isReadOnly={isReadOnly}
             />
           )}
 
@@ -1549,6 +1553,7 @@ export default function AdminPanel({
               setSelectedProblemModal={setSelectedProblemModal}
               setProblemModalStatus={setProblemModalStatus}
               setProblemModalNotes={setProblemModalNotes}
+              isReadOnly={isReadOnly}
             />
           )}
 
@@ -1582,6 +1587,7 @@ export default function AdminPanel({
               handleToggleSubCategoryActive={handleToggleSubCategoryActive}
               setEditingSubcategory={setEditingSubcategory}
               handleDeleteSubCategory={handleDeleteSubCategory}
+              isReadOnly={isReadOnly}
             />
           )}
 
@@ -1629,12 +1635,13 @@ export default function AdminPanel({
               handleUploadRentalGallerySubmit={handleUploadRentalGallerySubmit}
               fetchRentalGallery={fetchRentalGallery}
               setRentalDeleteModalItem={setRentalDeleteModalItem}
+              isReadOnly={isReadOnly}
             />
           )}
 
           {/* TAB 9: STORE SETTINGS & PICKUP CONFIGURATION */}
           {activeTab === 'store-settings' && (
-            <StoreSettingsTab />
+            <StoreSettingsTab isReadOnly={isReadOnly} />
           )}
 
         </main>
@@ -1741,6 +1748,7 @@ export default function AdminPanel({
         problemModalNotes={problemModalNotes}
         setProblemModalNotes={setProblemModalNotes}
         handleSaveProblemChanges={handleSaveProblemChanges}
+        isReadOnly={isReadOnly}
       />
 
       {/* FULL SCREENSHOT MODAL */}

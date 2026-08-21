@@ -12,7 +12,8 @@ export default function CategoriesTab({
   setIsAddSubModalOpen,
   handleToggleSubCategoryActive,
   setEditingSubcategory,
-  handleDeleteSubCategory
+  handleDeleteSubCategory,
+  isReadOnly = false
 }) {
   return (
     <div className="space-y-6 animate-fadeIn">
@@ -28,16 +29,24 @@ export default function CategoriesTab({
             Manage categories, sub-categories, sort priority, active status, and direct image uploads. All changes sync live across the store.
           </p>
         </div>
-        <button
-          onClick={() => {
-            setCatForm({ name: '', img: '', display_order: activeCategories.length + 1, active: true });
-            setIsAddCatModalOpen(true);
-          }}
-          className="bg-[#FCDAD7] hover:bg-[#F9C5C0] text-black font-bold text-xs px-4 py-2.5 rounded-xl shadow border border-black/20 flex items-center gap-1.5 transition-all self-start md:self-auto cursor-pointer"
-        >
-          <span className="material-symbols-outlined text-sm">add_circle</span>
-          <span>+ Add New Category</span>
-        </button>
+        {!isReadOnly && (
+          <button
+            onClick={() => {
+              setCatForm({ name: '', img: '', display_order: activeCategories.length + 1, active: true });
+              setIsAddCatModalOpen(true);
+            }}
+            className="bg-[#FCDAD7] hover:bg-[#F9C5C0] text-black font-bold text-xs px-4 py-2.5 rounded-xl shadow border border-black/20 flex items-center gap-1.5 transition-all self-start md:self-auto cursor-pointer"
+          >
+            <span className="material-symbols-outlined text-sm">add_circle</span>
+            <span>+ Add New Category</span>
+          </button>
+        )}
+        {isReadOnly && (
+          <span className="text-[10px] text-amber-800 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-xl font-bold flex items-center gap-1">
+            <span className="material-symbols-outlined text-sm">visibility</span>
+            View Only Mode
+          </span>
+        )}
       </div>
 
       {/* Categories Grid (Clean Minimal CMS Layout) */}
@@ -75,18 +84,28 @@ export default function CategoriesTab({
 
                       {/* Active Status Badge & Counts */}
                       <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                        <button
-                          type="button"
-                          onClick={() => handleToggleCategoryActive(cat)}
-                          className={`text-[9px] font-bold px-2 py-0.5 rounded-full border transition-all ${
+                        {isReadOnly ? (
+                          <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${
                             isCatActive
-                              ? 'bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100'
-                              : 'bg-gray-100 text-gray-500 border-gray-300 hover:bg-gray-200'
-                          }`}
-                          title="Click to toggle Active / Inactive"
-                        >
-                          {isCatActive ? '● Active' : '○ Inactive'}
-                        </button>
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                              : 'bg-gray-100 text-gray-500 border-gray-300'
+                          }`}>
+                            {isCatActive ? '● Active' : '○ Inactive'}
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleToggleCategoryActive(cat)}
+                            className={`text-[9px] font-bold px-2 py-0.5 rounded-full border transition-all ${
+                              isCatActive
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100'
+                                : 'bg-gray-100 text-gray-500 border-gray-300 hover:bg-gray-200'
+                            }`}
+                            title="Click to toggle Active / Inactive"
+                          >
+                            {isCatActive ? '● Active' : '○ Inactive'}
+                          </button>
+                        )}
 
                         <span className="text-[9px] bg-[#FCDAD7]/60 text-black font-bold px-2 py-0.5 rounded-full border border-black/10 font-mono">
                           {assignedProdCount} Prod{assignedProdCount === 1 ? '' : 's'}
@@ -97,26 +116,32 @@ export default function CategoriesTab({
 
                   {/* Action Buttons */}
                   <div className="flex items-center space-x-1">
-                    <button
-                      onClick={() => setEditingCategory({
-                        id: cat.id,
-                        name: cat.name,
-                        img: cat.img || '',
-                        display_order: displayPos,
-                        active: isCatActive
-                      })}
-                      className="p-1.5 hover:bg-[#FFF0F2] text-on-surface-variant hover:text-black rounded-lg transition-colors"
-                      title="Edit Category"
-                    >
-                      <span className="material-symbols-outlined text-base">edit</span>
-                    </button>
-                    <button
-                      onClick={() => handleDeleteCategory(cat.id, cat.name)}
-                      className="p-1.5 hover:bg-red-50 text-red-600 rounded-lg transition-colors"
-                      title="Delete Category"
-                    >
-                      <span className="material-symbols-outlined text-base">delete</span>
-                    </button>
+                    {isReadOnly ? (
+                      <span className="text-[10px] text-on-surface-variant italic">Read Only</span>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => setEditingCategory({
+                            id: cat.id,
+                            name: cat.name,
+                            img: cat.img || '',
+                            display_order: displayPos,
+                            active: isCatActive
+                          })}
+                          className="p-1.5 hover:bg-[#FFF0F2] text-on-surface-variant hover:text-black rounded-lg transition-colors"
+                          title="Edit Category"
+                        >
+                          <span className="material-symbols-outlined text-base">edit</span>
+                        </button>
+                        <button
+                          onClick={() => handleDeleteCategory(cat.id, cat.name)}
+                          className="p-1.5 hover:bg-red-50 text-red-600 rounded-lg transition-colors"
+                          title="Delete Category"
+                        >
+                          <span className="material-symbols-outlined text-base">delete</span>
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
 
@@ -126,21 +151,23 @@ export default function CategoriesTab({
                     <span className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant flex items-center gap-1">
                       <span>Sub-Categories ({totalSubsCount})</span>
                     </span>
-                    <button
-                      onClick={() => {
-                        setSubCatForm({
-                          categoryId: cat.id,
-                          name: '',
-                          img: '',
-                          display_order: totalSubsCount + 1,
-                          active: true
-                        });
-                        setIsAddSubModalOpen(true);
-                      }}
-                      className="text-[10px] font-bold text-black hover:underline flex items-center gap-0.5"
-                    >
-                      <span>+ Add Sub-Category</span>
-                    </button>
+                    {!isReadOnly && (
+                      <button
+                        onClick={() => {
+                          setSubCatForm({
+                            categoryId: cat.id,
+                            name: '',
+                            img: '',
+                            display_order: totalSubsCount + 1,
+                            active: true
+                          });
+                          setIsAddSubModalOpen(true);
+                        }}
+                        className="text-[10px] font-bold text-black hover:underline flex items-center gap-0.5"
+                      >
+                        <span>+ Add Sub-Category</span>
+                      </button>
+                    )}
                   </div>
 
                   {/* Sub-Category Items */}
@@ -176,43 +203,57 @@ export default function CategoriesTab({
                                   <span className="text-[9px] font-mono font-bold text-gray-400">
                                     #{subDisplayPos} • {subProdCount} prod{subProdCount === 1 ? '' : 's'}
                                   </span>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleToggleSubCategoryActive(subObj)}
-                                    className={`text-[8px] font-bold px-1.5 py-0.2 rounded ${
+                                  {isReadOnly ? (
+                                    <span className={`text-[8px] font-bold px-1.5 py-0.2 rounded ${
                                       isSubActive ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-200 text-gray-600'
-                                    }`}
-                                  >
-                                    {isSubActive ? 'Active' : 'Inactive'}
-                                  </button>
+                                    }`}>
+                                      {isSubActive ? 'Active' : 'Inactive'}
+                                    </span>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleToggleSubCategoryActive(subObj)}
+                                      className={`text-[8px] font-bold px-1.5 py-0.2 rounded ${
+                                        isSubActive ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-200 text-gray-600'
+                                      }`}
+                                    >
+                                      {isSubActive ? 'Active' : 'Inactive'}
+                                    </button>
+                                  )}
                                 </div>
                               </div>
                             </div>
 
                             {/* Sub Action Buttons */}
                             <div className="flex items-center space-x-1">
-                              <button
-                                type="button"
-                                onClick={() => setEditingSubcategory({
-                                  id: subObj.id,
-                                  name: subObj.name,
-                                  img: subObj.img || '',
-                                  display_order: subDisplayPos,
-                                  active: isSubActive
-                                })}
-                                className="p-1 hover:bg-gray-200 rounded text-gray-600 hover:text-black"
-                                title="Edit Sub-Category"
-                              >
-                                <span className="material-symbols-outlined text-[14px]">edit</span>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteSubCategory(subObj.id, subObj.name)}
-                                className="p-1 hover:bg-red-100 rounded text-red-600"
-                                title="Delete Sub-Category"
-                              >
-                                <span className="material-symbols-outlined text-[14px]">delete</span>
-                              </button>
+                              {isReadOnly ? (
+                                <span className="text-[9px] text-gray-400 italic">View</span>
+                              ) : (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditingSubcategory({
+                                      id: subObj.id,
+                                      name: subObj.name,
+                                      img: subObj.img || '',
+                                      display_order: subDisplayPos,
+                                      active: isSubActive
+                                    })}
+                                    className="p-1 hover:bg-gray-200 rounded text-gray-600 hover:text-black"
+                                    title="Edit Sub-Category"
+                                  >
+                                    <span className="material-symbols-outlined text-[14px]">edit</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteSubCategory(subObj.id, subObj.name)}
+                                    className="p-1 hover:bg-red-100 rounded text-red-600"
+                                    title="Delete Sub-Category"
+                                  >
+                                    <span className="material-symbols-outlined text-[14px]">delete</span>
+                                  </button>
+                                </>
+                              )}
                             </div>
                           </div>
                         );

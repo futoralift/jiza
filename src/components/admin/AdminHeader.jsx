@@ -1,9 +1,20 @@
 import React from 'react';
+import { getAdminRole, getAdminEmail, isReadOnlyAdmin } from '../../config';
 
 export default function AdminHeader() {
+  const isReadOnly = isReadOnlyAdmin();
+  const adminEmail = getAdminEmail();
+
   return (
     <header className="w-full h-12 bg-[#FCDAD7] border-b border-[#F7B6B0] px-4 flex items-center justify-between fixed top-0 left-0 right-0 z-50 shadow-md">
       
+      {/* LEFT: Logged In Account Info */}
+      <div className="flex items-center space-x-2 text-xs">
+        <span className="hidden sm:inline font-mono text-[11px] text-black font-semibold bg-white/60 px-2 py-0.5 rounded border border-black/10">
+          {adminEmail || 'admin'}
+        </span>
+      </div>
+
       {/* CENTER: Small Diamond Logo + Brand Name */}
       <div className="absolute left-1/2 -translate-x-1/2 flex items-center space-x-1.5 pointer-events-auto">
         <div className="w-5 h-5 rounded-full bg-black/10 border border-black/20 flex items-center justify-center text-black shadow-sm shrink-0">
@@ -17,12 +28,19 @@ export default function AdminHeader() {
         </span>
       </div>
 
-      {/* FAR RIGHT: Admin Panel Badge */}
-      <div className="ml-auto flex items-center">
-        <span className="bg-black text-[#FCDAD7] text-[10px] px-2.5 py-0.5 rounded-md border border-black/20 font-bold flex items-center gap-1 shadow-xs">
-          <span className="material-symbols-outlined text-[12px] text-[#FCDAD7]">admin_panel_settings</span>
-          <span>Admin Panel</span>
-        </span>
+      {/* FAR RIGHT: Dynamic Role Badge */}
+      <div className="ml-auto flex items-center gap-2">
+        {isReadOnly ? (
+          <span className="bg-amber-900 text-amber-100 text-[10px] px-2.5 py-0.5 rounded-md border border-amber-700 font-bold flex items-center gap-1 shadow-xs" title="Secondary Admin: Read & Export Only">
+            <span className="material-symbols-outlined text-[12px] text-amber-200">visibility</span>
+            <span>Read + Export Only (Agency)</span>
+          </span>
+        ) : (
+          <span className="bg-black text-[#FCDAD7] text-[10px] px-2.5 py-0.5 rounded-md border border-black/20 font-bold flex items-center gap-1 shadow-xs" title="Primary Admin: Full Management Access">
+            <span className="material-symbols-outlined text-[12px] text-[#FCDAD7]">verified_user</span>
+            <span>Full Admin (Owner)</span>
+          </span>
+        )}
       </div>
 
     </header>

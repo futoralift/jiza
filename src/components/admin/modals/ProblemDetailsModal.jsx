@@ -8,7 +8,8 @@ export default function ProblemDetailsModal({
   setProblemModalStatus,
   problemModalNotes,
   setProblemModalNotes,
-  handleSaveProblemChanges
+  handleSaveProblemChanges,
+  isReadOnly = false
 }) {
   if (!selectedProblemModal) return null;
 
@@ -77,16 +78,22 @@ export default function ProblemDetailsModal({
             <label className="font-label-sm text-xs text-on-surface-variant font-bold block mb-1">
               Ticket Status
             </label>
-            <select
-              value={problemModalStatus}
-              onChange={(e) => setProblemModalStatus(e.target.value)}
-              className="w-full bg-white border border-outline-variant rounded-xl px-3 py-2 text-xs font-bold text-on-surface focus:outline-none focus:border-black"
-            >
-              <option value="New">🔵 New</option>
-              <option value="In Progress">🟡 In Progress</option>
-              <option value="Resolved">🟢 Resolved</option>
-              <option value="Closed">⚪ Closed</option>
-            </select>
+            {isReadOnly ? (
+              <div className="p-2 bg-gray-100 border border-gray-200 rounded-xl text-xs font-bold text-on-surface">
+                {problemModalStatus} (Read Only)
+              </div>
+            ) : (
+              <select
+                value={problemModalStatus}
+                onChange={(e) => setProblemModalStatus(e.target.value)}
+                className="w-full bg-white border border-outline-variant rounded-xl px-3 py-2 text-xs font-bold text-on-surface focus:outline-none focus:border-black"
+              >
+                <option value="New">🔵 New</option>
+                <option value="In Progress">🟡 In Progress</option>
+                <option value="Resolved">🟢 Resolved</option>
+                <option value="Closed">⚪ Closed</option>
+              </select>
+            )}
           </div>
 
           <div>
@@ -97,8 +104,11 @@ export default function ProblemDetailsModal({
               rows={3}
               value={problemModalNotes}
               onChange={(e) => setProblemModalNotes(e.target.value)}
-              placeholder="Enter resolution details, tracking info, or notes for the customer..."
-              className="w-full bg-white border border-outline-variant rounded-xl p-3 text-xs text-on-surface focus:outline-none focus:border-black font-medium"
+              disabled={isReadOnly}
+              placeholder={isReadOnly ? "No notes recorded." : "Enter resolution details, tracking info, or notes for the customer..."}
+              className={`w-full bg-white border border-outline-variant rounded-xl p-3 text-xs text-on-surface focus:outline-none font-medium ${
+                isReadOnly ? 'bg-gray-50 text-gray-600 cursor-not-allowed' : 'focus:border-black'
+              }`}
             />
           </div>
 
@@ -108,15 +118,17 @@ export default function ProblemDetailsModal({
               onClick={() => setSelectedProblemModal(null)}
               className="px-4 py-2 bg-surface-container-low hover:bg-surface-container text-on-surface font-bold text-xs rounded-xl cursor-pointer"
             >
-              Cancel
+              {isReadOnly ? 'Close' : 'Cancel'}
             </button>
-            <button
-              type="submit"
-              className="px-5 py-2 bg-[#FCDAD7] hover:bg-[#F9C5C0] text-black font-bold text-xs rounded-xl shadow border border-black/20 flex items-center gap-1.5 cursor-pointer"
-            >
-              <span className="material-symbols-outlined text-sm">save</span>
-              <span>Save Ticket Changes</span>
-            </button>
+            {!isReadOnly && (
+              <button
+                type="submit"
+                className="px-5 py-2 bg-[#FCDAD7] hover:bg-[#F9C5C0] text-black font-bold text-xs rounded-xl shadow border border-black/20 flex items-center gap-1.5 cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-sm">save</span>
+                <span>Save Ticket Changes</span>
+              </button>
+            )}
           </div>
         </form>
       </div>

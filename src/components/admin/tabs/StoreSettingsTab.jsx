@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { adminFetch } from '../../../config';
 
-export default function StoreSettingsTab() {
+export default function StoreSettingsTab({ isReadOnly = false }) {
   const [pickupSettings, setPickupSettings] = useState({
     storeName: "Jiza Jewellery Studio — Pune",
     address: "Shop No.17, 1st Floor, Shivpushp Landmark, Suncity Road, Anand Nagar",
@@ -253,23 +253,30 @@ export default function StoreSettingsTab() {
 
           {/* Save Button */}
           <div className="pt-4 border-t border-gray-100 flex items-center justify-end gap-3">
-            <button
-              type="submit"
-              disabled={isSaving}
-              className="px-6 py-3 bg-[#FCDAD7] hover:bg-[#F9C5C0] text-black font-bold text-xs rounded-xl shadow border border-black/20 flex items-center gap-2 cursor-pointer transition-all active:scale-95 disabled:opacity-50"
-            >
-              {isSaving ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin"></div>
-                  <span>Saving Settings...</span>
-                </>
-              ) : (
-                <>
-                  <span className="material-symbols-outlined text-base">save</span>
-                  <span>Save Pickup Settings</span>
-                </>
-              )}
-            </button>
+            {isReadOnly ? (
+              <span className="text-xs text-amber-800 bg-amber-50 border border-amber-200 px-4 py-2 rounded-xl font-bold flex items-center gap-1.5">
+                <span className="material-symbols-outlined text-sm">lock</span>
+                <span>Studio settings can only be altered by Owner Admin</span>
+              </span>
+            ) : (
+              <button
+                type="submit"
+                disabled={isSaving}
+                className="px-6 py-3 bg-[#FCDAD7] hover:bg-[#F9C5C0] text-black font-bold text-xs rounded-xl shadow border border-black/20 flex items-center gap-2 cursor-pointer transition-all active:scale-95 disabled:opacity-50"
+              >
+                {isSaving ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin"></div>
+                    <span>Saving Settings...</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="material-symbols-outlined text-base">save</span>
+                    <span>Save Pickup Settings</span>
+                  </>
+                )}
+              </button>
+            )}
           </div>
 
         </form>

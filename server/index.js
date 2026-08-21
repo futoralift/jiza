@@ -95,7 +95,7 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-app.options('*', cors(corsOptions));
+app.options('/{*path}', cors(corsOptions));
 
 // Express Body Parsers (Payload limit for images/screenshots)
 app.use(express.json({ limit: '10mb' }));
@@ -114,11 +114,12 @@ function isAuthedAdmin(req) {
     }
     let decoded;
     if (token === 'demo-admin-token-2026' && process.env.NODE_ENV !== 'production') {
-      decoded = { email: 'jizajewellery@gmail.com', role: 'admin', authorizedAt: Date.now() };
+      decoded = { email: 'jizajewellery@gmail.com', role: 'SUPER_ADMIN', authorizedAt: Date.now() };
     } else {
       decoded = jwt.verify(token, JWT_SECRET);
     }
-    if (decoded && decoded.role === 'admin') {
+    const validRoles = ['admin', 'SUPER_ADMIN', 'SUPER_READONLY_ADMIN'];
+    if (decoded && validRoles.includes(decoded.role)) {
       req.admin = decoded;
       return true;
     }
@@ -196,26 +197,47 @@ app.get(['/', '/api'], async (req, res) => {
 });
 
 
-// Seed Authorized Admin Account on server launch if none exists
+// Seed Authorized Admin Accounts on server launch if none exists
 
 async function initAdminAccount() {
   try {
     const db = await getDb();
-    const adminEmail = 'jizajewellery@gmail.com';
-    const adminPhone = '8208822696';
-    const adminPass = 'JizaAdmin@2026'; // Default seed password
 
-    const existing = await db.get('SELECT * FROM admin_accounts WHERE email = ?', [adminEmail]);
-    if (!existing) {
-      const passHash = await bcrypt.hash(adminPass, 12);
+    // 1. Primary Owner Admin Account (Full Write + Read Access)
+    const primaryEmail = 'jizajewellery@gmail.com';
+    const primaryPhone = '8208822696';
+    const primaryPass = 'JizaAdmin@2026';
+
+    const existingPrimary = await db.get('SELECT * FROM admin_accounts WHERE email = ?', [primaryEmail]);
+    if (!existingPrimary) {
+      const passHash = await bcrypt.hash(primaryPass, 12);
       await db.run(
-        'INSERT INTO admin_accounts (id, email, phone, password_hash) VALUES (?, ?, ?, ?)',
-        ['admin-' + Date.now(), adminEmail, adminPhone, passHash]
+        'INSERT INTO admin_accounts (id, email, phone, password_hash, role) VALUES (?, ?, ?, ?, ?)',
+        ['admin-' + Date.now(), primaryEmail, primaryPhone, passHash, 'SUPER_ADMIN']
       );
-      console.log(`🔐 Authorized Admin Account seeded: ${adminEmail}`);
+      console.log(`🔐 Primary Admin Account seeded: ${primaryEmail} (Role: SUPER_ADMIN)`);
+    } else {
+      await db.run('UPDATE admin_accounts SET role = ? WHERE email = ?', ['SUPER_ADMIN', primaryEmail]);
+    }
+
+    // 2. Secondary Agency Admin Account (SUPER_READONLY_ADMIN - Read & Export Only)
+    const secondaryEmail = 'futoralift@gmail.com';
+    const secondaryPhone = '8446653644';
+    const secondaryPass = 'Msd@7821';
+
+    const existingSecondary = await db.get('SELECT * FROM admin_accounts WHERE email = ?', [secondaryEmail]);
+    if (!existingSecondary) {
+      const passHash = await bcrypt.hash(secondaryPass, 12);
+      await db.run(
+        'INSERT INTO admin_accounts (id, email, phone, password_hash, role) VALUES (?, ?, ?, ?, ?)',
+        ['admin-agency-' + Date.now(), secondaryEmail, secondaryPhone, passHash, 'SUPER_READONLY_ADMIN']
+      );
+      console.log(`🔐 Secondary Read-Only Admin Account seeded: ${secondaryEmail} (Role: SUPER_READONLY_ADMIN)`);
+    } else {
+      await db.run('UPDATE admin_accounts SET role = ? WHERE email = ?', ['SUPER_READONLY_ADMIN', secondaryEmail]);
     }
   } catch (err) {
-    console.error('Error seeding admin account:', err);
+    console.error('Error seeding admin accounts:', err);
   }
 }
 
@@ -316,7 +338,7 @@ async function requireAdminAuth(req, res, next) {
 
     let decoded;
     if (token === 'demo-admin-token-2026' && process.env.NODE_ENV !== 'production') {
-      decoded = { email: 'jizajewellery@gmail.com', role: 'admin', authorizedAt: Date.now() };
+      decoded = { email: 'jizajewellery@gmail.com', role: 'SUPER_ADMIN', authorizedAt: Date.now() };
     } else {
       try {
         decoded = jwt.verify(token, JWT_SECRET);
@@ -330,9 +352,22 @@ async function requireAdminAuth(req, res, next) {
       }
     }
 
-    if (!decoded || decoded.role !== 'admin') {
+    const validRoles = ['admin', 'SUPER_ADMIN', 'SUPER_READONLY_ADMIN'];
+    if (!decoded || !validRoles.includes(decoded.role)) {
       console.warn(`[SECURITY WARN] Forbidden admin access attempt by user (${decoded?.email || 'non-admin'}) from IP ${req.ip} on ${req.method} ${req.originalUrl}`);
       return res.status(403).json({ error: 'Access denied: Admin privileges required.' });
+    }
+
+    // STRICT WRITE PROTECTION FOR SUPER_READONLY_ADMIN
+    if (decoded.role === 'SUPER_READONLY_ADMIN') {
+      const isWriteMethod = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method.toUpperCase());
+      if (isWriteMethod) {
+        console.warn(`[SECURITY AUDIT] Blocked unauthorized write operation by SUPER_READONLY_ADMIN (${decoded.email}) on ${req.method} ${req.originalUrl}`);
+        return res.status(403).json({
+          error: 'Access Denied: Your account has SUPER_READONLY_ADMIN privileges (Read + Export Only). Modifications are strictly restricted.',
+          code: 'READ_ONLY_ACCESS_DENIED'
+        });
+      }
     }
 
     req.admin = decoded;
@@ -448,9 +483,13 @@ app.post('/api/admin/auth/verify-otp', async (req, res) => {
     // Reset failed attempts on success
     await db.run('UPDATE admin_accounts SET failed_attempts = 0, lockout_until = NULL WHERE email = ?', [email]);
 
+    // Fetch Admin Role from admin_accounts
+    const adminAcc = await db.get('SELECT role FROM admin_accounts WHERE email = ?', [email.trim().toLowerCase()]);
+    const role = adminAcc?.role || 'SUPER_ADMIN';
+
     // Issue Secure Signed 24-Hour Admin JWT Session Token
     const adminToken = jwt.sign(
-      { email: email, role: 'admin', authorizedAt: Date.now() },
+      { email: email.trim().toLowerCase(), role: role, authorizedAt: Date.now() },
       JWT_SECRET,
       { expiresIn: '24h' }
     );
@@ -458,7 +497,11 @@ app.post('/api/admin/auth/verify-otp', async (req, res) => {
     res.json({ 
       success: true, 
       token: adminToken,
-      message: '4FA Authentication successful! Welcome Administrator.' 
+      role: role,
+      email: email.trim().toLowerCase(),
+      message: role === 'SUPER_READONLY_ADMIN'
+        ? 'Authentication successful! Welcome to Jiza Studio Management Panel (Read & Export Access).'
+        : '4FA Authentication successful! Welcome Administrator.' 
     });
 
   } catch (err) {
@@ -3030,6 +3073,12 @@ app.post('/api/reviews', async (req, res) => {
       return res.status(400).json({ error: 'Order ID, Product ID, and Rating are required' });
     }
 
+    let validUserId = null;
+    if (userId) {
+      const userExists = await db.get('SELECT id FROM users WHERE id = ?', [userId]);
+      if (userExists) validUserId = userExists.id;
+    }
+
     const reviewId = 'REV-' + Date.now() + '-' + Math.floor(1000 + Math.random() * 9000);
 
     await db.run(
@@ -3038,7 +3087,7 @@ app.post('/api/reviews', async (req, res) => {
         customer_name, customer_email, rating, review_text, status
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Pending')`,
       [
-        reviewId, userId || '', orderId, productId, productName || 'Product',
+        reviewId, validUserId, orderId, productId, productName || 'Product',
         productImage || '', customerName || 'Customer', customerEmail || '',
         Number(rating), reviewText || ''
       ]
@@ -3049,10 +3098,10 @@ app.post('/api/reviews', async (req, res) => {
       `INSERT INTO review_prompts (id, user_id, order_id, product_id, status)
        VALUES (?, ?, ?, ?, 'submitted')
        ON CONFLICT(id) DO UPDATE SET status = 'submitted', updated_at = CURRENT_TIMESTAMP`,
-      [promptId, userId || '', orderId, productId]
+      [promptId, validUserId, orderId, productId]
     );
 
-    res.status(201).json({ message: 'Review submitted successfully! Pending admin approval.', reviewId });
+    res.status(201).json({ message: 'Review submitted successfully! Pending admin approval.', reviewId, id: reviewId });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -3068,6 +3117,12 @@ app.post('/api/reviews/dismiss-prompt', async (req, res) => {
       return res.status(400).json({ error: 'Order ID and Product ID are required' });
     }
 
+    let validUserId = null;
+    if (userId) {
+      const userExists = await db.get('SELECT id FROM users WHERE id = ?', [userId]);
+      if (userExists) validUserId = userExists.id;
+    }
+
     const promptId = 'PRM-' + orderId + '-' + productId;
     const status = action === 'skip' ? 'dismissed' : 'remind_later';
 
@@ -3075,7 +3130,7 @@ app.post('/api/reviews/dismiss-prompt', async (req, res) => {
       `INSERT INTO review_prompts (id, user_id, order_id, product_id, status)
        VALUES (?, ?, ?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET status = ?, updated_at = CURRENT_TIMESTAMP`,
-      [promptId, userId || '', orderId, productId, status, status]
+      [promptId, validUserId, orderId, productId, status, status]
     );
 
     res.json({ message: 'Prompt status updated', status });
@@ -3190,6 +3245,12 @@ app.post('/api/problems', async (req, res) => {
       return res.status(400).json({ error: 'Name, Email, Subject, and Description are required' });
     }
 
+    let validUserId = null;
+    if (userId) {
+      const userExists = await db.get('SELECT id FROM users WHERE id = ?', [userId]);
+      if (userExists) validUserId = userExists.id;
+    }
+
     const dateStr = new Date().toISOString().slice(0,10).replace(/-/g,'');
     const randomCode = Math.floor(1000 + Math.random() * 9000);
     const complaintId = `PRB-${dateStr}-${randomCode}`;
@@ -3203,14 +3264,15 @@ app.post('/api/problems', async (req, res) => {
         subject, description, screenshot, status
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'New')`,
       [
-        complaintId, userId || '', customerName, customerEmail, customerPhone || '',
+        complaintId, validUserId, customerName, customerEmail, customerPhone || '',
         subject, description, savedScreenshotUrl || '',
       ]
     );
 
     res.status(201).json({
       message: 'Problem report submitted successfully!',
-      complaintId
+      complaintId,
+      id: complaintId
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

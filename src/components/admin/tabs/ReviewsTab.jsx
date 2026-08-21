@@ -6,7 +6,8 @@ export default function ReviewsTab({
   setReviewStatusFilter,
   fetchAdminReviews,
   handleUpdateReviewStatus,
-  handleDeleteReview
+  handleDeleteReview,
+  isReadOnly = false
 }) {
   return (
     <div className="space-y-6 animate-fadeIn">
@@ -134,33 +135,37 @@ export default function ReviewsTab({
                         </span>
                       </td>
                       <td className="p-3 text-right">
-                        <div className="flex items-center justify-end space-x-1">
-                          {rev.status !== 'Approved' && (
+                        {isReadOnly ? (
+                          <span className="text-[10px] text-on-surface-variant italic">View Only</span>
+                        ) : (
+                          <div className="flex items-center justify-end space-x-1">
+                            {rev.status !== 'Approved' && (
+                              <button
+                                onClick={() => handleUpdateReviewStatus(rev.id, 'Approved')}
+                                className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[10px] font-bold"
+                                title="Approve Review"
+                              >
+                                Approve
+                              </button>
+                            )}
+                            {rev.status !== 'Rejected' && (
+                              <button
+                                onClick={() => handleUpdateReviewStatus(rev.id, 'Rejected')}
+                                className="px-2 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded text-[10px] font-bold"
+                                title="Reject Review"
+                              >
+                                Reject
+                              </button>
+                            )}
                             <button
-                              onClick={() => handleUpdateReviewStatus(rev.id, 'Approved')}
-                              className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[10px] font-bold"
-                              title="Approve Review"
+                              onClick={() => handleDeleteReview(rev.id)}
+                              className="p-1 hover:bg-red-100 text-red-600 rounded"
+                              title="Delete Review"
                             >
-                              Approve
+                              <span className="material-symbols-outlined text-[16px]">delete</span>
                             </button>
-                          )}
-                          {rev.status !== 'Rejected' && (
-                            <button
-                              onClick={() => handleUpdateReviewStatus(rev.id, 'Rejected')}
-                              className="px-2 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded text-[10px] font-bold"
-                              title="Reject Review"
-                            >
-                              Reject
-                            </button>
-                          )}
-                          <button
-                            onClick={() => handleDeleteReview(rev.id)}
-                            className="p-1 hover:bg-red-100 text-red-600 rounded"
-                            title="Delete Review"
-                          >
-                            <span className="material-symbols-outlined text-[16px]">delete</span>
-                          </button>
-                        </div>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   ))

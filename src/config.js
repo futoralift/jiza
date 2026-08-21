@@ -21,6 +21,8 @@ export const API_BASE = (
 ).replace(/\/$/, '');
 
 export const ADMIN_TOKEN_KEY = 'jiza_admin_token';
+export const ADMIN_ROLE_KEY = 'jiza_admin_role';
+export const ADMIN_EMAIL_KEY = 'jiza_admin_email';
 export const ADMIN_ROUTE_KEY = 'jiza_admin_route';
 export const ACTIVE_VIEW_KEY = 'jiza_active_view';
 
@@ -41,9 +43,63 @@ export function getAdminToken() {
 }
 
 /**
- * Persist Admin JWT token into both storages for seamless refresh and tab continuity.
+ * Retrieve Admin role (SUPER_ADMIN vs SUPER_READONLY_ADMIN).
  */
-export function setAdminTokenStorage(token) {
+export function getAdminRole() {
+  if (!isBrowser) return '';
+  try {
+    const role = localStorage.getItem(ADMIN_ROLE_KEY) || sessionStorage.getItem(ADMIN_ROLE_KEY) || '';
+    if (role) return role;
+    
+    // Fallback: decode role from stored JWT token payload
+    const token = getAdminToken();
+    if (token && token.includes('.')) {
+      try {
+        const payloadBase64 = token.split('.')[1];
+        const decoded = JSON.parse(atob(payloadBase64));
+        if (decoded?.role) return decoded.role;
+      } catch (_) {}
+    }
+    return 'SUPER_ADMIN';
+  } catch (e) {
+    return 'SUPER_ADMIN';
+  }
+}
+
+/**
+ * Check if the active admin session is read-only (Agency / Viewer).
+ */
+export function isReadOnlyAdmin() {
+  return getAdminRole() === 'SUPER_READONLY_ADMIN';
+}
+
+/**
+ * Retrieve Admin Email.
+ */
+export function getAdminEmail() {
+  if (!isBrowser) return '';
+  try {
+    const email = localStorage.getItem(ADMIN_EMAIL_KEY) || sessionStorage.getItem(ADMIN_EMAIL_KEY) || '';
+    if (email) return email;
+
+    const token = getAdminToken();
+    if (token && token.includes('.')) {
+      try {
+        const payloadBase64 = token.split('.')[1];
+        const decoded = JSON.parse(atob(payloadBase64));
+        if (decoded?.email) return decoded.email;
+      } catch (_) {}
+    }
+    return '';
+  } catch (e) {
+    return '';
+  }
+}
+
+/**
+ * Persist Admin JWT token and metadata into both storages for seamless refresh and tab continuity.
+ */
+export function setAdminTokenStorage(token, role, email) {
   if (!token || !isBrowser) return;
   try {
     const trimmed = String(token).trim();
@@ -51,6 +107,28 @@ export function setAdminTokenStorage(token) {
     sessionStorage.setItem(ADMIN_TOKEN_KEY, trimmed);
     localStorage.setItem(ADMIN_ROUTE_KEY, 'true');
     sessionStorage.setItem(ADMIN_ROUTE_KEY, 'true');
+
+    let resolvedRole = role;
+    let resolvedEmail = email;
+
+    if (!resolvedRole || !resolvedEmail) {
+      if (trimmed.includes('.')) {
+        try {
+          const payload = JSON.parse(atob(trimmed.split('.')[1]));
+          resolvedRole = resolvedRole || payload.role;
+          resolvedEmail = resolvedEmail || payload.email;
+        } catch (_) {}
+      }
+    }
+
+    if (resolvedRole) {
+      localStorage.setItem(ADMIN_ROLE_KEY, resolvedRole);
+      sessionStorage.setItem(ADMIN_ROLE_KEY, resolvedRole);
+    }
+    if (resolvedEmail) {
+      localStorage.setItem(ADMIN_EMAIL_KEY, resolvedEmail);
+      sessionStorage.setItem(ADMIN_EMAIL_KEY, resolvedEmail);
+    }
   } catch (e) {
     console.warn('Failed to persist admin token in storage:', e);
   }
@@ -64,6 +142,10 @@ export function clearAdminTokenStorage() {
   try {
     localStorage.removeItem(ADMIN_TOKEN_KEY);
     sessionStorage.removeItem(ADMIN_TOKEN_KEY);
+    localStorage.removeItem(ADMIN_ROLE_KEY);
+    sessionStorage.removeItem(ADMIN_ROLE_KEY);
+    localStorage.removeItem(ADMIN_EMAIL_KEY);
+    sessionStorage.removeItem(ADMIN_EMAIL_KEY);
     localStorage.removeItem(ADMIN_ROUTE_KEY);
     sessionStorage.removeItem(ADMIN_ROUTE_KEY);
   } catch (e) {}
@@ -98,8 +180,9 @@ export async function adminFetch(endpoint, options = {}) {
 
   if (response.status === 401) {
     console.warn(`[ADMIN AUTH 401] Unauthorized on ${url}`);
+    clearAdminTokenStorage();
     if (isBrowser) {
-      window.dispatchEvent(new CustomEvent('jiza:admin:unauthorized', { detail: { url, status: 401 } }));
+      window.dispatchEvent(new CustomEvent('jiza_admin_unauthorized'));
     }
   }
 

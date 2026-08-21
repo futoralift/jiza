@@ -11,7 +11,8 @@ export default function ProductsTab({
   onUpdateSpecialSection,
   onUpdateProductStock,
   handleOpenEditProduct,
-  handleDeleteProductClick
+  handleDeleteProductClick,
+  isReadOnly = false
 }) {
   return (
     <div className="space-y-6 animate-fadeIn">
@@ -43,13 +44,21 @@ export default function ProductsTab({
           </select>
         </div>
 
-        <button
-          onClick={() => setIsAddProductOpen(true)}
-          className="w-full sm:w-auto bg-[#FCDAD7] hover:bg-[#F9C5C0] text-black px-4 py-2 rounded-xl text-xs font-label-md font-bold shadow flex items-center justify-center gap-2 border border-black/20 transition-all active:scale-95 cursor-pointer"
-        >
-          <span className="material-symbols-outlined text-base">add</span>
-          Add Product
-        </button>
+        {!isReadOnly && (
+          <button
+            onClick={() => setIsAddProductOpen(true)}
+            className="w-full sm:w-auto bg-[#FCDAD7] hover:bg-[#F9C5C0] text-black px-4 py-2 rounded-xl text-xs font-label-md font-bold shadow flex items-center justify-center gap-2 border border-black/20 transition-all active:scale-95 cursor-pointer"
+          >
+            <span className="material-symbols-outlined text-base">add</span>
+            Add Product
+          </button>
+        )}
+        {isReadOnly && (
+          <span className="text-[10px] text-amber-800 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-xl font-bold flex items-center gap-1">
+            <span className="material-symbols-outlined text-sm">visibility</span>
+            View Only Mode
+          </span>
+        )}
       </div>
 
       {/* Product Inventory Table */}
@@ -110,36 +119,50 @@ export default function ProductsTab({
                     </select>
                   </td>
                   <td className="p-3">
-                    <button
-                      onClick={() => onUpdateProductStock(p.id, !p.inStock)}
-                      className={`px-2.5 py-1 rounded text-[10px] font-bold border transition-colors ${
+                    {isReadOnly ? (
+                      <span className={`px-2.5 py-1 rounded text-[10px] font-bold border ${
                         p.inStock
                           ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
                           : 'bg-red-100 text-red-800 border-red-300'
-                      }`}
-                    >
-                      {p.inStock ? 'IN STOCK' : 'OUT OF STOCK'}
-                    </button>
+                      }`}>
+                        {p.inStock ? 'IN STOCK' : 'OUT OF STOCK'}
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => onUpdateProductStock(p.id, !p.inStock)}
+                        className={`px-2.5 py-1 rounded text-[10px] font-bold border transition-colors ${
+                          p.inStock
+                            ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                            : 'bg-red-100 text-red-800 border-red-300'
+                        }`}
+                      >
+                        {p.inStock ? 'IN STOCK' : 'OUT OF STOCK'}
+                      </button>
+                    )}
                   </td>
                   <td className="p-3 text-right">
-                    <div className="flex items-center justify-end space-x-2">
-                      <button
-                        onClick={() => handleOpenEditProduct(p)}
-                        className="p-1.5 bg-[#FCDAD7]/60 text-black hover:bg-[#FCDAD7] rounded-lg border border-black/15 flex items-center gap-1 font-bold text-[11px] shadow-xs"
-                        title="Edit Product Details"
-                      >
-                        <span className="material-symbols-outlined text-[13px] text-black">edit</span>
-                        <span>Edit</span>
-                      </button>
-                      <button
-                        onClick={() => handleDeleteProductClick(p.id, p.title)}
-                        className="p-1.5 bg-rose-50 text-rose-800 hover:bg-rose-100 rounded-lg border border-rose-200 flex items-center gap-1 font-bold text-[11px] shadow-xs"
-                        title="Delete Product"
-                      >
-                        <span className="material-symbols-outlined text-[13px] text-rose-700">delete</span>
-                        <span>Delete</span>
-                      </button>
-                    </div>
+                    {isReadOnly ? (
+                      <span className="text-[10px] text-on-surface-variant italic">Read Only</span>
+                    ) : (
+                      <div className="flex items-center justify-end space-x-2">
+                        <button
+                          onClick={() => handleOpenEditProduct(p)}
+                          className="p-1.5 bg-[#FCDAD7]/60 text-black hover:bg-[#FCDAD7] rounded-lg border border-black/15 flex items-center gap-1 font-bold text-[11px] shadow-xs"
+                          title="Edit Product Details"
+                        >
+                          <span className="material-symbols-outlined text-[13px] text-black">edit</span>
+                          <span>Edit</span>
+                        </button>
+                        <button
+                          onClick={() => handleDeleteProductClick(p.id, p.title)}
+                          className="p-1.5 bg-rose-50 text-rose-800 hover:bg-rose-100 rounded-lg border border-rose-200 flex items-center gap-1 font-bold text-[11px] shadow-xs"
+                          title="Delete Product"
+                        >
+                          <span className="material-symbols-outlined text-[13px] text-rose-700">delete</span>
+                          <span>Delete</span>
+                        </button>
+                      </div>
+                    )}
                   </td>
                 </tr>
               ))}

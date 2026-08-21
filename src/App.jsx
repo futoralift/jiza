@@ -1314,13 +1314,17 @@ export default function App() {
           setIsAdminLoginOpen(false);
           if (!getAdminToken()) setActiveView('404');
         }}
-        onLoginSuccess={(token) => {
-          setAdminTokenStorage(token);
+        onLoginSuccess={(token, role, email) => {
+          setAdminTokenStorage(token, role, email);
           setAdminToken(token);
           setIsAdminLoginOpen(false);
           setIsAdminSecretRoute(true);
           setActiveView('admin');
-          showToast('✅ 4FA Authentication Successful! Welcome Admin.');
+          if (role === 'SUPER_READONLY_ADMIN') {
+            showToast('🛡️ Welcome Agency Admin! Read + Export Mode Active.');
+          } else {
+            showToast('👑 Welcome Owner Admin! Full Management Access Active.');
+          }
           fetchDbProducts();
           fetchDbCategories();
           fetchDbOrders();

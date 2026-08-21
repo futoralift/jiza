@@ -1,25 +1,32 @@
 # Hostinger KVM VPS Production Deployment Guide
 ## Jiza Jewellery Studio — PostgreSQL + Node.js + Nginx + PM2 + SSL
-
-This document provides a step-by-step, production-ready guide to deploy **Jiza Jewellery Studio** on a **Hostinger KVM VPS** running **Ubuntu 22.04 LTS**.
-
----
-
-## 1. System Requirements & Stack Overview
-
-- **Operating System**: Ubuntu 22.04 LTS (Hostinger KVM VPS)
-- **Database**: PostgreSQL 14+
-- **Application Runtime**: Node.js 20 LTS
-- **Process Manager**: PM2 (Cluster Mode & System Auto-Restart)
-- **Web Server / Reverse Proxy**: Nginx
-- **SSL Certificate**: Let's Encrypt (Certbot)
-- **Firewall**: UFW (Uncomplicated Firewall)
+**Document Version:** 4.0.0 (Production Verified)  
+**Target Infrastructure:** Hostinger KVM VPS (Ubuntu 22.04 LTS)  
+**Database:** PostgreSQL 14+ Relational Database  
+**Domain:** `jizajewellery.com` & `www.jizajewellery.com`  
 
 ---
 
-## 2. Step 1: Connect to VPS & Install Dependencies
+## 1. System Architecture Overview
 
-SSH into your Hostinger VPS as `root` (or sudo user):
+```mermaid
+flowchart TD
+    Client["Browser / Mobile Client (HTTPS)"] --> Cloudflare["DNS / Let's Encrypt SSL"]
+    Cloudflare --> Nginx["Nginx Reverse Proxy (:80 / :443)"]
+    Nginx -->|Static Assets & WebP| Dist["/var/www/jiza-jewellery-studio/dist"]
+    Nginx -->|/uploads/| Uploads["/var/www/jiza-jewellery-studio/public/uploads"]
+    Nginx -->|/api/ (Keepalive Pool)| PM2["PM2 Cluster Mode (Node.js 20 LTS :5000)"]
+    PM2 --> MemoryCache["In-Memory Catalog TTL Cache (<1ms)"]
+    PM2 --> Postgres["PostgreSQL 14+ Database (:5432)"]
+    PM2 --> RazorpayAPI["Razorpay Live Payment API"]
+    PM2 --> SMTPApi["Gmail Transactional SMTP Relay"]
+```
+
+---
+
+## 2. Step 1: Connect to Hostinger VPS & Install Base Dependencies
+
+SSH into your Hostinger VPS as `root`:
 ```bash
 ssh root@YOUR_SERVER_IP
 ```
@@ -29,39 +36,31 @@ Update system packages:
 sudo apt update && sudo apt upgrade -y
 ```
 
-Install essential tools, Node.js 20 LTS, Git, and build tools:
+Install Node.js 20 LTS, Git, build tools, Nginx, UFW, and Certbot:
 ```bash
 curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-sudo apt install -y nodejs git build-essential nginx ufw certbot python3-certbot-nginx
+sudo apt install -y nodejs git build-essential nginx ufw certbot python3-certbot-nginx postgresql postgresql-contrib
 ```
 
-Verify Node.js & npm installation:
+Verify Node.js and PM2 installation:
 ```bash
 node -v   # Should be v20.x.x
 npm -v    # Should be v10.x.x
-```
-
-Install **PM2** globally:
-```bash
 sudo npm install -g pm2
+pm2 -v
 ```
 
 ---
 
-## 3. Step 2: Install & Configure PostgreSQL
+## 3. Step 2: Configure PostgreSQL Database
 
-Install PostgreSQL:
-```bash
-sudo apt install -y postgresql postgresql-contrib
-```
-
-Start & enable PostgreSQL service on system startup:
+Start and enable PostgreSQL on boot:
 ```bash
 sudo systemctl start postgresql
 sudo systemctl enable postgresql
 ```
 
-Create Database User & Database:
+Create database user and database:
 ```bash
 sudo -u postgres psql
 ```
@@ -73,95 +72,39 @@ CREATE USER jiza_user WITH PASSWORD 'YourStrongPassword2026';
 GRANT ALL PRIVILEGES ON DATABASE jiza_store TO jiza_user;
 ALTER DATABASE jiza_store OWNER TO jiza_user;
 
--- Connect to jiza_store and grant schema privileges
 \c jiza_store
 GRANT ALL ON SCHEMA public TO jiza_user;
-
--- Exit PostgreSQL CLI
 \q
 ```
 
 ---
 
-## 4. Step 3: Deploy Project Files to `/var/www/`
+## 4. Step 3: Deploy Codebase to `/var/www/jiza-jewellery-studio`
 
-Create project directory:
+Create directory and set permissions:
 ```bash
 sudo mkdir -p /var/www/jiza-jewellery-studio
 sudo chown -R $USER:$USER /var/www/jiza-jewellery-studio
 ```
 
-Upload your project files to `/var/www/jiza-jewellery-studio` using `git clone` or `scp`/SFTP.
-
-If using Git:
+Clone or copy project files into `/var/www/jiza-jewellery-studio`:
 ```bash
 cd /var/www/jiza-jewellery-studio
+# Clone repository or upload via SFTP/Git
 git clone YOUR_GIT_REPOSITORY_URL .
 ```
 
-Install dependencies:
+Install project dependencies:
 ```bash
 npm install --production=false
 ```
 
----
-
-## 5. Step 4: Configure Environment Variables
-
-Create the production `.env` file inside `/var/www/jiza-jewellery-studio`:
-```bash
-nano /var/www/jiza-jewellery-studio/.env
-```
-
-Add the following environment variables:
-```env
-PORT=5000
-NODE_ENV=production
-
-# PostgreSQL Credentials
-PGHOST=localhost
-PGPORT=5432
-PGDATABASE=jiza_store
-PGUSER=jiza_user
-PGPASSWORD=YourStrongPassword2026
-
-# Enterprise Admin JWT Secret
-ADMIN_JWT_SECRET=jiza-studio-enterprise-secret-key-998877665544332211
-```
-
-Save and exit (`Ctrl+O`, `Enter`, `Ctrl+X`).
-
----
-
-## 6. Step 5: Run Schema Initialization & Data Migration
-
-Initialize the PostgreSQL schema and migrate data from SQLite (if migrating existing store data):
-```bash
-node server/db/migrate_sqlite_to_pg.js
-```
-
-You should see output confirming:
-```
-✅ Connected to PostgreSQL!
-📜 Applied PostgreSQL schema.
-📦 Migrating 'users'...
-📦 Migrating 'products'...
-📦 Migrating 'orders'...
-🎉 PostgreSQL Data Migration Completed Successfully!
-```
-
----
-
-## 7. Step 6: Build Front-End Assets
-
-Generate the static Vite production bundle (`dist` folder):
+Build the static frontend bundle:
 ```bash
 npm run build
 ```
 
-Verify that the `dist` directory is created cleanly.
-
-Create static uploads folder for customer media & product images:
+Ensure static uploads directory exists with correct permissions:
 ```bash
 mkdir -p /var/www/jiza-jewellery-studio/public/uploads
 chmod -R 755 /var/www/jiza-jewellery-studio/public/uploads
@@ -169,143 +112,163 @@ chmod -R 755 /var/www/jiza-jewellery-studio/public/uploads
 
 ---
 
-## 8. Step 7: Configure PM2 for Automatic System Restart
+## 5. Step 4: Configure Production `.env` File
 
-Start backend server cluster with PM2:
+Create `/var/www/jiza-jewellery-studio/.env`:
 ```bash
-cd /var/www/jiza-jewellery-studio
-pm2 start ecosystem.config.cjs --env production
+nano /var/www/jiza-jewellery-studio/.env
 ```
 
-Save current PM2 process list:
-```bash
-pm2 save
-```
+Add your production environment variables:
+```env
+PORT=5000
+NODE_ENV=production
 
-Enable PM2 to auto-start on VPS server reboot:
-```bash
-pm2 startup
-```
-*(Copy and execute the command printed by PM2 in your terminal)*.
+# PostgreSQL Database Credentials
+PGHOST=localhost
+PGPORT=5432
+PGDATABASE=jiza_store
+PGUSER=jiza_user
+PGPASSWORD=YourStrongPassword2026
 
-Check server status:
-```bash
-pm2 status
+# Enterprise Admin Security Key & JWT Secret
+ADMIN_JWT_SECRET=jiza-studio-enterprise-secret-key-998877665544332211
+
+# Allowed Origins for CORS
+ALLOWED_ORIGINS=https://jizajewellerystudio.com,https://www.jizajewellerystudio.com,https://jizajewellery.com,https://www.jizajewellery.com
+
+# Razorpay Live Merchant Credentials
+RAZORPAY_KEY_ID=rzp_live_TNhoc1TkO5vFCu
+RAZORPAY_KEY_SECRET=YOUR_RAZORPAY_KEY_SECRET
+RAZORPAY_WEBHOOK_SECRET=YOUR_RAZORPAY_WEBHOOK_SECRET
+
+# Transactional SMTP Mailer
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=jizajewellery@gmail.com
+SMTP_PASSWORD=your_gmail_app_password
+SMTP_FROM_NAME="Jiza Jewellery Studio"
+SMTP_FROM_EMAIL=jizajewellery@gmail.com
 ```
 
 ---
 
-## 9. Step 8: Configure Nginx Reverse Proxy
+## 6. Step 5: Start Node.js Backend with PM2 Cluster Mode
 
-Create Nginx site configuration file:
+Start the Express backend cluster using `ecosystem.config.cjs`:
 ```bash
-sudo nano /etc/nginx/sites-available/jiza-jewellery-studio
+cd /var/www/jiza-jewellery-studio
+pm2 start ecosystem.config.cjs --env production
+pm2 save
+pm2 startup
+```
+*(Copy and run the `sudo env PATH=...` command generated by PM2)*.
+
+Verify PM2 status:
+```bash
+pm2 status
+pm2 logs jiza-backend --lines 20
 ```
 
-Paste the following configuration:
-```nginx
-server {
-    listen 80;
-    listen [::]:80;
-    server_name yourdomain.com www.yourdomain.com; # Replace with your domain or VPS IP
+---
 
-    root /var/www/jiza-jewellery-studio/dist;
-    index index.html;
+## 7. Step 6: Configure Nginx Reverse Proxy
 
-    # Gzip Compression Optimization
-    gzip on;
-    gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript image/svg+xml;
-    gzip_comp_level 6;
-
-    location / {
-        try_files $uri $uri/ /index.html;
-    }
-
-    location /uploads/ {
-        alias /var/www/jiza-jewellery-studio/public/uploads/;
-        expires 30d;
-        add_header Cache-Control "public, no-transform";
-    }
-
-    location /api/ {
-        proxy_pass http://127.0.0.1:5000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        client_max_body_size 20M;
-    }
-}
+Copy the production Nginx configuration:
+```bash
+sudo cp /var/www/jiza-jewellery-studio/nginx.conf /etc/nginx/sites-available/jiza-jewellery-studio
+sudo ln -sf /etc/nginx/sites-available/jiza-jewellery-studio /etc/nginx/sites-enabled/
+sudo rm -f /etc/nginx/sites-enabled/default
 ```
 
-Enable the Nginx site and test configuration:
+Test Nginx syntax:
 ```bash
-sudo ln -s /etc/nginx/sites-available/jiza-jewellery-studio /etc/nginx/sites-enabled/
 sudo nginx -t
 sudo systemctl reload nginx
 ```
 
 ---
 
-## 10. Step 9: Enable SSL (HTTPS) via Let's Encrypt
+## 8. Step 7: Configure SSL (HTTPS) via Let's Encrypt Certbot
 
-Secure domain with free SSL certificate:
+Obtain SSL certificate for your domain:
 ```bash
-sudo certbot --nginx -d yourdomain.com -d www.yourdomain.com
+sudo certbot --nginx -d jizajewellery.com -d www.jizajewellery.com
 ```
-Follow the interactive prompts. Certbot will automatically rewrite Nginx config to enforce HTTPS and set up auto-renewal cron jobs.
+
+Test automatic SSL renewal:
+```bash
+sudo certbot renew --dry-run
+```
 
 ---
 
-## 11. Step 10: Configure UFW Firewall
+## 9. Step 8: Configure UFW Firewall
 
-Enable UFW security rules:
 ```bash
 sudo ufw allow OpenSSH
 sudo ufw allow 'Nginx Full'
 sudo ufw enable
-```
-
-Verify firewall status:
-```bash
 sudo ufw status
 ```
 
 ---
 
-## 12. Maintenance & Operations Reference Commands
+## 10. Step 9: Configure Automated Daily Database Backups
 
-### Check Live Application Logs
+Create daily backup script `/etc/cron.daily/jiza-db-backup.sh`:
 ```bash
-pm2 logs jiza-backend
+sudo nano /etc/cron.daily/jiza-db-backup.sh
 ```
 
-### Restart Server
+Paste the following script:
 ```bash
-pm2 restart jiza-backend
+#!/bin/bash
+BACKUP_DIR="/var/backups/postgresql/jiza"
+mkdir -p "$BACKUP_DIR"
+DATE=$(date +%Y-%m-%d_%H%M%S)
+BACKUP_FILE="$BACKUP_DIR/jiza_store_$DATE.sql.gz"
+
+# Export PostgreSQL backup compressed
+PGPASSWORD="YourStrongPassword2026" pg_dump -U jiza_user -h localhost jiza_store | gzip > "$BACKUP_FILE"
+
+# Retain only last 14 days of backups
+find "$BACKUP_DIR" -type f -name "*.sql.gz" -mtime +14 -delete
+
+echo "PostgreSQL backup completed: $BACKUP_FILE"
 ```
 
-### PostgreSQL Backup (Daily Database Dump)
+Make the script executable:
 ```bash
-pg_dump -U jiza_user -h localhost jiza_store > /var/backups/jiza_store_backup_$(date +%F).sql
+sudo chmod +x /etc/cron.daily/jiza-db-backup.sh
 ```
 
-### PostgreSQL Restore
+### Database Restore Command:
 ```bash
-psql -U jiza_user -h localhost -d jiza_store < /var/backups/jiza_store_backup_2026-08-06.sql
+gunzip -c /var/backups/postgresql/jiza/jiza_store_YYYY-MM-DD_HHMMSS.sql.gz | psql -U jiza_user -h localhost -d jiza_store
 ```
 
 ---
 
-## Technical Support & Verification Checklist
+## 11. Maintenance & Future Deployment Procedure
 
-- [x] PostgreSQL 14+ Relational Database Active
-- [x] Node.js 20 Backend running on PM2 Cluster Mode
-- [x] Environment Security & CORS/Helmet Headers Enabled
-- [x] Vite Production Bundle served statically by Nginx
-- [x] `/api/` endpoints proxied to Node.js backend port 5000
-- [x] Free Let's Encrypt SSL Active on HTTPS
-- [x] Server auto-restarts on reboot via systemd & PM2
+To deploy future frontend or backend code updates:
+```bash
+cd /var/www/jiza-jewellery-studio
+
+# 1. Pull latest code
+git pull origin main
+
+# 2. Install any newly added dependencies
+npm install --production=false
+
+# 3. Rebuild frontend bundle
+npm run build
+
+# 4. Zero-downtime reload backend cluster
+pm2 reload jiza-backend
+
+# 5. Reload Nginx if static config changed
+sudo systemctl reload nginx
+```
