@@ -566,6 +566,93 @@ app.post('/api/admin/auth/verify-otp', async (req, res) => {
   }
 });
 
+// POST Change Admin Password (Strict Multi-Factor Verification & Old Password Invalidation)
+app.post('/api/admin/auth/change-password', async (req, res) => {
+  try {
+    const db = await getDb();
+    const { email, phone, oldPassword, newPassword, confirmPassword } = req.body;
+
+    if (!email || !phone || !oldPassword || !newPassword || !confirmPassword) {
+      return res.status(400).json({ error: 'All fields (Email, Phone, Old Password, New Password, Confirm Password) are required.' });
+    }
+
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({ error: 'New password and Confirm Password do not match.' });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ error: 'New password must be at least 6 characters long.' });
+    }
+
+    if (oldPassword === newPassword) {
+      return res.status(400).json({ error: 'New password cannot be the same as your current password.' });
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPhone = String(phone).replace(/\D/g, '');
+
+    const admin = await db.get('SELECT * FROM admin_accounts WHERE email = ?', [cleanEmail]);
+    if (!admin) {
+      return res.status(400).json({ error: 'Admin account not found or invalid credentials.' });
+    }
+
+    // Check Lockout Status
+    if (admin.lockout_until) {
+      const lockoutTime = new Date(admin.lockout_until).getTime();
+      if (Date.now() < lockoutTime) {
+        const remainingMins = Math.ceil((lockoutTime - Date.now()) / (60 * 1000));
+        return res.status(429).json({ 
+          error: `Account temporarily locked. Please try again in ${remainingMins} minute(s).` 
+        });
+      }
+    }
+
+    // Verify Phone Match
+    const phoneMatches = admin.phone.replace(/[^0-9]/g, '').endsWith(cleanPhone);
+    if (!phoneMatches) {
+      return res.status(400).json({ error: 'Registered phone number does not match admin records.' });
+    }
+
+    // Verify Old Password Hash
+    const passwordMatches = await bcrypt.compare(oldPassword, admin.password_hash);
+    if (!passwordMatches) {
+      const failed = (admin.failed_attempts || 0) + 1;
+      let lockoutUntil = null;
+      if (failed >= 5) {
+        lockoutUntil = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+      }
+      await db.run(
+        'UPDATE admin_accounts SET failed_attempts = ?, lockout_until = ? WHERE id = ?',
+        [failed >= 5 ? 0 : failed, lockoutUntil, admin.id]
+      );
+      return res.status(400).json({ error: 'Old password is incorrect. Please enter your valid current password.' });
+    }
+
+    // Generate New Password Hash (Cost factor 12)
+    const newPassHash = await bcrypt.hash(newPassword, 12);
+
+    // Update in database - permanently replaces old password hash!
+    await db.run(
+      'UPDATE admin_accounts SET password_hash = ?, failed_attempts = 0, lockout_until = NULL WHERE id = ?',
+      [newPassHash, admin.id]
+    );
+
+    // Invalidate any active OTPs for this admin
+    await db.run('UPDATE admin_otps SET is_used = 1 WHERE admin_email = ?', [cleanEmail]);
+
+    console.log(`🔑 [ADMIN SECURITY] Password successfully updated for admin: ${cleanEmail}`);
+
+    res.json({
+      success: true,
+      message: 'Admin password changed successfully! Your old password has been deactivated. Please log in with your new password.'
+    });
+
+  } catch (err) {
+    console.error('Error changing admin password:', err);
+    res.status(500).json({ error: 'Failed to update admin password. Please try again.' });
+  }
+});
+
 
 // ======================================================
 // CUSTOMER AUTHENTICATION & DIRECTORY API
