@@ -183,6 +183,60 @@ if (!fs.existsSync(uploadsDir)) {
 }
 app.use('/uploads', express.static(uploadsDir));
 
+// Universal Image Upload & Storage Management Helpers
+function saveBase64ImageToDisk(base64Str, folderName = 'general') {
+  if (!base64Str || typeof base64Str !== 'string' || !base64Str.startsWith('data:image')) {
+    return base64Str || '';
+  }
+  try {
+    const matches = base64Str.match(/^data:image\/([a-zA-Z0-9]+);base64,(.+)$/);
+    if (!matches || matches.length !== 3) return base64Str;
+
+    const rawExt = matches[1].toLowerCase();
+    const ext = rawExt === 'jpeg' ? 'jpg' : rawExt;
+    const dataBuffer = Buffer.from(matches[2], 'base64');
+    const targetFolder = path.join(__dirname, '../public/uploads', folderName);
+    
+    if (!fs.existsSync(targetFolder)) {
+      fs.mkdirSync(targetFolder, { recursive: true });
+    }
+
+    const filename = `${folderName}-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}.${ext}`;
+    const filePath = path.join(targetFolder, filename);
+    fs.writeFileSync(filePath, dataBuffer);
+
+    return `/uploads/${folderName}/${filename}`;
+  } catch (err) {
+    console.error(`Error saving base64 image to disk (${folderName}):`, err);
+    return base64Str;
+  }
+}
+
+function deleteLocalUploadFile(fileUrl) {
+  if (!fileUrl || typeof fileUrl !== 'string') return;
+  if (!fileUrl.includes('/uploads/') && !fileUrl.startsWith('uploads/')) return;
+
+  try {
+    const cleanPath = fileUrl.replace(/^.*\/uploads\//, '');
+    const absolutePath = path.join(__dirname, '../public/uploads', cleanPath);
+
+    // Path traversal security check
+    const normalized = path.normalize(absolutePath);
+    const uploadsRoot = path.normalize(path.join(__dirname, '../public/uploads'));
+    if (!normalized.startsWith(uploadsRoot)) {
+      console.warn(`[SECURITY] Prevented path traversal on image delete: ${fileUrl}`);
+      return;
+    }
+
+    if (fs.existsSync(normalized)) {
+      fs.unlinkSync(normalized);
+      console.log(`[STORAGE CLEANUP] Deleted local file: ${cleanPath}`);
+    }
+  } catch (err) {
+    console.error(`[STORAGE CLEANUP] Failed to delete file (${fileUrl}):`, err.message);
+  }
+}
+
 // Root & API Health Check Status Endpoint
 app.get(['/', '/api'], async (req, res) => {
   try {
@@ -1071,12 +1125,13 @@ app.post(['/api/categories', '/api/admin/categories'], requireAdminAuth, async (
     }
     const id = name.trim().toLowerCase().replace(/[^a-z0-9]/g, '-');
     const isActive = active !== undefined ? (active ? 1 : 0) : 1;
+    const savedImg = saveBase64ImageToDisk(img, 'categories');
 
     const existingCats = await db.all('SELECT * FROM categories ORDER BY display_order ASC, name ASC');
     let targetOrder = display_order !== undefined && display_order !== '' ? Math.max(1, Number(display_order)) : existingCats.length + 1;
     if (targetOrder > existingCats.length + 1) targetOrder = existingCats.length + 1;
 
-    const newCatObj = { id, name: name.trim(), img: img || '', display_order: targetOrder, active: isActive };
+    const newCatObj = { id, name: name.trim(), img: savedImg || '', display_order: targetOrder, active: isActive };
     
     // Check if category ID already exists
     const duplicate = existingCats.find(c => c.id === id);
@@ -1126,8 +1181,13 @@ app.put(['/api/categories/:id', '/api/admin/categories/:id'], requireAdminAuth, 
     }
 
     const newName = name !== undefined && name.trim() ? name.trim() : cat.name;
-    const newImg = img !== undefined ? img : cat.img;
+    const newImg = img !== undefined ? saveBase64ImageToDisk(img, 'categories') : cat.img;
     const newActive = active !== undefined ? (active ? 1 : 0) : (cat.active ?? 1);
+
+    // Auto-clean old image from server storage if replaced with a different image
+    if (cat.img && cat.img !== newImg) {
+      deleteLocalUploadFile(cat.img);
+    }
 
     const existingCats = await db.all('SELECT * FROM categories ORDER BY display_order ASC, name ASC');
     const oldIdx = existingCats.findIndex(c => c.id === id);
@@ -1198,6 +1258,11 @@ app.delete(['/api/categories/:id', '/api/admin/categories/:id'], requireAdminAut
 
     await db.run('DELETE FROM categories WHERE id = ?', [id]);
 
+    // Auto-clean deleted category image from server disk
+    if (cat.img) {
+      deleteLocalUploadFile(cat.img);
+    }
+
     // Re-normalize category positions after deletion
     const remainingCats = await db.all('SELECT * FROM categories ORDER BY display_order ASC, name ASC');
     for (let i = 0; i < remainingCats.length; i++) {
@@ -1238,6 +1303,7 @@ app.post(['/api/categories/:id/subcategories', '/api/subcategories', '/api/admin
 
     const subId = `${categoryId}-${name.trim().toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
     const isActive = active !== undefined ? (active ? 1 : 0) : 1;
+    const savedImg = saveBase64ImageToDisk(img, 'subcategories');
 
     const existingSubs = await db.all('SELECT * FROM subcategories WHERE category_id = ? ORDER BY display_order ASC, name ASC', [categoryId]);
     
@@ -1249,7 +1315,7 @@ app.post(['/api/categories/:id/subcategories', '/api/subcategories', '/api/admin
     let targetOrder = display_order !== undefined && display_order !== '' ? Math.max(1, Number(display_order)) : existingSubs.length + 1;
     if (targetOrder > existingSubs.length + 1) targetOrder = existingSubs.length + 1;
 
-    const newSubObj = { id: subId, category_id: categoryId, name: name.trim(), img: img || '', display_order: targetOrder, active: isActive };
+    const newSubObj = { id: subId, category_id: categoryId, name: name.trim(), img: savedImg || '', display_order: targetOrder, active: isActive };
     existingSubs.splice(targetOrder - 1, 0, newSubObj);
 
     await db.run(
@@ -1293,8 +1359,13 @@ app.put(['/api/subcategories/:id', '/api/admin/subcategories/:id'], requireAdmin
     }
 
     const newName = name !== undefined && name.trim() ? name.trim() : sub.name;
-    const newImg = img !== undefined ? img : sub.img;
+    const newImg = img !== undefined ? saveBase64ImageToDisk(img, 'subcategories') : sub.img;
     const newActive = active !== undefined ? (active ? 1 : 0) : (sub.active ?? 1);
+
+    // Auto-clean old image from server storage if replaced
+    if (sub.img && sub.img !== newImg) {
+      deleteLocalUploadFile(sub.img);
+    }
 
     const existingSubs = await db.all('SELECT * FROM subcategories WHERE category_id = ? ORDER BY display_order ASC, name ASC', [sub.category_id]);
     const oldIdx = existingSubs.findIndex(s => s.id === id);
@@ -1366,6 +1437,11 @@ app.delete(['/api/subcategories/:id', '/api/admin/subcategories/:id'], requireAd
     }
 
     await db.run('DELETE FROM subcategories WHERE id = ?', [id]);
+
+    // Auto-clean deleted subcategory image from server disk
+    if (sub.img) {
+      deleteLocalUploadFile(sub.img);
+    }
     invalidateApiCache();
     res.json({ success: true, message: `Sub-Category '${sub.name}' deleted successfully.` });
   } catch (err) {
@@ -1462,6 +1538,10 @@ app.post(['/api/products', '/api/admin/products'], requireAdminAuth, async (req,
     const stockQty = stockQuantity !== undefined ? Number(stockQuantity) : 10;
     const isSoldOut = stockQty === 0;
 
+    // Process all base64 images into static upload files
+    const processedImages = (images || []).map(img => saveBase64ImageToDisk(img, 'products'));
+    const primaryImg = processedImages[0] || '';
+
     await db.run(
       `INSERT INTO products (
         id, product_code, title, category_id, category_label, subcategory_id, subcategory_label, selling_price, mrp, discount, 
@@ -1471,7 +1551,7 @@ app.post(['/api/products', '/api/admin/products'], requireAdminAuth, async (req,
       [
         id, productCode, title, category, categoryLabel || category, subcategory, subcategoryLabel || subcategory, sellingPrice, mrp || 0, discount || 0,
         description || '', material || '', colour || '', careInstructions || '', deliveryTime || '2-4 Business Days',
-        JSON.stringify(images || []), images?.[0] || '', isSoldOut ? 'Sold Out' : (sec !== 'None' ? sec : badge || 'Standard'),
+        JSON.stringify(processedImages), primaryImg, isSoldOut ? 'Sold Out' : (sec !== 'None' ? sec : badge || 'Standard'),
         sec, stockQty, isSoldOut ? 0 : 1, isSoldOut ? 1 : 0
       ]
     );
@@ -1523,6 +1603,28 @@ app.put(['/api/products/:id', '/api/admin/products/:id'], requireAdminAuth, asyn
     const isSoldOut = stockQty === 0;
     const sec = specialSection || 'None';
 
+    // Fetch old product images for cleanup
+    const oldProduct = await db.get('SELECT img, images_json FROM products WHERE id = ?', [id]);
+    let oldImages = [];
+    if (oldProduct) {
+      try {
+        oldImages = JSON.parse(oldProduct.images_json || '[]');
+      } catch (e) {
+        oldImages = oldProduct.img ? [oldProduct.img] : [];
+      }
+    }
+
+    // Process new images
+    const processedImages = (images || []).map(img => saveBase64ImageToDisk(img, 'products'));
+    const primaryImg = processedImages[0] || '';
+
+    // Auto-clean removed images from disk
+    const removedImages = oldImages.filter(oldImg => !processedImages.includes(oldImg));
+    removedImages.forEach(oldImg => deleteLocalUploadFile(oldImg));
+    if (oldProduct && oldProduct.img && !processedImages.includes(oldProduct.img)) {
+      deleteLocalUploadFile(oldProduct.img);
+    }
+
     await db.run(
       `UPDATE products SET 
         product_code = ?, title = ?, category_id = ?, category_label = ?, subcategory_id = ?, subcategory_label = ?,
@@ -1533,8 +1635,8 @@ app.put(['/api/products/:id', '/api/admin/products/:id'], requireAdminAuth, asyn
       [
         productCode, title, category, categoryLabel || category, subcategory, subcategoryLabel || subcategory,
         sellingPrice, mrp || 0, discount || 0, description || '', material || '', colour || '',
-        careInstructions || '', deliveryTime || '2-4 Business Days', JSON.stringify(images || []),
-        images?.[0] || '', isSoldOut ? 'Sold Out' : (sec !== 'None' ? sec : badge || 'Standard'),
+        careInstructions || '', deliveryTime || '2-4 Business Days', JSON.stringify(processedImages),
+        primaryImg, isSoldOut ? 'Sold Out' : (sec !== 'None' ? sec : badge || 'Standard'),
         sec, stockQty, isSoldOut ? 0 : 1, isSoldOut ? 1 : 0, id
       ]
     );
@@ -1559,7 +1661,25 @@ app.delete(['/api/products/:id', '/api/admin/products/:id'], requireAdminAuth, a
     const db = await getDb();
     const { id } = req.params;
 
+    // Fetch product images before deletion
+    const product = await db.get('SELECT img, images_json FROM products WHERE id = ?', [id]);
+
     await db.run('DELETE FROM products WHERE id = ?', [id]);
+
+    // Auto-clean all product images from server disk
+    if (product) {
+      let prodImages = [];
+      try {
+        prodImages = JSON.parse(product.images_json || '[]');
+      } catch (e) {
+        prodImages = [];
+      }
+      if (product.img && !prodImages.includes(product.img)) {
+        prodImages.push(product.img);
+      }
+      prodImages.forEach(imgUrl => deleteLocalUploadFile(imgUrl));
+    }
+
     invalidateApiCache();
     res.json({ 
       success: true, 
@@ -1715,12 +1835,14 @@ app.post('/api/admin/rental-gallery', requireAdminAuth, async (req, res) => {
         }
       }
 
+      // Convert base64 payload to clean static disk file
+      const savedImageUrl = saveBase64ImageToDisk(imgStr, 'rental');
       const id = `rent-img-${Date.now()}-${Math.floor(100 + Math.random() * 900)}-${i}`;
       await db.run(
         'INSERT INTO rental_gallery (id, image_url) VALUES (?, ?)',
-        [id, imgStr]
+        [id, savedImageUrl]
       );
-      insertedItems.push({ id, image_url: imgStr });
+      insertedItems.push({ id, image_url: savedImageUrl });
     }
 
     invalidateRentalCache();
@@ -1742,12 +1864,17 @@ app.delete('/api/admin/rental-gallery/:id', requireAdminAuth, async (req, res) =
     const db = await getDb();
     const { id } = req.params;
 
-    const existing = await db.get('SELECT id FROM rental_gallery WHERE id = ?', [id]);
+    const existing = await db.get('SELECT id, image_url FROM rental_gallery WHERE id = ?', [id]);
     if (!existing) {
       return res.status(404).json({ error: 'Image not found in Rental Gallery.' });
     }
 
     await db.run('DELETE FROM rental_gallery WHERE id = ?', [id]);
+
+    // Auto-clean deleted rental photo from disk
+    if (existing.image_url) {
+      deleteLocalUploadFile(existing.image_url);
+    }
     invalidateRentalCache();
     res.json({ success: true, message: 'Image deleted successfully from Rental Gallery.' });
   } catch (err) {
@@ -3209,35 +3336,6 @@ app.delete('/api/admin/reviews/:id', requireAdminAuth, async (req, res) => {
   }
 });
 
-// Helper to write Base64 upload to disk and store clean static URL path
-function saveBase64ImageToDisk(base64Str, folderName = 'tickets') {
-  if (!base64Str || typeof base64Str !== 'string' || !base64Str.startsWith('data:image')) {
-    return base64Str || '';
-  }
-  try {
-    const matches = base64Str.match(/^data:image\/([a-zA-Z0-9]+);base64,(.+)$/);
-    if (!matches || matches.length !== 3) return base64Str;
-
-    const rawExt = matches[1].toLowerCase();
-    const ext = rawExt === 'jpeg' ? 'jpg' : rawExt;
-    const dataBuffer = Buffer.from(matches[2], 'base64');
-    const targetFolder = path.join(__dirname, '../public/uploads', folderName);
-    
-    if (!fs.existsSync(targetFolder)) {
-      fs.mkdirSync(targetFolder, { recursive: true });
-    }
-
-    const filename = `${folderName}-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}.${ext}`;
-    const filePath = path.join(targetFolder, filename);
-    fs.writeFileSync(filePath, dataBuffer);
-
-    return `/uploads/${folderName}/${filename}`;
-  } catch (err) {
-    console.error('Error saving base64 image to disk:', err);
-    return base64Str;
-  }
-}
-
 // POST Submit Customer Problem / Complaint
 app.post('/api/problems', async (req, res) => {
   try {
@@ -3268,34 +3366,40 @@ app.post('/api/problems', async (req, res) => {
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'New')`,
       [
         complaintId, validUserId, customerName, customerEmail, customerPhone || '',
-        subject, description, savedScreenshotUrl || '',
+        subject, description, savedScreenshotUrl
       ]
     );
 
     res.status(201).json({
-      message: 'Problem report submitted successfully!',
-      complaintId,
+      message: 'Complaint submitted successfully. Our support team will review it shortly.',
       id: complaintId
     });
   } catch (err) {
+    console.error('Error logging problem:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// GET My Reported Problems (Customer)
-app.get('/api/problems/my-problems', async (req, res) => {
+// GET Customer Problems (Protected by email or user_id query)
+app.get('/api/problems', async (req, res) => {
   try {
     const db = await getDb();
-    const { userId, email } = req.query;
+    const { email, userId } = req.query;
 
-    if (!userId && !email) {
-      return res.json([]);
+    let complaints = [];
+    if (userId) {
+      complaints = await db.all(
+        `SELECT * FROM customer_problems WHERE user_id = ? ORDER BY created_at DESC`,
+        [userId]
+      );
+    } else if (email) {
+      complaints = await db.all(
+        `SELECT * FROM customer_problems WHERE customer_email = ? ORDER BY created_at DESC`,
+        [email]
+      );
+    } else {
+      return res.status(400).json({ error: 'Email or User ID query parameter is required' });
     }
-
-    const complaints = await db.all(
-      `SELECT * FROM customer_problems WHERE user_id = ? OR customer_email = ? ORDER BY created_at DESC`,
-      [userId || '', email || '']
-    );
 
     res.json(complaints);
   } catch (err) {
@@ -3346,7 +3450,25 @@ app.patch('/api/admin/problems/:id', requireAdminAuth, async (req, res) => {
   }
 });
 
+// DELETE Admin Customer Problem / Ticket (Protected)
+app.delete('/api/admin/problems/:id', requireAdminAuth, async (req, res) => {
+  try {
+    const db = await getDb();
+    const { id } = req.params;
+
+    const existing = await db.get('SELECT screenshot FROM customer_problems WHERE id = ?', [id]);
+    await db.run('DELETE FROM customer_problems WHERE id = ?', [id]);
+
+    if (existing && existing.screenshot) {
+      deleteLocalUploadFile(existing.screenshot);
+    }
+
+    res.json({ message: 'Complaint deleted successfully', id });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`🚀 Enterprise Secure Backend running on port ${PORT}`);
 });
-
