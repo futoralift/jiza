@@ -67,22 +67,25 @@ export default function App() {
   const [adminToken, setAdminToken] = useState(() => getAdminToken());
 
   useEffect(() => {
-    // Secret Non-Guessable Admin Path Verification & Persistent Session Restoration
+    // Strict Secret Non-Guessable Admin Path Verification & Persistent Session Restoration
     const params = new URLSearchParams(window.location.search);
-    const secretKey = params.get('secretAdminKey') || params.get('adminSecret') || window.location.hash.replace('#', '');
+    const secretKey = params.get('secretAdminKey') || params.get('adminSecret');
+    const isSecretMatched = secretKey === 'jiza-studio-secure-mgmt-x9872';
     const isStoredAdminRoute = localStorage.getItem(ADMIN_ROUTE_KEY) === 'true' || sessionStorage.getItem(ADMIN_ROUTE_KEY) === 'true';
-    const isDirectAdminUrl = window.location.pathname.startsWith('/admin') || window.location.hash.startsWith('#admin') || params.get('view') === 'admin';
+    const token = getAdminToken();
 
-    if (secretKey === 'jiza-studio-secure-mgmt-x9872' || isStoredAdminRoute || isDirectAdminUrl) {
-      const token = getAdminToken();
+    if (isSecretMatched) {
+      setIsAdminSecretRoute(true);
       if (token) {
-        setIsAdminSecretRoute(true);
         setAdminToken(token);
         setActiveView('admin');
-      } else if (secretKey === 'jiza-studio-secure-mgmt-x9872' || isDirectAdminUrl) {
-        setIsAdminSecretRoute(true);
+      } else {
         setIsAdminLoginOpen(true);
       }
+    } else if (token && isStoredAdminRoute) {
+      // Restore authenticated session for logged in admins
+      setIsAdminSecretRoute(true);
+      setAdminToken(token);
     }
   }, []);
 
@@ -1327,7 +1330,14 @@ export default function App() {
         isOpen={isAdminLoginOpen}
         onClose={() => {
           setIsAdminLoginOpen(false);
-          if (!getAdminToken()) setActiveView('404');
+          setIsAdminSecretRoute(false);
+          try {
+            if (window.history && window.history.replaceState) {
+              const cleanUrl = window.location.pathname || '/';
+              window.history.replaceState({}, document.title, cleanUrl);
+            }
+          } catch (e) {}
+          if (!getAdminToken()) setActiveView('home');
         }}
         onLoginSuccess={(token, role, email) => {
           setAdminTokenStorage(token, role, email);
