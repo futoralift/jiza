@@ -81,7 +81,15 @@ export default function ProductsTab({
                 <tr key={p.id} className="hover:bg-[#FFF0F2] transition-colors">
                   <td className="p-3">
                     <div className="flex items-center gap-3">
-                      <img src={p.img} alt={p.title} className="w-12 h-12 object-cover rounded-lg bg-[#FFF0F2] border border-[#F7C5C0]" />
+                      <img 
+                        src={p.img || '/logo-j.png'} 
+                        alt={p.title} 
+                        onError={(e) => {
+                          e.target.onerror = null;
+                          e.target.src = '/logo-j.png';
+                        }}
+                        className="w-12 h-12 object-cover rounded-lg bg-[#FFF0F2] border border-[#F7C5C0]" 
+                      />
                       <div>
                         <h4 className="font-bold text-on-surface text-xs">{p.title}</h4>
                         <span className="text-[10px] text-on-surface-variant">{p.badge || 'Standard'}</span>

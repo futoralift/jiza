@@ -40,8 +40,12 @@ const ProductCard = React.memo(function ProductCard({ product, onSelect, onAddTo
         className={`relative w-full aspect-[4/5] rounded-lg overflow-hidden mb-3 bg-surface-container-low ${isSoldOut ? 'cursor-not-allowed' : 'cursor-pointer'}`}
       >
         <img
-          src={product.images?.[0] || product.img}
+          src={product.images?.[0] || product.img || '/logo-j.png'}
           alt={product.title || product.name}
+          onError={(e) => {
+            e.target.onerror = null;
+            e.target.src = '/logo-j.png';
+          }}
           className={`w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 ${isSoldOut ? 'grayscale opacity-60' : ''}`}
           loading="lazy"
         />

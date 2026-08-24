@@ -97,8 +97,12 @@ export default function ProductDetailModal({
             {/* Main Large Image */}
             <div className="relative w-full aspect-square rounded-xl overflow-hidden bg-white flex items-center justify-center shadow-inner">
               <img 
-                src={images[activeImg] || 'https://via.placeholder.com/400x400?text=No+Image'} 
+                src={images[activeImg] || '/logo-j.png'} 
                 alt={product.title || product.name} 
+                onError={(e) => {
+                  e.target.onerror = null;
+                  e.target.src = '/logo-j.png';
+                }}
                 className="w-full h-full object-contain transition-all duration-500"
               />
               {product.badge && (
@@ -124,7 +128,15 @@ export default function ProductDetailModal({
                       activeImg === idx ? 'border-heritage-gold shadow-md scale-105' : 'border-outline-variant hover:border-heritage-gold/60'
                     }`}
                   >
-                    <img src={img} alt={`View ${idx + 1}`} className="w-full h-full object-cover" />
+                    <img 
+                      src={img} 
+                      alt={`View ${idx + 1}`} 
+                      onError={(e) => {
+                        e.target.onerror = null;
+                        e.target.src = '/logo-j.png';
+                      }}
+                      className="w-full h-full object-cover" 
+                    />
                   </button>
                 ))}
               </div>
