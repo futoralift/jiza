@@ -171,7 +171,7 @@ export default function PremiumFeaturesTab({
 
                           <div className="pt-2 border-t border-[#F7C5C0]/40 flex items-center justify-between text-[10px] text-gray-500 font-bold uppercase">
                             <span>Pillar #{sIdx + 1}</span>
-                            <span className="text-emerald-700 font-bold">✓ Included in 10k</span>
+                            <span className="text-emerald-700 font-bold">✓ Included</span>
                           </div>
                         </div>
                       ))}
