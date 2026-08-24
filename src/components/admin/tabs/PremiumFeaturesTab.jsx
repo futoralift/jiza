@@ -28,12 +28,15 @@ export default function PremiumFeaturesTab({
   setContactDevTargetFeature,
   setIsContactDevModalOpen
 }) {
+  const flagshipFeature = PREMIUM_FEATURES.find(f => f.id === 'digital-presence-management') || PREMIUM_FEATURES[0];
+  const individualModules = PREMIUM_FEATURES.filter(f => f.id !== 'digital-presence-management');
+
   return (
-    <div className="space-y-6 animate-fadeIn">
+    <div className="space-y-8 animate-fadeIn">
       
       {!selectedPremiumFeature ? (
-        /* SECTION 1: ALL LOCKED PREMIUM FEATURES LIST (3-COLUMN GRID) */
-        <div className="space-y-6">
+        /* SECTION 1: ALL LOCKED PREMIUM FEATURES LIST */
+        <div className="space-y-8">
           
           {/* Top Executive Pink/Gold Banner with PRO badge */}
           <div className="bg-[#FCDAD7] border border-black/15 rounded-3xl py-6 px-7 text-black shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4 relative overflow-hidden">
@@ -43,89 +46,262 @@ export default function PremiumFeaturesTab({
               </div>
               <div>
                 <h3 className="font-headline-md text-lg md:text-xl font-bold tracking-tight text-black flex items-center gap-2.5">
-                  <span>Premium Features</span>
+                  <span>Premium Features &amp; Retainer Packages</span>
                   <span className="bg-gradient-to-r from-amber-500 to-heritage-gold text-black font-extrabold text-[11px] px-2.5 py-0.5 rounded-full shadow-md tracking-wider border border-amber-300">
                     PRO
                   </span>
                 </h3>
                 <p className="text-xs text-stone-800 font-medium mt-0.5">
-                  Unlock individual production modules for Jiza Jewellery Studio.
+                  Unlock high-growth digital presence retainers and specialized enterprise modules for Jiza Jewellery Studio.
                 </p>
               </div>
             </div>
 
             <div className="bg-black text-[#FCDAD7] border border-black/20 rounded-2xl px-4 py-2 text-xs font-bold flex items-center gap-2 shrink-0 relative z-10">
               <span className="material-symbols-outlined text-sm">workspace_premium</span>
-              <span>Enterprise Modules</span>
+              <span>Enterprise Suite</span>
             </div>
 
             {/* Subtle Background Glow */}
             <div className="absolute -right-10 -bottom-10 w-48 h-48 bg-black/5 rounded-full blur-2xl pointer-events-none"></div>
           </div>
 
-          {/* 3-Column Grid of Premium Feature Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {PREMIUM_FEATURES.map((feature) => (
-              <div
-                key={feature.id}
-                onClick={() => setSelectedPremiumFeature(feature)}
-                className="bg-white border border-[#F7C5C0] hover:border-black rounded-2xl p-5 shadow-sm hover:shadow-xl transition-all cursor-pointer flex flex-col justify-between group relative overflow-hidden"
-              >
-                <div className="space-y-3">
-                  {/* Card Top Row: Icon + Locked Badge */}
-                  <div className="flex items-center justify-between">
-                    <div className="w-12 h-12 rounded-2xl bg-black text-[#FCDAD7] border border-black/20 flex items-center justify-center shadow-md group-hover:scale-105 transition-transform">
-                      <span className="material-symbols-outlined text-2xl">{feature.icon}</span>
-                    </div>
-
-                    <span className="bg-amber-500/15 text-amber-800 border border-amber-400/40 text-[10px] font-bold px-2.5 py-1 rounded-full flex items-center gap-1 shadow-xs">
-                      <span className="material-symbols-outlined text-[12px]">lock</span>
-                      <span>🔒 Locked</span>
-                    </span>
-                  </div>
-
-                  {/* Category Tag, Badge & Feature Name */}
-                  <div>
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-black bg-[#FCDAD7]/60 px-2 py-0.5 rounded-md border border-black/10">
-                        {feature.tag}
-                      </span>
-                      {feature.badge && (
-                        <span className="bg-gradient-to-r from-amber-500 to-heritage-gold text-black font-extrabold text-[10px] px-2 py-0.5 rounded-md shadow-xs border border-amber-400">
-                          {feature.badge}
-                        </span>
-                      )}
-                    </div>
-                    <h3 className="font-bold text-base text-on-surface mt-2 group-hover:text-black transition-colors">
-                      {feature.title}
-                    </h3>
-                    <p className="text-xs text-on-surface-variant font-medium line-clamp-2 mt-1">
-                      {feature.subtitle}
-                    </p>
-                  </div>
+          {/* ========================================================= */}
+          {/* 1. FULL-WIDTH FLAGSHIP DIGITAL PRESENCE PACKAGE CARD     */}
+          {/* ========================================================= */}
+          {flagshipFeature && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-black text-xl">stars</span>
+                  <h4 className="font-bold text-sm text-black uppercase tracking-wider">
+                    Full 360° Digital Growth Retainer (All-In-One Package)
+                  </h4>
                 </div>
-
-                {/* Card Bottom: Pricing & Contact Developer Button */}
-                <div className="pt-4 border-t border-outline-variant/20 mt-4 flex items-center justify-between">
-                  <div>
-                    <span className="text-[10px] text-gray-400 uppercase font-bold block">Pricing</span>
-                    <span className="font-bold text-xs text-black">{feature.price}</span>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedPremiumFeature(feature);
-                    }}
-                    className="bg-[#FCDAD7] hover:bg-[#F9C5C0] text-black font-bold text-[11px] px-3.5 py-2 rounded-xl shadow border border-black/20 flex items-center gap-1 transition-all cursor-pointer"
-                  >
-                    <span>View Details</span>
-                    <span className="material-symbols-outlined text-sm">arrow_forward</span>
-                  </button>
-                </div>
+                <span className="bg-gradient-to-r from-amber-500 to-heritage-gold text-black font-extrabold text-[11px] px-3 py-1 rounded-full shadow-xs border border-amber-400">
+                  ⭐ 1 in a Row Flagship
+                </span>
               </div>
-            ))}
+
+              <div 
+                onClick={() => setSelectedPremiumFeature(flagshipFeature)}
+                className="bg-white border-2 border-[#F7B6B0] hover:border-black rounded-3xl p-6 md:p-8 shadow-lg hover:shadow-2xl transition-all cursor-pointer space-y-6 relative overflow-hidden group"
+              >
+                {/* Card Header Row */}
+                <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 border-b border-[#F7C5C0]/70 pb-5">
+                  <div className="flex items-start sm:items-center space-x-4">
+                    <div className="w-14 h-14 rounded-2xl bg-black text-[#FCDAD7] border border-black/20 flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform shrink-0">
+                      <span className="material-symbols-outlined text-3xl">{flagshipFeature.icon}</span>
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="bg-black text-[#FCDAD7] text-[10px] font-mono font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-md">
+                          {flagshipFeature.tag}
+                        </span>
+                        <span className="bg-gradient-to-r from-amber-500 to-heritage-gold text-black font-extrabold text-[10px] px-2.5 py-0.5 rounded-md shadow-xs border border-amber-400">
+                          {flagshipFeature.badge}
+                        </span>
+                        <span className="bg-amber-500/15 text-amber-800 border border-amber-400/40 text-[10px] font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                          <span className="material-symbols-outlined text-[12px]">lock</span>
+                          <span>🔒 Locked Feature</span>
+                        </span>
+                      </div>
+                      <h3 className="font-headline-md text-xl md:text-2xl text-black font-bold mt-1.5 group-hover:text-primary transition-colors">
+                        {flagshipFeature.title}
+                      </h3>
+                      <p className="text-xs text-on-surface-variant font-medium mt-0.5">
+                        {flagshipFeature.subtitle}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Pricing Box & CTA */}
+                  <div className="flex items-center gap-3 w-full lg:w-auto justify-between lg:justify-end shrink-0 pt-3 lg:pt-0">
+                    <div className="bg-[#FFF0F2] border border-[#F7C5C0] rounded-2xl px-5 py-3 text-left">
+                      <span className="text-[10px] uppercase font-bold text-gray-500 block">Monthly Retainer</span>
+                      <span className="font-sans text-xl md:text-2xl font-black text-black tracking-tight">{flagshipFeature.price}</span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedPremiumFeature(flagshipFeature);
+                      }}
+                      className="bg-[#FCDAD7] hover:bg-[#F9C5C0] text-black font-bold text-xs px-5 py-3.5 rounded-xl shadow-md border border-black/20 flex items-center gap-1.5 transition-all cursor-pointer shrink-0 active:scale-95"
+                    >
+                      <span>Explore Details</span>
+                      <span className="material-symbols-outlined text-sm">arrow_forward</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* 6-PILLAR FULL-WIDTH GRID (All Key Points) */}
+                {flagshipFeature.sections && Array.isArray(flagshipFeature.sections) && (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between text-xs font-bold text-black uppercase tracking-wider">
+                      <span className="flex items-center gap-1.5">
+                        <span className="material-symbols-outlined text-sm">view_module</span>
+                        <span>Included Scope &amp; Deliverables ({flagshipFeature.sections.length} Core Management Pillars):</span>
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {flagshipFeature.sections.map((sec, sIdx) => (
+                        <div 
+                          key={sIdx}
+                          className="bg-[#FFF9F9] hover:bg-[#FFF0F2]/90 border border-[#F7C5C0] p-4 rounded-2xl space-y-3 shadow-xs transition-all flex flex-col justify-between"
+                        >
+                          <div>
+                            <div className="flex items-center gap-2 border-b border-[#F7C5C0]/70 pb-2">
+                              <div className="w-6 h-6 rounded-lg bg-black text-[#FCDAD7] flex items-center justify-center shrink-0">
+                                <span className="material-symbols-outlined text-sm">{sec.icon || 'star'}</span>
+                              </div>
+                              <h5 className="font-bold text-xs text-black uppercase tracking-wider">{sec.title}</h5>
+                            </div>
+                            <ul className="space-y-1.5 text-xs text-on-surface pt-2.5">
+                              {sec.items.map((item, iIdx) => (
+                                <li key={iIdx} className="flex items-start gap-1.5">
+                                  <span className="material-symbols-outlined text-emerald-600 text-[14px] shrink-0 mt-0.5 font-bold">check_circle</span>
+                                  <span className="text-[11px] font-medium text-stone-800 leading-tight">{item}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+
+                          <div className="pt-2 border-t border-[#F7C5C0]/40 flex items-center justify-between text-[10px] text-gray-500 font-bold uppercase">
+                            <span>Pillar #{sIdx + 1}</span>
+                            <span className="text-emerald-700 font-bold">✓ Included in 10k</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Exclusions / Scope Disclaimer Strip */}
+                <div className="bg-stone-50 border border-stone-200/90 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+                  <div className="flex items-start gap-2.5">
+                    <span className="material-symbols-outlined text-amber-700 text-lg shrink-0 mt-0.5">info</span>
+                    <div>
+                      <span className="font-bold text-stone-900 block">
+                        Monthly Digital Management Retainer Package:
+                      </span>
+                      <span className="text-[11px] text-stone-600">
+                        {flagshipFeature.scopeNote}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="bg-rose-50 border border-rose-200 rounded-xl px-3 py-2 text-[10px] text-rose-900 font-medium shrink-0">
+                    <strong className="text-rose-950 font-bold">Exclusions: </strong>
+                    <span>{flagshipFeature.notIncluded}</span>
+                  </div>
+                </div>
+
+                {/* Bottom Action Footer */}
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+                  <span className="text-xs text-gray-500 font-medium">
+                    Ready to scale Jiza Jewellery Studio’s digital reach? Contact Developer to activate this retainer.
+                  </span>
+
+                  <div className="flex items-center gap-2.5 w-full sm:w-auto">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (typeof setContactDevTargetFeature === 'function') setContactDevTargetFeature(flagshipFeature);
+                        if (typeof setIsContactDevModalOpen === 'function') setIsContactDevModalOpen(true);
+                      }}
+                      className="flex-1 sm:flex-initial px-5 py-2.5 bg-black hover:bg-stone-900 text-[#FCDAD7] font-bold text-xs rounded-xl shadow border border-black flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-95"
+                    >
+                      <span className="material-symbols-outlined text-sm">support_agent</span>
+                      <span>Contact Developer (₹10,000/mo)</span>
+                    </button>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================= */}
+          {/* 2. INDIVIDUAL STANDALONE ADD-ON MODULES (3-COLUMN GRID)  */}
+          {/* ========================================================= */}
+          <div className="space-y-4 pt-4 border-t border-outline-variant/30">
+            <div>
+              <h4 className="font-bold text-sm text-black uppercase tracking-wider flex items-center gap-2">
+                <span className="material-symbols-outlined text-base">grid_view</span>
+                <span>Individual Add-On Modules &amp; Lifetime Tools</span>
+              </h4>
+              <p className="text-xs text-gray-500 font-medium mt-0.5">
+                Looking for standalone specialized tools? Unlock individual lifetime utilities or automation add-ons below:
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {individualModules.map((feature) => (
+                <div
+                  key={feature.id}
+                  onClick={() => setSelectedPremiumFeature(feature)}
+                  className="bg-white border border-[#F7C5C0] hover:border-black rounded-2xl p-5 shadow-sm hover:shadow-xl transition-all cursor-pointer flex flex-col justify-between group relative overflow-hidden"
+                >
+                  <div className="space-y-3">
+                    {/* Card Top Row: Icon + Locked Badge */}
+                    <div className="flex items-center justify-between">
+                      <div className="w-12 h-12 rounded-2xl bg-black text-[#FCDAD7] border border-black/20 flex items-center justify-center shadow-md group-hover:scale-105 transition-transform">
+                        <span className="material-symbols-outlined text-2xl">{feature.icon}</span>
+                      </div>
+
+                      <span className="bg-amber-500/15 text-amber-800 border border-amber-400/40 text-[10px] font-bold px-2.5 py-1 rounded-full flex items-center gap-1 shadow-xs">
+                        <span className="material-symbols-outlined text-[12px]">lock</span>
+                        <span>🔒 Locked</span>
+                      </span>
+                    </div>
+
+                    {/* Category Tag, Badge & Feature Name */}
+                    <div>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-black bg-[#FCDAD7]/60 px-2 py-0.5 rounded-md border border-black/10">
+                          {feature.tag}
+                        </span>
+                        {feature.badge && (
+                          <span className="bg-gradient-to-r from-amber-500 to-heritage-gold text-black font-extrabold text-[10px] px-2 py-0.5 rounded-md shadow-xs border border-amber-400">
+                            {feature.badge}
+                          </span>
+                        )}
+                      </div>
+                      <h3 className="font-bold text-base text-on-surface mt-2 group-hover:text-black transition-colors">
+                        {feature.title}
+                      </h3>
+                      <p className="text-xs text-on-surface-variant font-medium line-clamp-2 mt-1">
+                        {feature.subtitle}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Card Bottom: Pricing & Contact Developer Button */}
+                  <div className="pt-4 border-t border-outline-variant/20 mt-4 flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] text-gray-400 uppercase font-bold block">Pricing</span>
+                      <span className="font-bold text-xs text-black">{feature.price}</span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedPremiumFeature(feature);
+                      }}
+                      className="bg-[#FCDAD7] hover:bg-[#F9C5C0] text-black font-bold text-[11px] px-3.5 py-2 rounded-xl shadow border border-black/20 flex items-center gap-1 transition-all cursor-pointer"
+                    >
+                      <span>View Details</span>
+                      <span className="material-symbols-outlined text-sm">arrow_forward</span>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
 
         </div>

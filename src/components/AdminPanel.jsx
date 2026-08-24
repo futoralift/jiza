@@ -101,10 +101,12 @@ const PREMIUM_FEATURES = [
         items: [
           'Monthly social media strategy',
           'Content strategy based on provided content',
-          'Competitor analysis',
-          'Trend & keyword research',
-          'SEO strategy',
-          'Audience/growth recommendations',
+          'Competitor analysis & benchmarking',
+          'Trend & high-intent keyword research',
+          'SEO Strategy (Search Engine Optimization for Google search)',
+          'GEO Strategy (Generative Engine Optimization for AI like ChatGPT, Perplexity & Gemini)',
+          'AEO Strategy (Answer Engine Optimization for AI direct answer snippets & voice queries)',
+          'Audience & organic growth recommendations',
           'Platform-wise improvement strategies'
         ]
       },
@@ -127,6 +129,7 @@ const PREMIUM_FEATURES = [
       'YouTube Video & Shorts SEO, Tagging & Channel Optimization',
       'Unified Facebook & Instagram Content Calendar & Engagement',
       'Website Updates, Banners, Contact Details & Health Monitoring',
+      'Multi-Engine Strategy: Complete SEO + GEO (AI Engines) + AEO Optimization',
       'Monthly Strategy, Growth Guidance & In-Depth Performance Reports'
     ]
   },
