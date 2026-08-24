@@ -84,11 +84,18 @@ export default function PremiumFeaturesTab({
                     </span>
                   </div>
 
-                  {/* Category Tag & Feature Name */}
+                  {/* Category Tag, Badge & Feature Name */}
                   <div>
-                    <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-black bg-[#FCDAD7]/60 px-2 py-0.5 rounded-md border border-black/10">
-                      {feature.tag}
-                    </span>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-black bg-[#FCDAD7]/60 px-2 py-0.5 rounded-md border border-black/10">
+                        {feature.tag}
+                      </span>
+                      {feature.badge && (
+                        <span className="bg-gradient-to-r from-amber-500 to-heritage-gold text-black font-extrabold text-[10px] px-2 py-0.5 rounded-md shadow-xs border border-amber-400">
+                          {feature.badge}
+                        </span>
+                      )}
+                    </div>
                     <h3 className="font-bold text-base text-on-surface mt-2 group-hover:text-black transition-colors">
                       {feature.title}
                     </h3>
@@ -145,7 +152,7 @@ export default function PremiumFeaturesTab({
                   <span className="material-symbols-outlined text-3xl">{selectedPremiumFeature.icon}</span>
                 </div>
                 <div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="bg-amber-500/20 text-amber-800 border border-amber-500/40 text-[10px] font-bold px-2.5 py-0.5 rounded-full flex items-center gap-1">
                       <span className="material-symbols-outlined text-[12px]">lock</span>
                       <span>🔒 Locked Feature</span>
@@ -153,6 +160,11 @@ export default function PremiumFeaturesTab({
                     <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-black bg-[#FCDAD7]/60 px-2 py-0.5 rounded-md border border-black/10">
                       {selectedPremiumFeature.tag}
                     </span>
+                    {selectedPremiumFeature.badge && (
+                      <span className="bg-gradient-to-r from-amber-500 to-heritage-gold text-black font-extrabold text-[10px] px-2 py-0.5 rounded-md shadow-xs border border-amber-400">
+                        {selectedPremiumFeature.badge}
+                      </span>
+                    )}
                   </div>
                   <h2 className="font-headline-md text-2xl text-black font-bold mt-1">
                     {selectedPremiumFeature.title}
@@ -185,11 +197,71 @@ export default function PremiumFeaturesTab({
               </div>
             </div>
 
+            {/* Structured Module Pillars Breakdown (if available) */}
+            {selectedPremiumFeature.sections && Array.isArray(selectedPremiumFeature.sections) && (
+              <div className="space-y-4">
+                <h3 className="font-bold text-base text-on-surface flex items-center gap-2">
+                  <span className="material-symbols-outlined text-black">layers</span>
+                  <span>Included Management Pillars ({selectedPremiumFeature.sections.length}-Pillar Retainer Suite):</span>
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-1">
+                  {selectedPremiumFeature.sections.map((sec, sIdx) => (
+                    <div 
+                      key={sIdx} 
+                      className="bg-[#FFF0F2]/50 hover:bg-[#FFF0F2]/80 border border-[#F7C5C0] p-4 rounded-2xl space-y-3 shadow-xs transition-all flex flex-col justify-between"
+                    >
+                      <div>
+                        <div className="flex items-center gap-2 border-b border-[#F7C5C0]/70 pb-2.5">
+                          <div className="w-7 h-7 rounded-lg bg-black text-[#FCDAD7] flex items-center justify-center shrink-0">
+                            <span className="material-symbols-outlined text-base">{sec.icon || 'star'}</span>
+                          </div>
+                          <h4 className="font-bold text-xs text-black uppercase tracking-wider">{sec.title}</h4>
+                        </div>
+                        <ul className="space-y-2 text-xs text-on-surface pt-3">
+                          {sec.items.map((item, iIdx) => (
+                            <li key={iIdx} className="flex items-start gap-2">
+                              <span className="material-symbols-outlined text-emerald-600 text-[15px] shrink-0 mt-0.5 font-bold">check_circle</span>
+                              <span className="text-[11px] font-medium text-stone-800 leading-tight">{item}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                      <div className="pt-2 border-t border-[#F7C5C0]/40 flex items-center justify-between text-[10px] text-gray-500 font-bold uppercase">
+                        <span>Pillar #{sIdx + 1}</span>
+                        <span className="text-emerald-700 font-bold">✓ Included</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Scope & Exclusions Notice (if defined) */}
+            {(selectedPremiumFeature.notIncluded || selectedPremiumFeature.scopeNote) && (
+              <div className="bg-stone-50 border border-stone-200 rounded-2xl p-5 space-y-2.5 text-xs">
+                {selectedPremiumFeature.scopeNote && (
+                  <div className="flex items-start gap-2 text-stone-800 font-semibold">
+                    <span className="material-symbols-outlined text-base text-primary shrink-0 mt-0.5">verified</span>
+                    <span>{selectedPremiumFeature.scopeNote}</span>
+                  </div>
+                )}
+                {selectedPremiumFeature.notIncluded && (
+                  <div className="flex items-start gap-2.5 bg-rose-50/80 border border-rose-200 rounded-xl p-3.5 text-[11px] text-rose-900 font-medium">
+                    <span className="material-symbols-outlined text-rose-600 text-base shrink-0 mt-0.5 font-bold">cancel</span>
+                    <div>
+                      <strong className="text-rose-950 font-bold block mb-0.5">Not Included (Exclusions):</strong>
+                      <span className="text-rose-800">{selectedPremiumFeature.notIncluded}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Detailed Business Benefits Breakdown */}
             <div className="space-y-4">
               <h3 className="font-bold text-base text-on-surface flex items-center gap-2">
                 <span className="material-symbols-outlined text-black">workspace_premium</span>
-                <span>Key Benefits &amp; Capabilities:</span>
+                <span>Key Highlights &amp; Deliverables:</span>
               </h3>
               <p className="text-xs text-on-surface-variant leading-relaxed font-medium">
                 {selectedPremiumFeature.description}

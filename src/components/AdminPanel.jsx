@@ -29,6 +29,108 @@ import RentalDeleteModal from './admin/modals/RentalDeleteModal';
 
 const PREMIUM_FEATURES = [
   {
+    id: 'digital-presence-management',
+    icon: 'hub',
+    title: 'Digital Presence Management Package',
+    subtitle: 'Complete monthly digital management retainer: Instagram, YouTube, Social Media, Website, Strategy & Monthly Reports.',
+    price: '₹10,000/month',
+    rawPrice: '₹10,000/mo',
+    tag: 'Monthly Retainer',
+    badge: '⭐ Flagship Retainer',
+    description: 'A comprehensive monthly digital management retainer designed to keep Jiza Jewellery Studio active, optimized, monitored, and strategically expanding across all digital channels.',
+    scopeNote: 'This is a proper monthly digital management retainer focused on management, distribution, SEO, and strategic optimization.',
+    notIncluded: 'Content shooting, video editing, graphic designing, paid advertising budget, or major website development/redesign.',
+    sections: [
+      {
+        title: 'Instagram Management',
+        icon: 'photo_camera',
+        items: [
+          'Instagram account management',
+          'Content posting & scheduling',
+          'Captions + hashtags',
+          'Profile optimization',
+          'Comment management',
+          'DM management',
+          'Auto-reply setup',
+          'Auto-comment reply automation'
+        ]
+      },
+      {
+        title: 'YouTube Management',
+        icon: 'smart_display',
+        items: [
+          'Video uploading & scheduling',
+          'Titles & descriptions',
+          'YouTube SEO',
+          'Keywords/tags',
+          'Thumbnail/content optimization guidance',
+          'Shorts uploading',
+          'Channel optimization',
+          'Analytics monitoring'
+        ]
+      },
+      {
+        title: 'Social Media Management',
+        icon: 'share',
+        items: [
+          'Facebook + Instagram management',
+          'Content calendar',
+          'Posting & scheduling',
+          'Engagement management',
+          'Competitor monitoring',
+          'Trending content strategy',
+          'Monthly performance report'
+        ]
+      },
+      {
+        title: 'Website Management',
+        icon: 'language',
+        items: [
+          'Basic website updates',
+          'Text, images, contact details & offers updates',
+          'Product/service information updates',
+          'Banner/basic section updates',
+          'Website performance overview',
+          'Basic SEO monitoring',
+          'Issue/error monitoring'
+        ]
+      },
+      {
+        title: 'Strategy & Growth',
+        icon: 'trending_up',
+        items: [
+          'Monthly social media strategy',
+          'Content strategy based on provided content',
+          'Competitor analysis',
+          'Trend & keyword research',
+          'SEO strategy',
+          'Audience/growth recommendations',
+          'Platform-wise improvement strategies'
+        ]
+      },
+      {
+        title: 'Reports & Monitoring',
+        icon: 'analytics',
+        items: [
+          'Monthly performance report',
+          'Instagram analytics',
+          'YouTube analytics',
+          'Website overview',
+          'Growth comparison',
+          'Key problems & opportunities',
+          'Next-month action plan'
+        ]
+      }
+    ],
+    benefits: [
+      'Complete Instagram Account Management, Scheduling & Auto-Replies',
+      'YouTube Video & Shorts SEO, Tagging & Channel Optimization',
+      'Unified Facebook & Instagram Content Calendar & Engagement',
+      'Website Updates, Banners, Contact Details & Health Monitoring',
+      'Monthly Strategy, Growth Guidance & In-Depth Performance Reports'
+    ]
+  },
+  {
     id: 'invoice-gst',
     icon: 'receipt_long',
     title: 'Invoice & GST Billing',
