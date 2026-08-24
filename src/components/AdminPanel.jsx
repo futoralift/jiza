@@ -32,13 +32,13 @@ const PREMIUM_FEATURES = [
     id: 'digital-presence-management',
     icon: 'hub',
     title: 'Digital Presence Management Package',
-    subtitle: 'Complete monthly digital management retainer: Instagram, YouTube, Social Media, Website, Strategy & Monthly Reports.',
+    subtitle: 'Complete monthly digital management retainer: Instagram, YouTube, Social Media, Website & Monthly Reports.',
     price: '₹10,000/month',
     rawPrice: '₹10,000/mo',
     tag: 'Monthly Retainer',
     badge: '⭐ Flagship Retainer',
     description: 'A comprehensive monthly digital management retainer designed to keep Jiza Jewellery Studio active, optimized, monitored, and strategically expanding across all digital channels.',
-    scopeNote: 'This is a proper monthly digital management retainer focused on management, distribution, SEO, and strategic optimization.',
+    scopeNote: 'This is a proper monthly digital management retainer focused on management, distribution, SEO, and active monitoring.',
     notIncluded: 'Content shooting, video editing, graphic designing, paid advertising budget, or major website development/redesign.',
     sections: [
       {
@@ -96,21 +96,6 @@ const PREMIUM_FEATURES = [
         ]
       },
       {
-        title: 'Strategy & Growth',
-        icon: 'trending_up',
-        items: [
-          'Monthly social media strategy',
-          'Content strategy based on provided content',
-          'Competitor analysis & benchmarking',
-          'Trend & high-intent keyword research',
-          'SEO Strategy (Search Engine Optimization for Google search)',
-          'GEO Strategy (Generative Engine Optimization for AI like ChatGPT, Perplexity & Gemini)',
-          'AEO Strategy (Answer Engine Optimization for AI direct answer snippets & voice queries)',
-          'Audience & organic growth recommendations',
-          'Platform-wise improvement strategies'
-        ]
-      },
-      {
         title: 'Reports & Monitoring',
         icon: 'analytics',
         items: [
@@ -129,8 +114,7 @@ const PREMIUM_FEATURES = [
       'YouTube Video & Shorts SEO, Tagging & Channel Optimization',
       'Unified Facebook & Instagram Content Calendar & Engagement',
       'Website Updates, Banners, Contact Details & Health Monitoring',
-      'Multi-Engine Strategy: Complete SEO + GEO (AI Engines) + AEO Optimization',
-      'Monthly Strategy, Growth Guidance & In-Depth Performance Reports'
+      'Monthly Analytics, Insights & In-Depth Performance Reports'
     ]
   },
   {
