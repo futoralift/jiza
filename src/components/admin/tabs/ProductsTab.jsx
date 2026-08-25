@@ -107,10 +107,10 @@ export default function ProductsTab({
                   </td>
                   <td className="p-3">
                     <select
-                      value={p.specialSection || (p.badge === 'New Arrival' ? 'New Arrival' : p.badge === 'Bestseller' || p.badge === 'Best Seller' ? 'Best Seller' : 'None')}
+                      value={p.specialSection || (p.badge === 'New Arrival' ? 'New Arrival' : p.badge === 'Bestseller' || p.badge === 'Best Seller' ? 'Best Seller' : p.badge === 'Stock Clearance Sale' || p.badge === 'Clearance' ? 'Stock Clearance Sale' : 'None')}
                       onChange={(e) => {
                         const targetSec = e.target.value;
-                        if (targetSec !== 'None') {
+                        if (targetSec === 'New Arrival' || targetSec === 'Best Seller') {
                           const count = productsList.filter(prod => prod.id !== p.id && (prod.specialSection === targetSec || (targetSec === 'New Arrival' && prod.badge === 'New Arrival') || (targetSec === 'Best Seller' && (prod.badge === 'Bestseller' || prod.badge === 'Best Seller')))).length;
                           if (count >= 4) {
                             alert(`⚠️ Validation Warning: Section Limit Reached!\n\nMaximum 4 products can be assigned to '${targetSec}' on the Home Page. Please remove an existing product from '${targetSec}' first (set Special Section to 'None').`);
@@ -124,6 +124,7 @@ export default function ProductsTab({
                       <option value="None">None (Default)</option>
                       <option value="New Arrival">New Arrival</option>
                       <option value="Best Seller">Best Seller</option>
+                      <option value="Stock Clearance Sale">Stock Clearance Sale 🔥</option>
                     </select>
                   </td>
                   <td className="p-3">

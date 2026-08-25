@@ -176,6 +176,33 @@ export default function CancellationPolicyView({ setActiveView }) {
           </ul>
         </section>
 
+        {/* Strict Exchange Policy (Broken Jewellery 10-Hour Rule) */}
+        <section className="space-y-3 p-4 bg-red-50/60 border-2 border-red-300 rounded-2xl">
+          <div className="flex items-center gap-2 text-red-950">
+            <span className="material-symbols-outlined text-red-600 text-2xl">videocam</span>
+            <h2 className="font-headline-sm text-base md:text-lg font-bold text-red-950">
+              6. Strict Exchange Policy (Broken Jewellery Only — Mandatory 10-Hour Unboxing Video Proof)
+            </h2>
+          </div>
+          <p className="text-xs md:text-sm leading-relaxed text-red-950">
+            At Jiza Jewellery Studio, all items undergo rigorous quality checks before dispatch. Exchanges are subject to the following non-negotiable terms:
+          </p>
+          <ul className="list-disc pl-5 space-y-2 text-xs md:text-sm text-red-900">
+            <li>
+              <strong>Mandatory Continuous Unboxing Video:</strong> Exchange is strictly and only available if the customer records a continuous, unedited video while opening the sealed package from start to finish showing the broken jewellery piece.
+            </li>
+            <li>
+              <strong>Strict 10-Hour Deadline:</strong> The exchange request along with the unboxing video must be submitted via WhatsApp (+91 82088 22696) or email within <strong>10 hours of delivery</strong>.
+            </li>
+            <li>
+              <strong>Ineligible / Expired Claims:</strong> Claims cannot be claimed or entertained if the 10-hour window has expired, or if unboxing video proof is not provided.
+            </li>
+            <li>
+              <strong>Broken Jewellery Only:</strong> Due to hygiene and handcrafted luxury standards, exchanges are strictly and only applicable for broken / transit-damaged jewellery. Change-of-mind or stylistic preference exchanges are not permitted.
+            </li>
+          </ul>
+        </section>
+
         <div className="pt-6 border-t border-outline-variant/30 flex flex-col sm:flex-row items-center justify-between gap-4">
           <button
             onClick={() => setActiveView('profile')}

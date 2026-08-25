@@ -163,6 +163,7 @@ export default function AddProductModal({
                     <option value="None">None (Default)</option>
                     <option value="New Arrival">New Arrival (Max 4)</option>
                     <option value="Best Seller">Best Seller (Max 4)</option>
+                    <option value="Stock Clearance Sale">Stock Clearance Sale 🔥</option>
                   </select>
                 </div>
               </div>

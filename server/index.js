@@ -1609,7 +1609,7 @@ app.post(['/api/products', '/api/admin/products'], requireAdminAuth, async (req,
 
     const sec = specialSection || 'None';
 
-    if (sec !== 'None') {
+    if (sec === 'New Arrival' || sec === 'Best Seller') {
       const countRes = await db.get(
         'SELECT COUNT(*) as count FROM products WHERE special_section = ? OR badge = ?',
         [sec, sec]
@@ -1816,7 +1816,7 @@ app.patch(['/api/products/:id/special-section', '/api/admin/products/:id/special
     const { specialSection } = req.body;
     const productId = req.params.id;
 
-    if (specialSection !== 'None') {
+    if (specialSection === 'New Arrival' || specialSection === 'Best Seller') {
       const countRes = await db.get(
         'SELECT COUNT(*) as count FROM products WHERE id != ? AND (special_section = ? OR badge = ?)',
         [productId, specialSection, specialSection]

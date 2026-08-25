@@ -150,7 +150,9 @@ export default function HomeView({
   setActiveView,
   productsList
 }) {
-  const allProducts = productsList || PRODUCTS;
+  const allProducts = React.useMemo(() => {
+    return (productsList && productsList.length > 0) ? productsList : PRODUCTS;
+  }, [productsList]);
 
   // Scroll Tracking for 3D Hero Animation
   const [scrollY, setScrollY] = React.useState(0);
@@ -164,19 +166,24 @@ export default function HomeView({
   const [sliding, setSliding] = React.useState(false);
 
   React.useEffect(() => {
+    let slideTimeout = null;
     const timer = setInterval(() => {
       setActiveBanner(prev => {
         const next = (prev + 1) % BANNER_IMAGES.length;
         setPrevBanner(prev);
         setSliding(true);
-        setTimeout(() => {
+        if (slideTimeout) clearTimeout(slideTimeout);
+        slideTimeout = setTimeout(() => {
           setPrevBanner(null);
           setSliding(false);
         }, 1200);
         return next;
       });
     }, 3000);
-    return () => clearInterval(timer);
+    return () => {
+      clearInterval(timer);
+      if (slideTimeout) clearTimeout(slideTimeout);
+    };
   }, [BANNER_IMAGES]);
 
   React.useEffect(() => {
@@ -213,16 +220,20 @@ export default function HomeView({
   const scrollRatio = heroHeight ? Math.min(scrollY / heroHeight, 1) : 0;
 
   // New Arrivals: Explicitly assigned by admin via Special Section = 'New Arrival' (Max 4 products)
-  const newArrivals = allProducts
-    .filter(p => p.specialSection === 'New Arrival' || p.badge === 'New Arrival')
-    .sort((a, b) => (a.soldOut ? 1 : 0) - (b.soldOut ? 1 : 0))
-    .slice(0, 4);
+  const newArrivals = React.useMemo(() => {
+    return allProducts
+      .filter(p => p.specialSection === 'New Arrival' || p.badge === 'New Arrival')
+      .sort((a, b) => (a.soldOut ? 1 : 0) - (b.soldOut ? 1 : 0))
+      .slice(0, 4);
+  }, [allProducts]);
 
   // Best Sellers: Explicitly assigned by admin via Special Section = 'Best Seller' (Max 4 products)
-  const bestSellers = allProducts
-    .filter(p => p.specialSection === 'Best Seller' || p.badge === 'Bestseller' || p.badge === 'Best Seller')
-    .sort((a, b) => (a.soldOut ? 1 : 0) - (b.soldOut ? 1 : 0))
-    .slice(0, 4);
+  const bestSellers = React.useMemo(() => {
+    return allProducts
+      .filter(p => p.specialSection === 'Best Seller' || p.badge === 'Bestseller' || p.badge === 'Best Seller')
+      .sort((a, b) => (a.soldOut ? 1 : 0) - (b.soldOut ? 1 : 0))
+      .slice(0, 4);
+  }, [allProducts]);
 
   return (
     <main className="w-full max-w-container-max mx-auto pb-16 relative" style={{ perspective: '1000px' }}>
@@ -447,26 +458,26 @@ export default function HomeView({
       <section className="py-6 px-margin-mobile md:px-margin-desktop">
         <div 
           onClick={() => setActiveView('rental-gallery')}
-          className="group relative bg-[#FCDAD7] border border-black/20 rounded-3xl p-6 md:p-8 shadow-sm hover:shadow-xl transition-all duration-300 cursor-pointer overflow-hidden text-black flex flex-col md:flex-row items-start md:items-center justify-between gap-6"
+          className="group relative bg-[#FCDAD7] border border-[#F8B3AC] rounded-3xl p-6 md:p-8 shadow-sm hover:shadow-xl transition-all duration-300 cursor-pointer overflow-hidden text-stone-900 flex flex-col md:flex-row items-start md:items-center justify-between gap-6"
         >
           <div className="relative z-10 max-w-xl">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-black text-white text-[11px] font-bold uppercase tracking-wider rounded-full mb-3 shadow-xs">
-              <span className="material-symbols-outlined text-xs text-white">diamond</span>
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#4A0404] text-amber-200 border border-[#D4AF37]/40 text-[11px] font-bold uppercase tracking-wider rounded-full mb-3 shadow-xs">
+              <span className="material-symbols-outlined text-xs text-amber-300">diamond</span>
               <span>Exclusive Studio Rental Edit</span>
             </div>
 
             <h2 
-              className="text-xl md:text-3xl font-bold mb-2 tracking-wide leading-tight text-black"
+              className="text-xl md:text-3xl font-bold mb-2 tracking-wide leading-tight text-stone-900"
               style={{ fontFamily: "'Playfair Display', Georgia, serif" }}
             >
               Rental Collection Gallery
             </h2>
 
-            <p className="text-xs md:text-sm text-black/85 font-medium leading-relaxed mb-4">
+            <p className="text-xs md:text-sm text-stone-800 font-medium leading-relaxed mb-4">
               Explore high-definition photographs of our handcrafted Kundan, Maharashtrian, Victorian &amp; Temple jewellery sets available for rental.
             </p>
 
-            <button className="inline-flex items-center gap-2 px-5 py-2.5 bg-black hover:bg-black/85 text-white font-bold text-xs uppercase tracking-wider rounded-xl shadow-md transition-transform group-hover:scale-105 active:scale-95">
+            <button className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#4A0404] hover:bg-[#5C0A0A] text-white font-bold text-xs uppercase tracking-wider rounded-xl shadow-md transition-transform group-hover:scale-105 active:scale-95 border border-[#D4AF37]/30">
               <span>Open Rental Image Gallery</span>
               <span className="material-symbols-outlined text-sm group-hover:translate-x-1 transition-transform">arrow_forward</span>
             </button>

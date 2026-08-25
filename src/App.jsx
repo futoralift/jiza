@@ -1181,8 +1181,24 @@ export default function App() {
             activeView={activeView}
             setActiveView={handleNavigateView}
             cartNeedsBounce={cartNeedsBounce}
-            onSearchClick={() => {
-              setSearchQuery('Kundan');
+            onSearchClick={(query) => {
+              setSearchQuery(query !== undefined ? query : 'Kundan');
+              setSelectedCategory('');
+              setActiveView('search');
+            }}
+            onShopAll={() => {
+              setSearchQuery('');
+              setSelectedCategory('');
+              setActiveView('search');
+            }}
+            onClearanceSale={() => {
+              setSearchQuery('Sale');
+              setSelectedCategory('');
+              setActiveView('search');
+            }}
+            onOpenAuthModal={(msg) => {
+              setAuthModalMessage(msg || 'Please sign in or create an account.');
+              setIsAuthModalOpen(true);
             }}
             currentUser={currentUser}
             onAccountClick={handleAccountClick}

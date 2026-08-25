@@ -49,14 +49,26 @@ export default function SearchView({
       const prodSubCatId = (product.subcategory_id || '').toLowerCase();
       const prodSubCatName = subcatLabel;
 
-      // Text match query across all fields
+      // Text match query across all fields + Sale/Clearance discount & special section matching
+      const prodSpecialSec = (product.specialSection || product.special_section || '').toLowerCase();
+      const isSaleSearch = q === 'sale' || q === 'clearance' || q === 'discount' || q === 'offer' || q === 'stock clearance sale';
+      const hasDiscountOrSaleBadge = (product.discount && Number(product.discount) > 0) ||
+        prodSpecialSec.includes('clearance') ||
+        prodSpecialSec.includes('sale') ||
+        (product.badge && (product.badge.toLowerCase().includes('sale') || product.badge.toLowerCase().includes('clearance') || product.badge.toLowerCase().includes('off'))) ||
+        (product.mrp && Number(product.mrp) > price) ||
+        (product.originalPrice && Number(product.originalPrice) > price);
+
       const matchesQuery = q === '' || 
+        (isSaleSearch && hasDiscountOrSaleBadge) ||
+        prodSpecialSec.includes(q) ||
         title.includes(q) ||
         desc.includes(q) ||
         catLabel.includes(q) ||
         subcatLabel.includes(q) ||
         material.includes(q) ||
         colour.includes(q) ||
+        (product.badge && product.badge.toLowerCase().includes(q)) ||
         tags.some(t => typeof t === 'string' && t.toLowerCase().includes(q));
 
       // Category match
