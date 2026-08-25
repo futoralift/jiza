@@ -32,13 +32,13 @@ const PREMIUM_FEATURES = [
     id: 'digital-presence-management',
     icon: 'hub',
     title: 'Digital Presence Management Package',
-    subtitle: 'Complete monthly digital management retainer: Instagram, YouTube, Social Media, Website & Monthly Reports.',
+    subtitle: 'Complete monthly digital management retainer: Instagram, YouTube, Social Media, Website, Strategy & Monthly Reports.',
     price: '₹10,000/month',
     rawPrice: '₹10,000/mo',
     tag: 'Monthly Retainer',
     badge: '⭐ Flagship Retainer',
     description: 'A comprehensive monthly digital management retainer designed to keep Jiza Jewellery Studio active, optimized, monitored, and strategically expanding across all digital channels.',
-    scopeNote: 'This is a proper monthly digital management retainer focused on management, distribution, SEO, and active monitoring.',
+    scopeNote: 'This is a proper monthly digital management retainer focused on management, distribution, SEO, and strategic optimization.',
     notIncluded: 'Content shooting, video editing, graphic designing, paid advertising budget, or major website development/redesign.',
     sections: [
       {
@@ -96,6 +96,21 @@ const PREMIUM_FEATURES = [
         ]
       },
       {
+        title: 'Strategy & Growth',
+        icon: 'trending_up',
+        items: [
+          'Monthly social media strategy',
+          'Content strategy based on provided content',
+          'Competitor analysis & benchmarking',
+          'Trend & high-intent keyword research',
+          'SEO Strategy (Search Engine Optimization for Google search)',
+          'GEO Strategy (Generative Engine Optimization for AI like ChatGPT, Perplexity & Gemini)',
+          'AEO Strategy (Answer Engine Optimization for AI direct answer snippets & voice queries)',
+          'Audience & organic growth recommendations',
+          'Platform-wise improvement strategies'
+        ]
+      },
+      {
         title: 'Reports & Monitoring',
         icon: 'analytics',
         items: [
@@ -114,7 +129,8 @@ const PREMIUM_FEATURES = [
       'YouTube Video & Shorts SEO, Tagging & Channel Optimization',
       'Unified Facebook & Instagram Content Calendar & Engagement',
       'Website Updates, Banners, Contact Details & Health Monitoring',
-      'Monthly Analytics, Insights & In-Depth Performance Reports'
+      'Multi-Engine Strategy: Complete SEO + GEO (AI Engines) + AEO Optimization',
+      'Monthly Strategy, Growth Guidance & In-Depth Performance Reports'
     ]
   },
   {
@@ -215,21 +231,21 @@ const PREMIUM_FEATURES = [
   }
 ];
 
-export default function AdminPanel({ 
-  productsList, 
-  ordersList, 
-  customersList, 
+export default function AdminPanel({
+  productsList,
+  ordersList,
+  customersList,
   categoriesList = [],
   onRefreshCategories,
   onRefreshProducts,
-  onAddProduct, 
+  onAddProduct,
   onUpdateProduct,
   onDeleteProduct,
-  onUpdateProductStock, 
-  onUpdateProductPrice, 
+  onUpdateProductStock,
+  onUpdateProductPrice,
   onUpdateSpecialSection,
   onUpdateOrderStatus,
-  onExitAdmin 
+  onExitAdmin
 }) {
   const isReadOnly = isReadOnlyAdmin(); // true for SUPER_READONLY_ADMIN (Agency), false for SUPER_ADMIN (Owner)
   const [activeTab, setActiveTab] = useState('overview');
@@ -280,7 +296,7 @@ export default function AdminPanel({
   const [orderDatePreset, setOrderDatePreset] = useState('all');
   const [orderStartDate, setOrderStartDate] = useState('2026-07-01');
   const [orderEndDate, setOrderEndDate] = useState('2026-08-05');
-  
+
   // Modals inside Admin
   const [isAddProductOpen, setIsAddProductOpen] = useState(false);
   const [selectedOrderDetails, setSelectedOrderDetails] = useState(null);
@@ -855,10 +871,10 @@ export default function AdminPanel({
 
   const handleOpenEditProduct = (p) => {
     setEditingProduct(p);
-    const existingImages = p.images && Array.isArray(p.images) && p.images.length > 0 
-      ? p.images 
+    const existingImages = p.images && Array.isArray(p.images) && p.images.length > 0
+      ? p.images
       : [p.img || ''];
-    
+
     const padded = ['', '', '', ''];
     existingImages.forEach((img, idx) => {
       if (idx < 4) padded[idx] = img;
@@ -1281,7 +1297,7 @@ export default function AdminPanel({
         const m = parts.find(p => p.type === 'month')?.value;
         const day = parts.find(p => p.type === 'day')?.value;
         if (y && m && day) return `${y}-${m}-${day}`;
-      } catch (e) {}
+      } catch (e) { }
 
       return d.toISOString().split('T')[0];
     };
@@ -1453,13 +1469,13 @@ export default function AdminPanel({
 
   return (
     <div className="min-h-screen bg-[#FDF0ED] text-on-surface font-body-md flex flex-col relative">
-      
+
       {/* 1. FIXED TOP NAVIGATION BAR */}
       <AdminHeader onExitAdmin={onExitAdmin} />
 
       {/* BODY WRAPPER */}
       <div className="flex flex-1 pt-12 min-h-screen">
-        
+
         {/* 2. COMPACT LEFT SIDEBAR */}
         <AdminSidebar
           activeTab={activeTab}
@@ -1480,7 +1496,7 @@ export default function AdminPanel({
 
         {/* 3. MAIN DASHBOARD CONTENT AREA */}
         <main className="flex-1 ml-52 p-5 md:p-6 min-h-[calc(100vh-48px)] bg-[#FDF0ED] space-y-5">
-          
+
           {/* Subheader / Page Title */}
           <div className="flex items-center justify-between pb-2 border-b border-[#F7C5C0]">
             <h2 className="font-headline-sm text-sm text-black font-bold capitalize tracking-tight">
@@ -1890,11 +1906,10 @@ export default function AdminPanel({
                   customConfirm.onConfirm();
                   setCustomConfirm(null);
                 }}
-                className={`px-5 py-2.5 font-bold text-xs rounded-xl shadow-md transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer ${
-                  customConfirm.isDanger 
-                    ? 'bg-red-600 hover:bg-red-700 text-white border border-red-700/20' 
+                className={`px-5 py-2.5 font-bold text-xs rounded-xl shadow-md transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer ${customConfirm.isDanger
+                    ? 'bg-red-600 hover:bg-red-700 text-white border border-red-700/20'
                     : 'bg-[#FCDAD7] hover:bg-[#F9C5C0] text-black border border-black/20'
-                }`}
+                  }`}
               >
                 <span>{customConfirm.confirmText || 'Proceed'}</span>
               </button>
