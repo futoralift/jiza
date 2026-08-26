@@ -723,7 +723,7 @@ export default function ProfileView({
                   <button
                     type="button"
                     onClick={() => onAddToCart(product, 1)}
-                    className="px-2.5 py-1.5 bg-[#FFF0F2] hover:bg-[#FCDAD7] text-black font-bold text-[10px] rounded-lg shadow-xs border border-black/20 transition-colors flex items-center gap-1 cursor-pointer"
+                    className="px-2.5 py-1.5 bg-white hover:bg-[#FFF0F2] text-black font-semibold text-[10px] rounded-lg shadow-xs border border-black/15 transition-colors flex items-center gap-1 cursor-pointer"
                     title="Add to Cart"
                   >
                     <span className="material-symbols-outlined text-xs">shopping_bag</span>
@@ -738,7 +738,7 @@ export default function ProfileView({
                         onAddToCart(product, 1);
                       }
                     }}
-                    className="px-2.5 py-1.5 bg-black hover:bg-stone-900 text-[#FCDAD7] font-bold text-[10px] rounded-lg shadow-xs border border-black transition-colors flex items-center gap-1 cursor-pointer"
+                    className="px-2.5 py-1.5 bg-[#FCDAD7] hover:bg-[#F9C5C0] text-black font-bold text-[10px] rounded-lg shadow-xs border border-black/20 transition-colors flex items-center gap-1 cursor-pointer"
                     title="Buy Now"
                   >
                     <span className="material-symbols-outlined text-xs">flash_on</span>

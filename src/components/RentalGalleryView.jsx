@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { getMediaUrl } from '../config';
 
 // Sample Rental Collection Gallery Data
 const RENTAL_ITEMS = [
@@ -99,7 +100,7 @@ export default function RentalGalleryView({ setActiveView }) {
         if (isMounted && data.success && Array.isArray(data.items) && data.items.length > 0) {
           const items = data.items.map((it, idx) => ({
             id: it.id || idx,
-            image: it.image_url || it.image || '/rental1.webp',
+            image: getMediaUrl(it.image_url || it.image) || '/rental1.webp',
             title: `Rental Collection Set ${idx + 1}`
           }));
           setGalleryItems(items);

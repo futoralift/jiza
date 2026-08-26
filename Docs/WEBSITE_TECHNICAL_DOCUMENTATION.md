@@ -15,16 +15,17 @@ This document provides a comprehensive technical breakdown of the storefront and
 ### Implemented Core Capabilities
 
 - **Architecture:** State-based Single Page Application (SPA) on the frontend using React 18 and Vite 5, backed by an Express 5 server communicating with a PostgreSQL 14+ relational database with row-level locks and connection pooling.
+- **Viewport-Fitting Product Modal & Unified Media Slider:** Bounds constrained to `max-h-[85vh]` / `max-h-[92vh]` for seamless viewing on standard 768px laptop & mobile screens with sticky bottom action buttons. Features an interactive photo & video carousel with mobile touch swipe gestures, thumbnail badges, and counter pills.
+- **Light Rose Gold Theme Color Palette:** Refined royal blush pink theme (`#FCDAD7`, `#FFF0F2`) across all "Buy Now" and "Add to Bag" buttons, replacing dark/black accents with light, complementary luxury aesthetics.
+- **Strict Customer Care Exchange Policy:** Direct modal for "Only Exchange • No Return" with mandatory 10-hour unboxing video requirements and WhatsApp claim submission.
 - **Automatic Shipping Rules:** Automatic dynamic calculation: Orders $\ge$ ₹1,000 qualify for **FREE Shipping**; orders $<$ ₹1,000 automatically incur a **₹100 Flat Shipping Fee** (Store Pickup is always ₹0). Fully enforced on backend order creation and Razorpay checkout.
 - **Add to Cart + Buy Now Dual Action System:** Customers can choose between "Add to Cart" (with fly-to-cart animation) and "Buy Now" (which automatically adds the selected item and navigates straight to Checkout).
 - **Strict 10-Digit Mobile Number Validation & `+91` Prefix:** Strict numeric input mask, maximum 10-digit cap, embedded blush pink `+91` country code badge, and backend 10-digit regex validation across Auth, Checkout, Profile, and Admin.
 - **Minimal Video Reels Section:** 9 vertical YouTube Shorts with player controls and branding cropped out for a luxury social-commerce experience.
 - **Modular Admin Panel (`src/components/admin/`):** Refactored into clean sub-components (`AdminSidebar`, `AdminHeader`, `tabs/`, `modals/`).
 - **Product Code System:** Originates in Product CMS → Database (`product_code UNIQUE`) → Storefront Product Page → Cart/Checkout → Immutable Order Snapshot (`items_json`) → Admin Orders Manager.
-- **Delivery Address Snapshot System:** Orders record immutable address snapshots (`shipping_address_line1`, `shipping_city`, `shipping_pincode`, etc.).
-- **Compulsory Indian Pincode System:** Enforced 6-digit numeric Indian pincode validation (`/^\d{6}$/`) on frontend and backend.
-- **Rental Collection Gallery CMS:** Dedicated image-only CMS tab (`RentalGalleryTab.jsx`) with multi-file upload (`/api/admin/rental-gallery`) and customer-facing gallery view (`RentalGalleryView.jsx`).
-- **DPDP Act (2023) Compliance:** Permanent user deletion and past order anonymization (`POST /api/users/delete-account`).
+- **Rental Collection Gallery CMS:** Dedicated image-only CMS tab (`RentalGalleryTab.jsx`) with multi-file auto-WebP compression (<10MB) and customer-facing dynamic gallery view (`RentalGalleryView.jsx`).
+- **Google Local & Brand SEO Engine:** Canonical domain `https://www.jizajewellerystudio.com`, rich JSON-LD `JewelryStore` Schema with GPS coordinates `18.4770, 73.8190`, voice search `FAQPage` snippets, and official brand Favicon (`/jiza-door-logo.png`).
 
 ---
 

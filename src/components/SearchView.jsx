@@ -29,7 +29,10 @@ export default function SearchView({
 
   const filteredProducts = useMemo(() => {
     const list = (productsList && productsList.length > 0) ? productsList : PRODUCTS;
-    const q = (searchQuery || '').trim().toLowerCase();
+    let q = (searchQuery || '').trim().toLowerCase();
+    // Typo-tolerant normalization for brand & jewellery misspellings
+    q = q.replace(/jewellary|jewllary|jewelery/g, 'jewellery')
+         .replace(/jijaa|jija|jizaa/g, 'jiza');
     const catSel = (selectedCategory || '').trim().toLowerCase();
 
     return list.filter((product) => {
@@ -282,7 +285,7 @@ export default function SearchView({
                         img: product.images?.[0] || product.img
                       });
                     }}
-                    className="py-2 px-1 rounded-lg text-[11px] font-bold transition-all flex items-center justify-center gap-1 bg-[#FFF0F2] hover:bg-[#FCDAD7] text-black border border-black/20 shadow-xs active:scale-95"
+                    className="py-2 px-1 rounded-lg text-[11px] font-semibold transition-all flex items-center justify-center gap-1 bg-white hover:bg-[#FFF0F2] text-black border border-black/15 shadow-xs active:scale-95"
                     title="Add to Shopping Bag"
                   >
                     <span className="material-symbols-outlined text-[15px]">shopping_bag</span>
@@ -299,7 +302,7 @@ export default function SearchView({
                         onAddToCart(product, 1, 'Standard', '');
                       }
                     }}
-                    className="py-2 px-1 rounded-lg text-[11px] font-bold transition-all flex items-center justify-center gap-1 bg-black hover:bg-stone-900 text-[#FCDAD7] border border-black shadow-xs active:scale-95"
+                    className="py-2 px-1 rounded-lg text-[11px] font-bold transition-all flex items-center justify-center gap-1 bg-[#FCDAD7] hover:bg-[#F9C5C0] text-black border border-black/20 shadow-xs active:scale-95"
                     title="Buy Now (Direct Checkout)"
                   >
                     <span className="material-symbols-outlined text-[15px]">flash_on</span>

@@ -227,7 +227,7 @@ export default function MobileNavDrawer({
             {currentUser ? (
               <div className="p-3 bg-[#FCDAD7]/30 border border-[#F8B3AC]/50 rounded-2xl flex items-center justify-between gap-2 shadow-xs">
                 <div className="flex items-center gap-2.5 overflow-hidden">
-                  <div className="w-8 h-8 rounded-full bg-[#4A0404] text-amber-200 border border-[#D4AF37]/50 flex items-center justify-center text-xs font-bold shrink-0 shadow-xs">
+                  <div className="w-8 h-8 rounded-full bg-white text-stone-900 border border-[#F8B3AC] flex items-center justify-center text-xs font-bold shrink-0 shadow-xs">
                     {(currentUser.name || 'U').charAt(0).toUpperCase()}
                   </div>
                   <div className="overflow-hidden">

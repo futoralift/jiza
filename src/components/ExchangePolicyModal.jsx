@@ -27,8 +27,8 @@ export default function ExchangePolicyModal({ isOpen, onClose }) {
               >
                 Exchange Policy
               </h2>
-              <span className="text-[10px] uppercase font-bold tracking-widest text-black/70 block">
-                Strict Customer Guidelines
+              <span className="text-[10px] uppercase font-bold tracking-widest text-red-800 block">
+                Only Exchange • No Return / No Refund
               </span>
             </div>
           </div>

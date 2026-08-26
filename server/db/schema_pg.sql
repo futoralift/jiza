@@ -87,6 +87,7 @@ CREATE TABLE IF NOT EXISTS products (
     sold_out INTEGER DEFAULT 0,
     sold_count INTEGER DEFAULT 0,
     product_code VARCHAR(100) UNIQUE,
+    video_url TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 

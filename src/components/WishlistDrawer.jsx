@@ -77,7 +77,7 @@ export default function WishlistDrawer({
                     <button 
                       type="button"
                       onClick={() => onAddToCart(product)}
-                      className="py-1.5 px-2 bg-[#FFF0F2] hover:bg-[#FCDAD7] text-black border border-black/20 rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1"
+                      className="py-1.5 px-2 bg-white hover:bg-[#FFF0F2] text-black border border-black/15 rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1"
                     >
                       <span className="material-symbols-outlined text-[14px]">shopping_bag</span>
                       Bag
@@ -92,7 +92,7 @@ export default function WishlistDrawer({
                           onAddToCart(product);
                         }
                       }}
-                      className="py-1.5 px-2 bg-black hover:bg-stone-900 text-[#FCDAD7] border border-black rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-1"
+                      className="py-1.5 px-2 bg-[#FCDAD7] hover:bg-[#F9C5C0] text-black border border-black/20 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-1"
                     >
                       <span className="material-symbols-outlined text-[14px]">flash_on</span>
                       Buy Now

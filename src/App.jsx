@@ -170,7 +170,7 @@ export default function App() {
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data) && data.length > 0) {
-          setProductsList(prev => hasArrayChanged(prev, data, ['id', 'stockQuantity', 'sellingPrice', 'soldOut', 'badge', 'productCode']) ? data : prev);
+          setProductsList(data);
         }
       }
     } catch (err) {
@@ -1387,7 +1387,7 @@ export default function App() {
 
       {/* Product Detail Modal */}
       <ProductDetailModal 
-        product={selectedProduct}
+        product={selectedProduct ? (productsList.find(p => p.id === selectedProduct.id) || selectedProduct) : null}
         onClose={() => setSelectedProduct(null)}
         onAddToCart={handleAddToCart}
         onBuyNow={handleBuyNow}

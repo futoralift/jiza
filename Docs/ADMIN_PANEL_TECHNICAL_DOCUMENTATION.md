@@ -57,11 +57,17 @@ src/components/
 - **KPI Metrics:** Real-time stat cards: Gross Revenue, Total Orders, Active Customers, Total Categories, Total Subcategories, and Total Products.
 - **Activity Streams:** Displays recent orders table with customer details and top-selling products list.
 
-### 2. Product CMS & Product Code System (`ProductsTab.jsx`, `AddProductModal.jsx`, `EditProductModal.jsx`)
-- **Product Code Requirement:** Mandatory `product_code` field enforced on backend and frontend during product creation/edit. Duplicate product codes are rejected with `400 Bad Request`.
-- **Product Code Flow:** Product CMS → PostgreSQL DB (`product_code UNIQUE`) → Storefront Product Page → Cart/Checkout → Immutable Order Snapshot (`items_json`) → Admin Orders Manager.
-- **Stock Management:** Inline stock count adjusters and automatic `Sold Out` status toggling when stock reaches 0.
-- **Special Sections:** Limits special promotional sections (`New Arrival`, `Best Seller`) to a maximum of 4 items.
+### 2. Product CMS & Showcase Video System (`ProductsTab.jsx`, `AddProductModal.jsx`, `EditProductModal.jsx`)
+- **Product Code System:** Every product requires a unique Product Code (`product_code UNIQUE`) that propagates to Cart, Checkout, Order Snapshots, and Admin Order Details.
+- **Product Showcase Video Upload:** Admin can upload an MP4/WebM product showcase video (up to 10MB) alongside product photos. Includes live preview player, replace, and remove actions.
+- **Client-Side WebP Compression:** Images are automatically scaled to 1200px max and converted to WebP (~150KB output) before upload, ensuring instantaneous loading.
+- **Automatic Server Disk Cleanup:** Obsolete photos and videos are automatically deleted from the VPS disk (`/public/uploads/`) upon product modification or deletion.
+
+### 3. Rental Collection Gallery CMS (`RentalGalleryTab.jsx`, `RentalDeleteModal.jsx`)
+- Dedicated image-only CMS tab for managing the customer lookbook.
+- **Auto-WebP Compression (<10MB):** Bulk image uploads are automatically compressed on client canvas to high-clarity WebP.
+- **Batch Upload Stream:** Processes uploads in 8-image chunks to guarantee 100% upload reliability without HTTP payload timeouts.
+- **Orphan Media Sweep:** Automated background cleaner checks database references in PostgreSQL and purges unreferenced media files.
 
 ### 3. Order Management & IST Date Range Filtering (`OrdersTab.jsx`, `OrderDetailsModal.jsx`)
 - **7-Column Order Table:** Displays Order ID, Date, Customer Name/Phone, Items (`Product Code × Qty`), Amount, Payment Status, and Order Status.

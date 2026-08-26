@@ -20,6 +20,22 @@ export const API_BASE = (
   (isDevServer ? `http://${window.location.hostname}:5000` : '')
 ).replace(/\/$/, '');
 
+/**
+ * Safely format upload media URLs (images and videos) for development and production.
+ */
+export function getMediaUrl(url) {
+  if (!url || typeof url !== 'string') return '';
+  const trimmed = url.trim();
+  if (trimmed.startsWith('data:') || trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('blob:')) {
+    return trimmed;
+  }
+  if (trimmed.startsWith('/uploads/') || trimmed.startsWith('uploads/')) {
+    const clean = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+    return API_BASE ? `${API_BASE}${clean}` : clean;
+  }
+  return trimmed;
+}
+
 export const ADMIN_TOKEN_KEY = 'jiza_admin_token';
 export const ADMIN_ROLE_KEY = 'jiza_admin_role';
 export const ADMIN_EMAIL_KEY = 'jiza_admin_email';

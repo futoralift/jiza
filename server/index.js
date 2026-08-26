@@ -100,9 +100,9 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.options('/{*path}', cors(corsOptions));
 
-// Express Body Parsers (Payload limit for images/screenshots)
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ limit: '10mb', extended: true }));
+// Express Body Parsers (Payload limit for high-res images & showcase videos)
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // Server-side helper to verify if request originates from an authenticated admin token
 function isAuthedAdmin(req) {
@@ -183,34 +183,68 @@ if (!fs.existsSync(uploadsDir)) {
 }
 app.use('/uploads', express.static(uploadsDir));
 
-// Universal Image Upload & Storage Management Helpers
-function saveBase64ImageToDisk(base64Str, folderName = 'general') {
-  if (!base64Str || typeof base64Str !== 'string' || !base64Str.startsWith('data:image')) {
+// Universal Image & Video Upload & Storage Management Helpers
+function saveBase64MediaToDisk(base64Str, folderName = 'general') {
+  if (!base64Str || typeof base64Str !== 'string') {
     return base64Str || '';
   }
-  try {
-    const matches = base64Str.match(/^data:image\/([a-zA-Z0-9]+);base64,(.+)$/);
-    if (!matches || matches.length !== 3) return base64Str;
 
-    const rawExt = matches[1].toLowerCase();
-    const ext = rawExt === 'jpeg' ? 'jpg' : rawExt;
-    const dataBuffer = Buffer.from(matches[2], 'base64');
-    const targetFolder = path.join(__dirname, '../public/uploads', folderName);
-    
-    if (!fs.existsSync(targetFolder)) {
-      fs.mkdirSync(targetFolder, { recursive: true });
+  // Handle Images
+  if (base64Str.startsWith('data:image')) {
+    try {
+      const matches = base64Str.match(/^data:image\/([a-zA-Z0-9+]+);base64,(.+)$/);
+      if (!matches || matches.length !== 3) return base64Str;
+
+      const rawExt = matches[1].toLowerCase();
+      const ext = rawExt === 'jpeg' ? 'jpg' : (rawExt.includes('webp') ? 'webp' : (rawExt.includes('png') ? 'png' : 'jpg'));
+      const dataBuffer = Buffer.from(matches[2], 'base64');
+      const targetFolder = path.join(__dirname, '../public/uploads', folderName);
+
+      if (!fs.existsSync(targetFolder)) {
+        fs.mkdirSync(targetFolder, { recursive: true });
+      }
+
+      const filename = `${folderName}-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}.${ext}`;
+      const filePath = path.join(targetFolder, filename);
+      fs.writeFileSync(filePath, dataBuffer);
+
+      return `/uploads/${folderName}/${filename}`;
+    } catch (err) {
+      console.error(`Error saving base64 image to disk (${folderName}):`, err);
+      return base64Str;
     }
-
-    const filename = `${folderName}-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}.${ext}`;
-    const filePath = path.join(targetFolder, filename);
-    fs.writeFileSync(filePath, dataBuffer);
-
-    return `/uploads/${folderName}/${filename}`;
-  } catch (err) {
-    console.error(`Error saving base64 image to disk (${folderName}):`, err);
-    return base64Str;
   }
+
+  // Handle Videos (MP4, WebM, QuickTime MOV)
+  if (base64Str.startsWith('data:video')) {
+    try {
+      const matches = base64Str.match(/^data:video\/([a-zA-Z0-9+]+);base64,(.+)$/);
+      if (!matches || matches.length !== 3) return base64Str;
+
+      const rawExt = matches[1].toLowerCase();
+      const ext = rawExt.includes('webm') ? 'webm' : (rawExt.includes('quicktime') ? 'mov' : 'mp4');
+      const dataBuffer = Buffer.from(matches[2], 'base64');
+      const targetFolder = path.join(__dirname, '../public/uploads', folderName);
+
+      if (!fs.existsSync(targetFolder)) {
+        fs.mkdirSync(targetFolder, { recursive: true });
+      }
+
+      const filename = `${folderName}-vid-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}.${ext}`;
+      const filePath = path.join(targetFolder, filename);
+      fs.writeFileSync(filePath, dataBuffer);
+
+      return `/uploads/${folderName}/${filename}`;
+    } catch (err) {
+      console.error(`Error saving base64 video to disk (${folderName}):`, err);
+      return base64Str;
+    }
+  }
+
+  return base64Str;
 }
+
+const saveBase64ImageToDisk = saveBase64MediaToDisk;
 
 function deleteLocalUploadFile(fileUrl) {
   if (!fileUrl || typeof fileUrl !== 'string') return;
@@ -234,6 +268,73 @@ function deleteLocalUploadFile(fileUrl) {
     }
   } catch (err) {
     console.error(`[STORAGE CLEANUP] Failed to delete file (${fileUrl}):`, err.message);
+  }
+}
+
+// Automatic Orphaned Media File Cleanup Routine
+async function cleanOrphanedUploads() {
+  try {
+    const db = await getDb();
+    const products = await db.all('SELECT img, images_json, video_url FROM products');
+    const categories = await db.all('SELECT img FROM categories');
+    const subcategories = await db.all('SELECT img FROM subcategories');
+    const rentals = await db.all('SELECT image_url FROM rental_gallery');
+
+    const activeFiles = new Set();
+
+    products.forEach(p => {
+      if (p.img) activeFiles.add(path.normalize(p.img.replace(/^.*\/uploads\//, '')));
+      if (p.video_url) activeFiles.add(path.normalize(p.video_url.replace(/^.*\/uploads\//, '')));
+      if (p.images_json) {
+        try {
+          const arr = JSON.parse(p.images_json);
+          if (Array.isArray(arr)) {
+            arr.forEach(item => {
+              if (item) activeFiles.add(path.normalize(item.replace(/^.*\/uploads\//, '')));
+            });
+          }
+        } catch (_) { }
+      }
+    });
+
+    categories.forEach(c => {
+      if (c.img) activeFiles.add(path.normalize(c.img.replace(/^.*\/uploads\//, '')));
+    });
+
+    subcategories.forEach(s => {
+      if (s.img) activeFiles.add(path.normalize(s.img.replace(/^.*\/uploads\//, '')));
+    });
+
+    rentals.forEach(r => {
+      if (r.image_url) activeFiles.add(path.normalize(r.image_url.replace(/^.*\/uploads\//, '')));
+    });
+
+    const uploadsBase = path.join(__dirname, '../public/uploads');
+    const folders = ['products', 'categories', 'rentals', 'general'];
+    let deletedCount = 0;
+
+    folders.forEach(folder => {
+      const folderPath = path.join(uploadsBase, folder);
+      if (fs.existsSync(folderPath)) {
+        const files = fs.readdirSync(folderPath);
+        files.forEach(file => {
+          const relKey = path.normalize(path.join(folder, file));
+          if (!activeFiles.has(relKey)) {
+            try {
+              fs.unlinkSync(path.join(folderPath, file));
+              deletedCount++;
+              console.log(`[ORPHAN CLEANUP] Removed unused storage file: ${relKey}`);
+            } catch (err) { }
+          }
+        });
+      }
+    });
+
+    if (deletedCount > 0) {
+      console.log(`[STORAGE OPTIMIZER] Cleaned ${deletedCount} unused media file(s) from VPS disk.`);
+    }
+  } catch (err) {
+    console.error('[STORAGE OPTIMIZER] Error during orphan cleanup:', err.message);
   }
 }
 
@@ -320,7 +421,7 @@ async function initCategoriesAndSubcategories() {
   try {
     const db = await getDb();
     const existingCats = await db.all('SELECT * FROM categories');
-    
+
     if (existingCats.length === 0) {
       console.log('🌱 Seeding initial categories & subcategories into database...');
       let catOrder = 1;
@@ -460,8 +561,8 @@ app.post('/api/admin/auth/verify-credentials', async (req, res) => {
       const lockoutTime = new Date(admin.lockout_until).getTime();
       if (Date.now() < lockoutTime) {
         const remainingMins = Math.ceil((lockoutTime - Date.now()) / (60 * 1000));
-        return res.status(429).json({ 
-          error: `Account temporarily locked due to repeated failed login attempts. Please try again in ${remainingMins} minute(s).` 
+        return res.status(429).json({
+          error: `Account temporarily locked due to repeated failed login attempts. Please try again in ${remainingMins} minute(s).`
         });
       }
     }
@@ -499,8 +600,8 @@ app.post('/api/admin/auth/verify-credentials', async (req, res) => {
 
     console.log(`🔒 [4FA STEP 1 SUCCESS] OTP for ${admin.email}: ${otpCode}`);
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       message: `Step 1 verified. A 6-digit OTP code has been sent to ${admin.email}.`,
       expiresInSeconds: 300
     });
@@ -551,14 +652,14 @@ app.post('/api/admin/auth/verify-otp', async (req, res) => {
       { expiresIn: '24h' }
     );
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       token: adminToken,
       role: role,
       email: email.trim().toLowerCase(),
       message: role === 'SUPER_READONLY_ADMIN'
         ? 'Authentication successful! Welcome to Jiza Studio Management Panel (Read & Export Access).'
-        : '4FA Authentication successful! Welcome Administrator.' 
+        : '4FA Authentication successful! Welcome Administrator.'
     });
 
   } catch (err) {
@@ -601,8 +702,8 @@ app.post('/api/admin/auth/change-password', async (req, res) => {
       const lockoutTime = new Date(admin.lockout_until).getTime();
       if (Date.now() < lockoutTime) {
         const remainingMins = Math.ceil((lockoutTime - Date.now()) / (60 * 1000));
-        return res.status(429).json({ 
-          error: `Account temporarily locked. Please try again in ${remainingMins} minute(s).` 
+        return res.status(429).json({
+          error: `Account temporarily locked. Please try again in ${remainingMins} minute(s).`
         });
       }
     }
@@ -663,7 +764,7 @@ app.post('/api/auth/register', async (req, res) => {
   try {
     const db = await getDb();
     const { name, email, phone, address, city, pincode } = req.body;
-    
+
     const cleanPin = pincode ? String(pincode).trim() : '';
     if (!name || !email || !phone || !cleanPin) {
       return res.status(400).json({ error: 'Name, Email, Phone number, and compulsory Pincode are required.' });
@@ -736,7 +837,7 @@ app.post('/api/auth/register', async (req, res) => {
         try {
           const updateDb = await getDb();
           await updateDb.run('UPDATE users SET welcome_email_sent = 1 WHERE id = ?', [id]);
-        } catch (_) {}
+        } catch (_) { }
       }
     }).catch(e => console.error('Welcome email async background note:', e.message));
 
@@ -1052,7 +1153,7 @@ app.get('/api/admin/customers/:id', requireAdminAuth, async (req, res) => {
 
     // Fetch order list
     const orders = await db.all('SELECT * FROM orders WHERE user_id = ? OR customer_email = ? ORDER BY created_at DESC', [customer.id, customer.email]);
-    
+
     // Fetch review list
     const reviews = await db.all('SELECT * FROM product_reviews WHERE user_id = ? OR customer_email = ? ORDER BY created_at DESC', [customer.id, customer.email]);
 
@@ -1066,7 +1167,7 @@ app.get('/api/admin/customers/:id', requireAdminAuth, async (req, res) => {
       try {
         const items = JSON.parse(cart.items_json);
         cartItemsCount = items.reduce((acc, i) => acc + (i.quantity || 1), 0);
-      } catch (e) {}
+      } catch (e) { }
     }
 
     // Fetch wishlist size
@@ -1076,7 +1177,7 @@ app.get('/api/admin/customers/:id', requireAdminAuth, async (req, res) => {
       try {
         const pids = JSON.parse(wishlist.product_ids_json);
         wishlistItemsCount = pids.length;
-      } catch (e) {}
+      } catch (e) { }
     }
 
     // Formatted details
@@ -1219,7 +1320,7 @@ app.post(['/api/categories', '/api/admin/categories'], requireAdminAuth, async (
     if (targetOrder > existingCats.length + 1) targetOrder = existingCats.length + 1;
 
     const newCatObj = { id, name: name.trim(), img: savedImg || '', display_order: targetOrder, active: isActive };
-    
+
     // Check if category ID already exists
     const duplicate = existingCats.find(c => c.id === id);
     if (duplicate) {
@@ -1241,13 +1342,13 @@ app.post(['/api/categories', '/api/admin/categories'], requireAdminAuth, async (
     }
 
     invalidateApiCache();
-    res.status(201).json({ 
-      success: true, 
-      message: 'Category created successfully', 
-      category: newCatObj, 
-      id, 
-      name: name.trim(), 
-      display_order: targetOrder 
+    res.status(201).json({
+      success: true,
+      message: 'Category created successfully',
+      category: newCatObj,
+      id,
+      name: name.trim(),
+      display_order: targetOrder
     });
   } catch (err) {
     console.error('Error creating category:', err);
@@ -1306,13 +1407,13 @@ app.put(['/api/categories/:id', '/api/admin/categories/:id'], requireAdminAuth, 
 
     invalidateApiCache();
     const updatedCategory = { id, name: newName, img: newImg, display_order: targetIdx + 1, active: newActive };
-    res.json({ 
-      success: true, 
-      message: 'Category updated successfully', 
-      category: updatedCategory, 
-      id, 
-      name: newName, 
-      display_order: targetIdx + 1 
+    res.json({
+      success: true,
+      message: 'Category updated successfully',
+      category: updatedCategory,
+      id,
+      name: newName,
+      display_order: targetIdx + 1
     });
   } catch (err) {
     console.error('Error updating category:', err);
@@ -1338,8 +1439,8 @@ app.delete(['/api/categories/:id', '/api/admin/categories/:id'], requireAdminAut
     const prodCount = prodCountRes ? Number(prodCountRes.count) : 0;
 
     if (subCount > 0 || prodCount > 0) {
-      return res.status(400).json({ 
-        error: `Cannot delete Category '${cat.name}'. It contains ${subCount} sub-category(ies) and ${prodCount} product(s). Please reassign or delete assigned sub-categories and products first.` 
+      return res.status(400).json({
+        error: `Cannot delete Category '${cat.name}'. It contains ${subCount} sub-category(ies) and ${prodCount} product(s). Please reassign or delete assigned sub-categories and products first.`
       });
     }
 
@@ -1393,7 +1494,7 @@ app.post(['/api/categories/:id/subcategories', '/api/subcategories', '/api/admin
     const savedImg = saveBase64ImageToDisk(img, 'subcategories');
 
     const existingSubs = await db.all('SELECT * FROM subcategories WHERE category_id = ? ORDER BY display_order ASC, name ASC', [categoryId]);
-    
+
     const duplicate = existingSubs.find(s => s.id === subId || s.name.toLowerCase() === name.trim().toLowerCase());
     if (duplicate) {
       return res.status(400).json({ error: `Sub-category '${name.trim()}' already exists in this category.` });
@@ -1418,14 +1519,14 @@ app.post(['/api/categories/:id/subcategories', '/api/subcategories', '/api/admin
     }
 
     invalidateApiCache();
-    res.status(201).json({ 
-      success: true, 
-      message: 'Sub-category created successfully', 
-      subcategory: newSubObj, 
-      id: subId, 
-      name: name.trim(), 
-      categoryId, 
-      display_order: targetOrder 
+    res.status(201).json({
+      success: true,
+      message: 'Sub-category created successfully',
+      subcategory: newSubObj,
+      id: subId,
+      name: name.trim(),
+      categoryId,
+      display_order: targetOrder
     });
   } catch (err) {
     console.error('Error creating subcategory:', err);
@@ -1487,13 +1588,13 @@ app.put(['/api/subcategories/:id', '/api/admin/subcategories/:id'], requireAdmin
 
     invalidateApiCache();
     const updatedSubcategory = { id, category_id: sub.category_id, name: newName, img: newImg, display_order: targetIdx + 1, active: newActive };
-    res.json({ 
-      success: true, 
-      message: 'Sub-category updated successfully', 
-      subcategory: updatedSubcategory, 
-      id, 
-      name: newName, 
-      display_order: targetIdx + 1 
+    res.json({
+      success: true,
+      message: 'Sub-category updated successfully',
+      subcategory: updatedSubcategory,
+      id,
+      name: newName,
+      display_order: targetIdx + 1
     });
   } catch (err) {
     console.error('Error updating subcategory:', err);
@@ -1518,8 +1619,8 @@ app.delete(['/api/subcategories/:id', '/api/admin/subcategories/:id'], requireAd
     );
     const assignedCount = countRes ? Number(countRes.count) : 0;
     if (assignedCount > 0) {
-      return res.status(400).json({ 
-        error: `Cannot delete Sub-Category '${sub.name}'. ${assignedCount} product(s) are currently assigned to it. Please reassign or delete assigned products first.` 
+      return res.status(400).json({
+        error: `Cannot delete Sub-Category '${sub.name}'. ${assignedCount} product(s) are currently assigned to it. Please reassign or delete assigned products first.`
       });
     }
 
@@ -1552,7 +1653,7 @@ app.get(['/api/products', '/api/admin/products'], async (req, res) => {
 
     const db = await getDb();
     const products = await db.all('SELECT * FROM products ORDER BY sold_out ASC, created_at DESC');
-    
+
     const formatted = products.map(p => ({
       ...p,
       productCode: p.product_code || 'N/A',
@@ -1568,7 +1669,10 @@ app.get(['/api/products', '/api/admin/products'], async (req, res) => {
       inStock: Boolean(p.in_stock),
       soldOut: Boolean(p.sold_out),
       specialSection: p.special_section,
-      images: p.images_json ? JSON.parse(p.images_json) : [p.img]
+      images: p.images_json ? JSON.parse(p.images_json) : [p.img],
+      video_url: p.video_url || '',
+      videoUrl: p.video_url || '',
+      video: p.video_url || ''
     }));
 
     memoryCache.products = { data: formatted, timestamp: now };
@@ -1583,7 +1687,7 @@ app.get(['/api/products', '/api/admin/products'], async (req, res) => {
 app.post(['/api/products', '/api/admin/products'], requireAdminAuth, async (req, res) => {
   try {
     const db = await getDb();
-    const { title, category, categoryLabel, subcategory, subcategoryLabel, sellingPrice, mrp, discount, description, material, colour, careInstructions, deliveryTime, images, badge, specialSection, stockQuantity } = req.body;
+    const { title, category, categoryLabel, subcategory, subcategoryLabel, sellingPrice, mrp, discount, description, material, colour, careInstructions, deliveryTime, images, badge, specialSection, stockQuantity, video, videoUrl, video_url } = req.body;
     const rawCode = req.body.productCode || req.body.product_code || '';
     const productCode = String(rawCode).trim();
 
@@ -1615,8 +1719,8 @@ app.post(['/api/products', '/api/admin/products'], requireAdminAuth, async (req,
         [sec, sec]
       );
       if (countRes && Number(countRes.count) >= 4) {
-        return res.status(400).json({ 
-          error: `⚠️ Limit Reached: Maximum 4 products allowed in '${sec}'. Please remove an existing product first.` 
+        return res.status(400).json({
+          error: `⚠️ Limit Reached: Maximum 4 products allowed in '${sec}'. Please remove an existing product first.`
         });
       }
     }
@@ -1625,31 +1729,33 @@ app.post(['/api/products', '/api/admin/products'], requireAdminAuth, async (req,
     const stockQty = stockQuantity !== undefined ? Number(stockQuantity) : 10;
     const isSoldOut = stockQty === 0;
 
-    // Process all base64 images into static upload files
-    const processedImages = (images || []).map(img => saveBase64ImageToDisk(img, 'products'));
+    // Process all base64 images & videos into static upload files
+    const processedImages = (images || []).map(img => saveBase64MediaToDisk(img, 'products'));
     const primaryImg = processedImages[0] || '';
+    const rawVideo = video || videoUrl || video_url || '';
+    const processedVideo = rawVideo ? saveBase64MediaToDisk(rawVideo, 'products') : '';
 
     await db.run(
       `INSERT INTO products (
         id, product_code, title, category_id, category_label, subcategory_id, subcategory_label, selling_price, mrp, discount, 
         description, material, colour, care_instructions, delivery_time, 
-        images_json, img, badge, special_section, stock_quantity, in_stock, sold_out
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        images_json, img, badge, special_section, stock_quantity, in_stock, sold_out, video_url
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id, productCode, title, category, categoryLabel || category, subcategory, subcategoryLabel || subcategory, sellingPrice, mrp || 0, discount || 0,
         description || '', material || '', colour || '', careInstructions || '', deliveryTime || '2-4 Business Days',
         JSON.stringify(processedImages), primaryImg, isSoldOut ? 'Sold Out' : (sec !== 'None' ? sec : badge || 'Standard'),
-        sec, stockQty, isSoldOut ? 0 : 1, isSoldOut ? 1 : 0
+        sec, stockQty, isSoldOut ? 0 : 1, isSoldOut ? 1 : 0, processedVideo
       ]
     );
 
     invalidateApiCache();
-    res.status(201).json({ 
-      success: true, 
-      message: 'Product created successfully', 
-      productId: id, 
-      productCode, 
-      id 
+    res.status(201).json({
+      success: true,
+      message: 'Product created successfully',
+      productId: id,
+      productCode,
+      id
     });
   } catch (err) {
     console.error('Error creating product:', err);
@@ -1662,7 +1768,7 @@ app.put(['/api/products/:id', '/api/admin/products/:id'], requireAdminAuth, asyn
   try {
     const db = await getDb();
     const { id } = req.params;
-    const { title, category, categoryLabel, subcategory, subcategoryLabel, sellingPrice, mrp, discount, description, material, colour, careInstructions, deliveryTime, images, badge, specialSection, stockQuantity } = req.body;
+    const { title, category, categoryLabel, subcategory, subcategoryLabel, sellingPrice, mrp, discount, description, material, colour, careInstructions, deliveryTime, images, badge, specialSection, stockQuantity, video, videoUrl, video_url } = req.body;
     const rawCode = req.body.productCode || req.body.product_code || '';
     const productCode = String(rawCode).trim();
 
@@ -1690,8 +1796,8 @@ app.put(['/api/products/:id', '/api/admin/products/:id'], requireAdminAuth, asyn
     const isSoldOut = stockQty === 0;
     const sec = specialSection || 'None';
 
-    // Fetch old product images for cleanup
-    const oldProduct = await db.get('SELECT img, images_json FROM products WHERE id = ?', [id]);
+    // Fetch old product images & video for cleanup
+    const oldProduct = await db.get('SELECT img, images_json, video_url FROM products WHERE id = ?', [id]);
     let oldImages = [];
     if (oldProduct) {
       try {
@@ -1701,15 +1807,20 @@ app.put(['/api/products/:id', '/api/admin/products/:id'], requireAdminAuth, asyn
       }
     }
 
-    // Process new images
-    const processedImages = (images || []).map(img => saveBase64ImageToDisk(img, 'products'));
+    // Process new images & video
+    const processedImages = (images || []).map(img => saveBase64MediaToDisk(img, 'products'));
     const primaryImg = processedImages[0] || '';
+    const rawVideo = video !== undefined ? video : (videoUrl !== undefined ? videoUrl : video_url);
+    const processedVideo = rawVideo ? saveBase64MediaToDisk(rawVideo, 'products') : '';
 
-    // Auto-clean removed images from disk
+    // Auto-clean removed images & video from disk
     const removedImages = oldImages.filter(oldImg => !processedImages.includes(oldImg));
     removedImages.forEach(oldImg => deleteLocalUploadFile(oldImg));
     if (oldProduct && oldProduct.img && !processedImages.includes(oldProduct.img)) {
       deleteLocalUploadFile(oldProduct.img);
+    }
+    if (oldProduct && oldProduct.video_url && oldProduct.video_url !== processedVideo) {
+      deleteLocalUploadFile(oldProduct.video_url);
     }
 
     await db.run(
@@ -1717,24 +1828,26 @@ app.put(['/api/products/:id', '/api/admin/products/:id'], requireAdminAuth, asyn
         product_code = ?, title = ?, category_id = ?, category_label = ?, subcategory_id = ?, subcategory_label = ?,
         selling_price = ?, mrp = ?, discount = ?, description = ?, material = ?, colour = ?,
         care_instructions = ?, delivery_time = ?, images_json = ?, img = ?, badge = ?,
-        special_section = ?, stock_quantity = ?, in_stock = ?, sold_out = ?
+        special_section = ?, stock_quantity = ?, in_stock = ?, sold_out = ?, video_url = ?
        WHERE id = ?`,
       [
         productCode, title, category, categoryLabel || category, subcategory, subcategoryLabel || subcategory,
         sellingPrice, mrp || 0, discount || 0, description || '', material || '', colour || '',
         careInstructions || '', deliveryTime || '2-4 Business Days', JSON.stringify(processedImages),
         primaryImg, isSoldOut ? 'Sold Out' : (sec !== 'None' ? sec : badge || 'Standard'),
-        sec, stockQty, isSoldOut ? 0 : 1, isSoldOut ? 1 : 0, id
+        sec, stockQty, isSoldOut ? 0 : 1, isSoldOut ? 1 : 0, processedVideo, id
       ]
     );
 
     invalidateApiCache();
-    res.json({ 
-      success: true, 
-      message: 'Product updated successfully', 
-      productId: id, 
-      productCode, 
-      id 
+    // Run background orphan media cleanup to keep VPS disk 100% clean
+    cleanOrphanedUploads().catch(() => { });
+    res.json({
+      success: true,
+      message: 'Product updated successfully',
+      productId: id,
+      productCode,
+      id
     });
   } catch (err) {
     console.error('Error updating product:', err);
@@ -1748,12 +1861,12 @@ app.delete(['/api/products/:id', '/api/admin/products/:id'], requireAdminAuth, a
     const db = await getDb();
     const { id } = req.params;
 
-    // Fetch product images before deletion
-    const product = await db.get('SELECT img, images_json FROM products WHERE id = ?', [id]);
+    // Fetch product images & video before deletion
+    const product = await db.get('SELECT img, images_json, video_url FROM products WHERE id = ?', [id]);
 
     await db.run('DELETE FROM products WHERE id = ?', [id]);
 
-    // Auto-clean all product images from server disk
+    // Auto-clean all product images & video from server disk
     if (product) {
       let prodImages = [];
       try {
@@ -1765,14 +1878,19 @@ app.delete(['/api/products/:id', '/api/admin/products/:id'], requireAdminAuth, a
         prodImages.push(product.img);
       }
       prodImages.forEach(imgUrl => deleteLocalUploadFile(imgUrl));
+      if (product.video_url) {
+        deleteLocalUploadFile(product.video_url);
+      }
     }
 
     invalidateApiCache();
-    res.json({ 
-      success: true, 
-      message: 'Product deleted successfully', 
-      productId: id, 
-      id 
+    // Run background orphan media cleanup to keep VPS disk 100% clean
+    cleanOrphanedUploads().catch(() => { });
+    res.json({
+      success: true,
+      message: 'Product deleted successfully',
+      productId: id,
+      id
     });
   } catch (err) {
     console.error('Error deleting product:', err);
@@ -1796,12 +1914,12 @@ app.patch(['/api/products/:id/stock', '/api/admin/products/:id/stock'], requireA
     );
 
     invalidateProductCache();
-    res.json({ 
-      success: true, 
-      message: 'Stock updated', 
-      id: req.params.id, 
-      stockQuantity: qty, 
-      soldOut: isSoldOut 
+    res.json({
+      success: true,
+      message: 'Stock updated',
+      id: req.params.id,
+      stockQuantity: qty,
+      soldOut: isSoldOut
     });
   } catch (err) {
     console.error('Error updating product stock:', err);
@@ -1822,8 +1940,8 @@ app.patch(['/api/products/:id/special-section', '/api/admin/products/:id/special
         [productId, specialSection, specialSection]
       );
       if (countRes && Number(countRes.count) >= 4) {
-        return res.status(400).json({ 
-          error: `⚠️ Limit Reached: Maximum 4 products allowed in '${specialSection}'. Please remove an existing product first.` 
+        return res.status(400).json({
+          error: `⚠️ Limit Reached: Maximum 4 products allowed in '${specialSection}'. Please remove an existing product first.`
         });
       }
     }
@@ -1834,12 +1952,12 @@ app.patch(['/api/products/:id/special-section', '/api/admin/products/:id/special
     );
 
     invalidateProductCache();
-    res.json({ 
-      success: true, 
-      message: 'Special section updated successfully', 
-      productId, 
-      specialSection, 
-      id: productId 
+    res.json({
+      success: true,
+      message: 'Special section updated successfully',
+      productId,
+      specialSection,
+      id: productId
     });
   } catch (err) {
     console.error('Error updating special section:', err);
@@ -2230,13 +2348,13 @@ app.post('/api/orders', async (req, res) => {
         );
       }
 
-      const pickupDataJson = actualFulfillment === 'pickup' 
+      const pickupDataJson = actualFulfillment === 'pickup'
         ? JSON.stringify({
-            ...storeSettings,
-            pickupPersonName: addrSnap.pickupPersonName || actualCustomerName,
-            pickupPersonPhone: addrSnap.pickupPersonPhone || actualCustomerPhone,
-            notes: addrSnap.notes || ''
-          })
+          ...storeSettings,
+          pickupPersonName: addrSnap.pickupPersonName || actualCustomerName,
+          pickupPersonPhone: addrSnap.pickupPersonPhone || actualCustomerPhone,
+          notes: addrSnap.notes || ''
+        })
         : null;
 
       await tx.run(
@@ -2257,10 +2375,10 @@ app.post('/api/orders', async (req, res) => {
       return { orderId: generatedId, total: calculatedTotal };
     });
 
-    res.status(201).json({ 
-      message: 'Order created successfully & stock reserved!', 
+    res.status(201).json({
+      message: 'Order created successfully & stock reserved!',
       orderId: result.orderId,
-      amount: result.total 
+      amount: result.total
     });
 
   } catch (err) {
@@ -2405,7 +2523,7 @@ app.post('/api/payment/verify-payment', async (req, res) => {
     const customerEmail = shippingData?.email || shippingData?.customerEmail || '';
     const customerPhone = shippingData?.phone || shippingData?.customerPhone || '';
     const addressStr = addrSnap.fullFormattedAddress;
-    
+
     let uId = null;
     if (shippingData?.userId) {
       const userExists = await db.get('SELECT id FROM users WHERE id = ?', [shippingData.userId]);
@@ -2478,13 +2596,13 @@ app.post('/api/payment/verify-payment', async (req, res) => {
       const shippingCharge = (actualFulfillment === 'pickup') ? 0 : (calculatedTotal >= 1000 ? 0 : 100);
       const finalOrderAmount = calculatedTotal + shippingCharge;
 
-      const pickupDataJson = actualFulfillment === 'pickup' 
+      const pickupDataJson = actualFulfillment === 'pickup'
         ? JSON.stringify({
-            ...storeSettings,
-            pickupPersonName: addrSnap.pickupPersonName || customerName,
-            pickupPersonPhone: addrSnap.pickupPersonPhone || customerPhone,
-            notes: addrSnap.notes || ''
-          })
+          ...storeSettings,
+          pickupPersonName: addrSnap.pickupPersonName || customerName,
+          pickupPersonPhone: addrSnap.pickupPersonPhone || customerPhone,
+          notes: addrSnap.notes || ''
+        })
         : null;
 
       await tx.run(
@@ -2586,7 +2704,7 @@ app.post('/api/payment/razorpay-webhook', async (req, res) => {
 
           if (order.order_email_sent === 0) {
             let items = [];
-            try { items = JSON.parse(order.items_json); } catch (_) {}
+            try { items = JSON.parse(order.items_json); } catch (_) { }
             const sent = await sendOrderConfirmationEmail({
               orderId: order.id,
               customerName: order.customer_name,
@@ -2639,12 +2757,12 @@ app.get('/api/orders/my-orders', async (req, res) => {
       let pickupDetails = null;
       try {
         if (o.pickup_details_json) pickupDetails = JSON.parse(o.pickup_details_json);
-      } catch (_) {}
+      } catch (_) { }
 
       let modificationHistory = [];
       try {
         if (o.modification_history_json) modificationHistory = JSON.parse(o.modification_history_json);
-      } catch (_) {}
+      } catch (_) { }
 
       return {
         id: o.id,
@@ -2747,7 +2865,7 @@ app.get('/api/orders', requireAdminAuth, async (req, res) => {
     const { preset, startDate, endDate, status, fulfillment, search } = req.query;
 
     const bounds = getIstDateRangeBoundaries(preset, startDate, endDate);
-    
+
     let sql = 'SELECT * FROM orders WHERE 1=1';
     const params = [];
 
@@ -2804,7 +2922,7 @@ app.patch('/api/orders/:id/status', requireAdminAuth, async (req, res) => {
     let history = [];
     try {
       history = order.modification_history_json ? JSON.parse(order.modification_history_json) : [];
-    } catch (_) {}
+    } catch (_) { }
 
     history.push({
       action: 'ADMIN_STATUS_UPDATE',
@@ -2905,7 +3023,7 @@ app.patch('/api/orders/:id/cancel', async (req, res) => {
       let history = [];
       try {
         history = order.modification_history_json ? JSON.parse(order.modification_history_json) : [];
-      } catch (_) {}
+      } catch (_) { }
 
       history.push({
         action: 'CANCEL_ORDER',
@@ -2946,7 +3064,7 @@ app.patch('/api/orders/:id/modify', async (req, res) => {
   try {
     const db = await getDb();
     const { id } = req.params;
-    const { 
+    const {
       modificationType, // 'address' | 'pickup' | 'variant' | 'add_items'
       shippingData,
       pickupDetails,
@@ -2984,7 +3102,7 @@ app.patch('/api/orders/:id/modify', async (req, res) => {
       let history = [];
       try {
         history = order.modification_history_json ? JSON.parse(order.modification_history_json) : [];
-      } catch (_) {}
+      } catch (_) { }
 
       let updatedShippingAddress = order.shipping_address;
       let updatedLine1 = order.shipping_address_line1;
@@ -3234,16 +3352,16 @@ app.get('/api/reviews/pending-prompt', async (req, res) => {
       // Build list of reviewable entries — each item individually, or the order itself as fallback
       const reviewEntries = items.length > 0
         ? items.map(item => ({
-            productId: String(item.id || item.productId || '').trim(),
-            productName: item.title || item.name || 'Jewellery Item',
-            productImage: item.img || (item.images && item.images[0]) || ''
-          })).filter(e => e.productId)
+          productId: String(item.id || item.productId || '').trim(),
+          productName: item.title || item.name || 'Jewellery Item',
+          productImage: item.img || (item.images && item.images[0]) || ''
+        })).filter(e => e.productId)
         : [{
-            // Fallback: treat the whole order as one reviewable unit
-            productId: 'ORDER-' + order.id,
-            productName: order.items || 'Jewellery Order',
-            productImage: ''
-          }];
+          // Fallback: treat the whole order as one reviewable unit
+          productId: 'ORDER-' + order.id,
+          productName: order.items || 'Jewellery Order',
+          productImage: ''
+        }];
 
       for (const entry of reviewEntries) {
         const { productId, productName, productImage } = entry;
@@ -3439,7 +3557,7 @@ app.post('/api/problems', async (req, res) => {
       if (userExists) validUserId = userExists.id;
     }
 
-    const dateStr = new Date().toISOString().slice(0,10).replace(/-/g,'');
+    const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
     const randomCode = Math.floor(1000 + Math.random() * 9000);
     const complaintId = `PRB-${dateStr}-${randomCode}`;
 

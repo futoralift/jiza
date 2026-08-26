@@ -133,7 +133,7 @@ export default function Header({
             >
               <span className="material-symbols-outlined text-[22px] md:text-[24px]">shopping_bag</span>
               {cartCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-[#4A0404] text-white font-label-sm text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-bold shadow">
+                <span className="absolute -top-1 -right-1 bg-[#FCDAD7] text-black border border-black/20 font-label-sm text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-bold shadow-xs">
                   {cartCount}
                 </span>
               )}

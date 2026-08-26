@@ -3,4 +3,4 @@ Allow: /
 Disallow: /api/admin/
 Disallow: /*?secretAdminKey=
 
-Sitemap: https://jizajewellery.com/sitemap.xml
+Sitemap: https://www.jizajewellerystudio.com/sitemap.xml

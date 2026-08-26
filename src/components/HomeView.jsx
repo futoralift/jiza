@@ -1,6 +1,7 @@
 import React from 'react';
 import { CATEGORIES, PRODUCTS } from '../data/products';
 import VideoReelsSection from './VideoReelsSection';
+import ExchangePolicyModal from './ExchangePolicyModal';
 
 const TESTIMONIALS = [
   {
@@ -102,10 +103,10 @@ const ProductCard = React.memo(function ProductCard({ product, onSelect, onAddTo
             });
           }}
           disabled={isSoldOut}
-          className={`py-2 px-1 rounded-lg text-[11px] font-bold transition-all flex items-center justify-center gap-1 ${
+          className={`py-2 px-1 rounded-lg text-[11px] font-semibold transition-all flex items-center justify-center gap-1 ${
             isSoldOut
               ? 'bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed'
-              : 'bg-[#FFF0F2] hover:bg-[#FCDAD7] text-black border border-black/20 shadow-xs active:scale-95'
+              : 'bg-white hover:bg-[#FFF0F2] text-black border border-black/15 shadow-xs active:scale-95'
           }`}
           title="Add to Shopping Bag"
         >
@@ -128,7 +129,7 @@ const ProductCard = React.memo(function ProductCard({ product, onSelect, onAddTo
           className={`py-2 px-1 rounded-lg text-[11px] font-bold transition-all flex items-center justify-center gap-1 ${
             isSoldOut
               ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-              : 'bg-black hover:bg-stone-900 text-[#FCDAD7] border border-black shadow-xs active:scale-95'
+              : 'bg-[#FCDAD7] hover:bg-[#F9C5C0] text-black border border-black/20 shadow-xs active:scale-95'
           }`}
           title="Buy Now (Direct Checkout)"
         >
@@ -158,6 +159,7 @@ export default function HomeView({
   const [scrollY, setScrollY] = React.useState(0);
   const [heroHeight, setHeroHeight] = React.useState(600);
   const heroRef = React.useRef(null);
+  const [isExchangeModalOpen, setIsExchangeModalOpen] = React.useState(false);
 
   // Auto-sliding banner (.webp optimized, right-to-left swipe)
   const BANNER_IMAGES = React.useMemo(() => ['/banner2.webp', '/banner1.webp'], []);
@@ -461,8 +463,8 @@ export default function HomeView({
           className="group relative bg-[#FCDAD7] border border-[#F8B3AC] rounded-3xl p-6 md:p-8 shadow-sm hover:shadow-xl transition-all duration-300 cursor-pointer overflow-hidden text-stone-900 flex flex-col md:flex-row items-start md:items-center justify-between gap-6"
         >
           <div className="relative z-10 max-w-xl">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#4A0404] text-amber-200 border border-[#D4AF37]/40 text-[11px] font-bold uppercase tracking-wider rounded-full mb-3 shadow-xs">
-              <span className="material-symbols-outlined text-xs text-amber-300">diamond</span>
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-white/95 text-stone-900 border border-black/15 text-[11px] font-bold uppercase tracking-wider rounded-full mb-3 shadow-xs">
+              <span className="material-symbols-outlined text-xs text-black">diamond</span>
               <span>Exclusive Studio Rental Edit</span>
             </div>
 
@@ -477,7 +479,7 @@ export default function HomeView({
               Explore high-definition photographs of our handcrafted Kundan, Maharashtrian, Victorian &amp; Temple jewellery sets available for rental.
             </p>
 
-            <button className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#4A0404] hover:bg-[#5C0A0A] text-white font-bold text-xs uppercase tracking-wider rounded-xl shadow-md transition-transform group-hover:scale-105 active:scale-95 border border-[#D4AF37]/30">
+            <button className="inline-flex items-center gap-2 px-5 py-2.5 bg-white hover:bg-[#FFF5F5] text-black font-bold text-xs uppercase tracking-wider rounded-xl shadow-md transition-all group-hover:scale-105 active:scale-95 border border-black/20">
               <span>Open Rental Image Gallery</span>
               <span className="material-symbols-outlined text-sm group-hover:translate-x-1 transition-transform">arrow_forward</span>
             </button>
@@ -675,21 +677,35 @@ export default function HomeView({
         </div>
       </section>
 
-      {/* ===== TRUST BADGES — only 2 kept ===== */}
-      <section className="py-10 border-y border-outline-variant/40 bg-surface-container-lowest my-8 px-margin-mobile md:px-margin-desktop">
-        <div className="grid grid-cols-2 gap-6 text-center max-w-lg mx-auto">
-          {[
-            { icon: 'verified', title: '100% Authentic', sub: 'Certified purity & genuine craftsmanship' },
-            { icon: 'support_agent', title: 'Dedicated Support', sub: 'Call / WhatsApp us anytime' },
-          ].map((b) => (
-            <div key={b.title} className="flex flex-col items-center">
-              <div className="w-12 h-12 rounded-full bg-antique-cream flex items-center justify-center text-heritage-gold mb-3">
-                <span className="material-symbols-outlined text-[26px]">{b.icon}</span>
-              </div>
-              <h4 className="font-label-md text-on-surface font-semibold mb-1">{b.title}</h4>
-              <p className="font-body-md text-xs text-on-surface-variant">{b.sub}</p>
-            </div>
-          ))}
+      {/* ===== LOCAL SEO STRUCTURED CONTENT BLOCK (Pune & Sinhagad Road) ===== */}
+      <section className="my-10 px-margin-mobile md:px-margin-desktop">
+        <div className="max-w-5xl mx-auto bg-white/80 border border-[#F8B3AC] rounded-3xl p-6 md:p-8 shadow-xs">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="material-symbols-outlined text-stone-800 text-lg">storefront</span>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-stone-700">Studio &amp; Bridal Styling Boutique</span>
+          </div>
+
+          <h2 
+            className="text-xl md:text-2xl font-bold text-stone-900 mb-2 leading-snug"
+            style={{ fontFamily: "'Playfair Display', Georgia, serif" }}
+          >
+            Traditional Bridal Jewellery on Sinhagad Road, Pune
+          </h2>
+
+          <h3 className="text-xs md:text-sm font-semibold text-stone-700 mb-4">
+            Premium Artificial Jewellery &amp; Maharashtrian Jewellery Rental near Sun City Road, Anand Nagar
+          </h3>
+
+          <p className="text-xs md:text-sm text-stone-700 leading-relaxed mb-4">
+            Welcome to <strong>Jiza Jewellery Studio</strong> (also known as <em>Jiza Jewellary</em>), Pune’s premier destination for handcrafted <strong>traditional jewellery</strong> and luxury bridal styling. Nestled in the bustling <strong>Sinhagad Road area</strong> at <strong>Shop No. 17, 1st Floor, Shivpushpa Landmark (Near Bhari Bazaar, Sun City Road, Anand Nagar, Pune – 411051)</strong>, our studio curates an exquisite assortment of Kundan, Victorian, Temple, and authentic Peshwai Maharashtrian ornaments. Whether you wish to purchase heirloom-inspired bridal sets or search for premium <strong>imitation jewellery on rent</strong>, Jiza offers bespoke collections tailored to every wedding ritual, sangeet, and festive celebration.
+          </p>
+
+          <div className="flex flex-wrap gap-2 pt-2 border-t border-[#F8B3AC]/40 text-[11px] text-stone-700 font-medium">
+            <span className="bg-[#FFF0F2] border border-[#F8B3AC] px-3 py-1 rounded-full font-semibold">📍 Shivpushpa Landmark, Sun City Road</span>
+            <span className="bg-[#FFF0F2] border border-[#F8B3AC] px-3 py-1 rounded-full font-semibold">💎 Maharashtrian Saaj &amp; Thushi Rental</span>
+            <span className="bg-[#FFF0F2] border border-[#F8B3AC] px-3 py-1 rounded-full font-semibold">✨ South Indian Matte Bridal Sets</span>
+            <span className="bg-[#FFF0F2] border border-[#F8B3AC] px-3 py-1 rounded-full font-semibold">🕒 Tue–Sun: 10:30 AM – 8:00 PM</span>
+          </div>
         </div>
       </section>
 
@@ -734,6 +750,14 @@ export default function HomeView({
           <div>
             <h5 className="font-label-md text-black font-bold mb-3 uppercase tracking-wider">Customer Care</h5>
             <ul className="space-y-2 text-xs font-body-md text-black/75">
+              <li
+                className="hover:underline hover:text-black cursor-pointer transition-colors font-bold text-black flex items-center gap-1.5 flex-wrap"
+                onClick={() => setIsExchangeModalOpen(true)}
+              >
+                <span className="material-symbols-outlined text-[14px]">sync_alt</span>
+                <span>Exchange Policy</span>
+                <span className="text-[9px] bg-[#F8B3AC] text-black px-1.5 py-0.2 rounded-full font-bold border border-black/15">Only Exchange • No Return</span>
+              </li>
               <li
                 className="hover:underline hover:text-black cursor-pointer transition-colors font-bold text-black flex items-center gap-1"
                 onClick={() => setActiveView('cancellation-policy')}
@@ -782,6 +806,12 @@ export default function HomeView({
         </div>
       </footer>
       </div>
+
+      {/* Exchange & Return Policy Detail Modal */}
+      <ExchangePolicyModal
+        isOpen={isExchangeModalOpen}
+        onClose={() => setIsExchangeModalOpen(false)}
+      />
 
     </main>
   );

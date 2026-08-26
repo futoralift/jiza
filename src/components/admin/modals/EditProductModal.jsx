@@ -1,4 +1,5 @@
 import React from 'react';
+import { getMediaUrl } from '../../../config';
 
 export default function EditProductModal({
   editingProduct,
@@ -11,7 +12,12 @@ export default function EditProductModal({
   editUploadedImages = [],
   handleEditMakePrimary,
   handleEditRemoveSlot,
-  handleEditSingleSlotUpload
+  handleEditSingleSlotUpload,
+  editUploadedVideo = '',
+  setEditUploadedVideo,
+  handleEditVideoUpload,
+  handleEditRemoveVideo,
+  videoUploadLoading = false
 }) {
   if (!editingProduct) return null;
 
@@ -365,19 +371,20 @@ export default function EditProductModal({
 
             </div>
 
-            {/* RIGHT COLUMN: Photo Upload Zone (lg:col-span-5) */}
-            <div className="lg:col-span-5 bg-white p-4 rounded-2xl border border-[#F7C5C0] shadow-sm space-y-3 sticky top-0">
+            {/* RIGHT COLUMN: Light Theme Device Image & Video Upload Card (lg:col-span-5) */}
+            <div className="lg:col-span-5 bg-white p-4 rounded-2xl border border-[#F7C5C0] shadow-sm space-y-4 sticky top-0">
               
+              {/* Photo Gallery Header */}
               <div className="flex items-center justify-between border-b border-outline-variant/20 pb-2">
                 <div>
                   <h4 className="font-bold text-[11px] uppercase tracking-wider text-black flex items-center gap-1.5">
                     <span className="material-symbols-outlined text-sm text-black">photo_camera</span>
                     <span>Photo Gallery</span>
                   </h4>
-                  <p className="text-[10px] text-on-surface-variant mt-0.5">Upload up to 4 high-res photos</p>
+                  <p className="text-[10px] text-on-surface-variant mt-0.5">Upload up to 4 photos (Max 2MB/photo, auto WebP compressed)</p>
                 </div>
                 <span className="text-[9px] bg-[#FFF0F2] text-black border border-[#F7C5C0] px-2 py-0.5 rounded-full font-bold uppercase">
-                  JPG, PNG, WebP
+                  ⚡ Auto WebP
                 </span>
               </div>
 
@@ -396,7 +403,7 @@ export default function EditProductModal({
                     <span className="material-symbols-outlined text-lg">cloud_upload</span>
                   </div>
                   <p className="text-[11px] font-bold text-on-surface">Click or Drag &amp; Drop Photos</p>
-                  <p className="text-[9px] text-on-surface-variant">Update or add images from device</p>
+                  <p className="text-[9px] text-on-surface-variant">Update or add images from device (Max 2 MB each)</p>
                 </label>
               </div>
 
@@ -424,7 +431,7 @@ export default function EditProductModal({
 
                       {imgUrl ? (
                         <>
-                          <img src={imgUrl} alt={`Slot ${idx}`} className="w-full h-full object-cover" />
+                          <img src={getMediaUrl(imgUrl)} alt={`Slot ${idx}`} className="w-full h-full object-cover" />
                           
                           {/* Hover Action Controls */}
                           <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-all flex flex-col justify-between p-1.5">
@@ -469,6 +476,86 @@ export default function EditProductModal({
                     </div>
                   );
                 })}
+              </div>
+
+              {/* DEDICATED PRODUCT VIDEO UPLOAD SECTION */}
+              <div className="pt-3 border-t border-outline-variant/20 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-bold text-[11px] uppercase tracking-wider text-black flex items-center gap-1.5">
+                      <span className="material-symbols-outlined text-sm text-black">videocam</span>
+                      <span>Product Video (Optional)</span>
+                    </h4>
+                    <p className="text-[10px] text-on-surface-variant mt-0.5">MP4, WebM, MOV (Max 10 MB)</p>
+                  </div>
+                  <span className="text-[9px] bg-amber-50 text-amber-900 border border-amber-300 px-2 py-0.5 rounded-full font-bold uppercase">
+                    🎥 10MB Max
+                  </span>
+                </div>
+
+                {editUploadedVideo ? (
+                  <div className="relative rounded-xl border border-[#F7C5C0] bg-black/5 p-2 overflow-hidden space-y-2">
+                    <div className="relative rounded-lg overflow-hidden bg-black aspect-video max-h-36 flex items-center justify-center">
+                      <video 
+                        src={getMediaUrl(editUploadedVideo)} 
+                        controls 
+                        className="w-full h-full object-contain"
+                        preload="metadata"
+                      />
+                    </div>
+                    <div className="flex items-center justify-between px-1">
+                      <span className="text-[10px] text-emerald-700 font-bold flex items-center gap-1">
+                        <span className="material-symbols-outlined text-xs">check_circle</span>
+                        Video Ready
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <label 
+                          htmlFor="edit-replace-video-upload" 
+                          className="px-2 py-1 bg-[#FCDAD7] hover:bg-[#F9C5C0] text-black font-bold text-[9px] rounded-lg border border-black/20 cursor-pointer transition-colors"
+                        >
+                          Replace
+                          <input 
+                            id="edit-replace-video-upload" 
+                            type="file" 
+                            accept="video/mp4,video/webm,video/quicktime,video/*" 
+                            onChange={handleEditVideoUpload} 
+                            className="hidden" 
+                          />
+                        </label>
+                        <button
+                          type="button"
+                          onClick={handleEditRemoveVideo}
+                          className="px-2 py-1 bg-red-100 hover:bg-red-200 text-red-700 font-bold text-[9px] rounded-lg border border-red-300 cursor-pointer transition-colors"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="border-2 border-dashed border-[#F7C5C0] rounded-xl p-3 text-center bg-[#FFF0F2]/40 hover:bg-[#FCDAD7]/30 hover:border-black/60 transition-all cursor-pointer">
+                    <input
+                      type="file"
+                      accept="video/mp4,video/webm,video/quicktime,video/*"
+                      onChange={handleEditVideoUpload}
+                      className="hidden"
+                      id="edit-video-upload-input"
+                    />
+                    <label htmlFor="edit-video-upload-input" className="cursor-pointer block space-y-1">
+                      <div className="w-8 h-8 bg-white border border-[#F7C5C0] rounded-full flex items-center justify-center text-black mx-auto shadow-sm">
+                        <span className="material-symbols-outlined text-lg">
+                          {videoUploadLoading ? 'hourglass_top' : 'video_call'}
+                        </span>
+                      </div>
+                      <p className="text-[11px] font-bold text-on-surface">
+                        {videoUploadLoading ? 'Loading Video...' : '+ Upload Showcase Video'}
+                      </p>
+                      <p className="text-[9px] text-on-surface-variant">
+                        Included in the storefront product slider
+                      </p>
+                    </label>
+                  </div>
+                )}
               </div>
 
               <div className="pt-2 text-[9px] text-on-surface-variant text-center border-t border-outline-variant/20">

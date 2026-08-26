@@ -75,6 +75,7 @@ export async function getDb() {
       ALTER TABLE orders ADD COLUMN IF NOT EXISTS modified_at TIMESTAMP WITH TIME ZONE;
       ALTER TABLE orders ADD COLUMN IF NOT EXISTS cancelled_at TIMESTAMP WITH TIME ZONE;
       ALTER TABLE products ADD COLUMN IF NOT EXISTS product_code VARCHAR(100);
+      ALTER TABLE products ADD COLUMN IF NOT EXISTS video_url TEXT;
       ALTER TABLE admin_accounts ADD COLUMN IF NOT EXISTS role VARCHAR(50) DEFAULT 'SUPER_ADMIN';
       CREATE TABLE IF NOT EXISTS store_settings (
           key VARCHAR(100) PRIMARY KEY,

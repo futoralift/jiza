@@ -31,6 +31,13 @@ This document represents the definitive **Executive Handover Roadmap** for **Jiz
 
 ## 1. Verified Production Capabilities (`[x]`)
 
+- [x] **Product Showcase Video CMS & Unified Media Carousel**: Admin upload (<10MB MP4/WebM) with live preview and storefront carousel with mobile touch swipe gestures, thumbnail badges, and counter pills.
+- [x] **Light Soft Rose Gold CTA Theme**: Complete styling unification (`#FCDAD7` / `#FFF0F2`) across all Buy Now buttons, Add to Bag, and Rental Gallery banners.
+- [x] **Viewport-Fitting Product Modal**: Constrained to `max-h-[85vh]` / `max-h-[92vh]` with sticky bottom action buttons for zero screen cut-offs on laptops and phones.
+- [x] **Automated VPS Disk & Memory Protection**: Auto-deletion of obsolete media files on product update/delete and background orphan cleaner (`cleanOrphanedUploads`).
+- [x] **Customer Care Strict Exchange Policy**: "Only Exchange • No Return" guidelines modal with 10-hour unboxing video requirement and direct WhatsApp submission.
+- [x] **Google #1 Local & Brand SEO Engine**: Brand misspelling protection (`Jiza Jewellary`), JSON-LD `JewelryStore` Schema with GPS coordinates, Pune geo-targeted content blocks, voice search `FAQPage` snippets, and official brand Favicon (`/jiza-door-logo.png`).
+- [x] **Rental Gallery Image Auto-Compression**: Client-side canvas compression to WebP (<10MB input to ~150KB) with 8-image batch upload streaming.
 - [x] **Automatic Shipping Charge Engine**: Subtotal $\ge$ ₹1,000 $\rightarrow$ Free Shipping; Subtotal $<$ ₹1,000 $\rightarrow$ ₹100 flat shipping. Enforced on backend order creation and Razorpay payments.
 - [x] **Add to Cart + Buy Now Dual Action System**: Integrated on Homepage, Search, Product Detail Modal, Wishlist Drawer, and Customer Profile.
 - [x] **Strict 10-Digit Mobile Number Validation & `+91` Country Prefix**: Numerical digit filter, 10-digit cap, blush pink `+91` addon badge across all phone inputs.
@@ -61,8 +68,9 @@ flowchart TD
 ```
 
 ### Final Sign-Off Items:
+- [x] Official Favicon and Brand Icons linked in `index.html`.
 - [x] Live Razorpay Merchant Keys (`rzp_live_TNhoc1TkO5vFCu`) verified via API test order.
 - [x] SMTP Gmail Mailer (`jizajewellery@gmail.com`) connected and authenticated with Nodemailer transporter.
 - [x] PostgreSQL connection pool and relational schema migrations tested and active.
-- [x] Vite production bundle built cleanly in `dist/`.
+- [x] Vite production bundle built cleanly in `dist/` with 0 errors.
 - [x] Comprehensive 40-test production audit passed with 100% success rate.

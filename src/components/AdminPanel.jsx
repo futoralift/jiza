@@ -360,24 +360,31 @@ export default function AdminPanel({
     setIsUploadingRental(true);
 
     try {
-      const imageUrls = selectedRentalFiles.map(f => f.dataUrl);
+      const allUrls = selectedRentalFiles.map(f => f.dataUrl).filter(Boolean);
+      const CHUNK_SIZE = 8;
+      let totalUploaded = 0;
 
-      const res = await adminFetch('/api/admin/rental-gallery/upload', {
-        method: 'POST',
-        body: JSON.stringify({ images: imageUrls })
-      });
+      for (let i = 0; i < allUrls.length; i += CHUNK_SIZE) {
+        const chunk = allUrls.slice(i, i + CHUNK_SIZE);
+        const res = await adminFetch('/api/admin/rental-gallery/upload', {
+          method: 'POST',
+          body: JSON.stringify({ images: chunk })
+        });
 
-      const data = await res.json().catch(() => ({}));
-      if (res.ok && (data.success || data.items)) {
-        showAdminToast(`✅ Uploaded ${data.items ? data.items.length : selectedRentalFiles.length} photo(s) to Rental Gallery!`);
-        setSelectedRentalFiles([]);
-        await fetchRentalGallery();
-      } else {
-        alert(data.error || 'Failed to upload rental gallery images');
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && (data.success || data.items)) {
+          totalUploaded += chunk.length;
+        } else {
+          throw new Error(data.error || 'Batch upload failed');
+        }
       }
+
+      showAdminToast(`✅ Successfully uploaded ${totalUploaded} photo(s) to Rental Gallery!`);
+      setSelectedRentalFiles([]);
+      await fetchRentalGallery();
     } catch (e) {
       console.error('Error uploading rental gallery images:', e);
-      alert('Error uploading images. Please try again.');
+      showAdminToast(`❌ Error: ${e.message || 'Failed to upload images'}`);
     } finally {
       setIsUploadingRental(false);
     }
@@ -526,9 +533,22 @@ export default function AdminPanel({
     }
   }, [activeTab]);
 
+  // Product Video Upload States
+  const [uploadedVideo, setUploadedVideo] = useState('');
+  const [editUploadedVideo, setEditUploadedVideo] = useState('');
+  const [videoUploadLoading, setVideoUploadLoading] = useState(false);
+
+  // Automatic Client-Side Image Compression (Max 10MB input -> WebP 1200px max, ~150KB output)
   const processFileToDataUrl = (file) => {
     return new Promise((resolve) => {
       if (!file) return resolve('');
+
+      const MAX_IMG_SIZE_MB = 10;
+      if (file.size > MAX_IMG_SIZE_MB * 1024 * 1024) {
+        showAdminToast(`⚠️ File "${file.name}" exceeds 10MB limit and was skipped.`);
+        return resolve('');
+      }
+
       const reader = new FileReader();
       reader.onload = (e) => {
         const img = new Image();
@@ -536,7 +556,7 @@ export default function AdminPanel({
           const canvas = document.createElement('canvas');
           let width = img.width;
           let height = img.height;
-          const maxDim = 800;
+          const maxDim = 1200; // High clarity e-commerce standard
 
           if (width > maxDim || height > maxDim) {
             if (width > height) {
@@ -553,7 +573,11 @@ export default function AdminPanel({
           const ctx = canvas.getContext('2d');
           ctx.drawImage(img, 0, 0, width, height);
 
-          const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+          // Try exporting to WebP first, fallback to JPEG
+          let compressedDataUrl = canvas.toDataURL('image/webp', 0.85);
+          if (!compressedDataUrl || !compressedDataUrl.startsWith('data:image/webp')) {
+            compressedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+          }
           resolve(compressedDataUrl);
         };
         img.onerror = () => resolve(e.target.result);
@@ -562,6 +586,65 @@ export default function AdminPanel({
       reader.onerror = () => resolve('');
       reader.readAsDataURL(file);
     });
+  };
+
+  // Video Upload Handler (Max 10MB limit)
+  const processVideoFile = (file) => {
+    return new Promise((resolve) => {
+      if (!file) return resolve('');
+
+      const MAX_VIDEO_SIZE_MB = 10;
+      if (file.size > MAX_VIDEO_SIZE_MB * 1024 * 1024) {
+        alert(`❌ Video Size Limit Exceeded: ${(file.size / (1024 * 1024)).toFixed(2)} MB.\n\nMaximum allowed video file size is 10 MB. Please compress or trim your video before uploading.`);
+        return resolve('');
+      }
+
+      if (!file.type.startsWith('video/')) {
+        alert('❌ Invalid Format: Please upload a valid video file (MP4, WebM, or MOV).');
+        return resolve('');
+      }
+
+      setVideoUploadLoading(true);
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setVideoUploadLoading(false);
+        resolve(e.target.result);
+      };
+      reader.onerror = () => {
+        setVideoUploadLoading(false);
+        alert('❌ Failed to read video file.');
+        resolve('');
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleVideoUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const videoData = await processVideoFile(file);
+    if (videoData) {
+      setUploadedVideo(videoData);
+    }
+    e.target.value = '';
+  };
+
+  const handleRemoveVideo = () => {
+    setUploadedVideo('');
+  };
+
+  const handleEditVideoUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const videoData = await processVideoFile(file);
+    if (videoData) {
+      setEditUploadedVideo(videoData);
+    }
+    e.target.value = '';
+  };
+
+  const handleEditRemoveVideo = () => {
+    setEditUploadedVideo('');
   };
 
   const handleCreateCategory = async (e) => {
@@ -839,7 +922,10 @@ export default function AdminPanel({
       stockQuantity: Number(newProd.stockQuantity) || 10,
       stock_quantity: Number(newProd.stockQuantity) || 10,
       img: finalImg,
-      images: validImages.length > 0 ? validImages : [finalImg]
+      images: validImages.length > 0 ? validImages : [finalImg],
+      video: uploadedVideo,
+      videoUrl: uploadedVideo,
+      video_url: uploadedVideo
     };
 
     if (onAddProduct) {
@@ -866,6 +952,7 @@ export default function AdminPanel({
         stockQuantity: 10
       });
       setUploadedImages(['', '', '', '']);
+      setUploadedVideo('');
     }
   };
 
@@ -881,6 +968,7 @@ export default function AdminPanel({
     });
 
     setEditUploadedImages(padded);
+    setEditUploadedVideo(p.videoUrl || p.video_url || p.video || '');
     setEditProdForm({
       id: p.id,
       productCode: p.productCode || p.product_code || '',
@@ -968,7 +1056,10 @@ export default function AdminPanel({
       stockQuantity: Number(editProdForm.stockQuantity) || 10,
       stock_quantity: Number(editProdForm.stockQuantity) || 10,
       img: finalImg,
-      images: validImages.length > 0 ? validImages : [finalImg]
+      images: validImages.length > 0 ? validImages : [finalImg],
+      video: editUploadedVideo,
+      videoUrl: editUploadedVideo,
+      video_url: editUploadedVideo
     };
 
     if (onUpdateProduct) {
@@ -1771,6 +1862,11 @@ export default function AdminPanel({
         handleSwapSlots={handleSwapSlots}
         handleRemoveSlot={handleRemoveSlot}
         handleSingleSlotUpload={handleSingleSlotUpload}
+        uploadedVideo={uploadedVideo}
+        setUploadedVideo={setUploadedVideo}
+        handleVideoUpload={handleVideoUpload}
+        handleRemoveVideo={handleRemoveVideo}
+        videoUploadLoading={videoUploadLoading}
       />
 
       {/* MODAL 1B: EDIT PRODUCT MODAL */}
@@ -1786,6 +1882,11 @@ export default function AdminPanel({
         handleEditMakePrimary={handleEditMakePrimary}
         handleEditRemoveSlot={handleEditRemoveSlot}
         handleEditSingleSlotUpload={handleEditSingleSlotUpload}
+        editUploadedVideo={editUploadedVideo}
+        setEditUploadedVideo={setEditUploadedVideo}
+        handleEditVideoUpload={handleEditVideoUpload}
+        handleEditRemoveVideo={handleEditRemoveVideo}
+        videoUploadLoading={videoUploadLoading}
       />
 
       {/* MODAL 2: ORDER DETAILS */}
