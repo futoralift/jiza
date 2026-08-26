@@ -154,28 +154,37 @@ export default function AnalyticsTab({
 
           {/* Visual Bar Chart */}
           <div className="pt-6 pb-2">
-            <div className="h-48 flex items-end justify-between gap-3 border-b border-outline-variant/30 px-2">
-              {currentAnalytics.chartData.map((d, i) => {
-                const pct = Math.round((d.rev / maxRevenueInChart) * 100);
-                return (
-                  <div key={i} className="flex-1 flex flex-col items-center group relative">
-                    <div className="absolute -top-10 opacity-0 group-hover:opacity-100 transition-opacity bg-black text-[#FCDAD7] text-[10px] font-bold py-1 px-2 rounded shadow whitespace-nowrap z-20 pointer-events-none">
-                      ₹{d.rev.toLocaleString('en-IN')} ({d.units} sold)
-                    </div>
-                    <div 
-                      className="w-full bg-gradient-to-t from-[#F8B3AC] to-[#FCDAD7] border border-black/15 rounded-t-lg transition-all duration-500 group-hover:brightness-110 shadow-sm"
-                      style={{ height: `${Math.max(pct, 12)}%` }}
-                    ></div>
-                  </div>
-                );
-              })}
-            </div>
+            {currentAnalytics.chartData && currentAnalytics.chartData.length > 0 ? (
+              <>
+                <div className="h-48 flex items-end justify-between gap-3 border-b border-outline-variant/30 px-2">
+                  {currentAnalytics.chartData.map((d, i) => {
+                    const pct = Math.round((d.rev / maxRevenueInChart) * 100);
+                    return (
+                      <div key={i} className="flex-1 flex flex-col items-center group relative">
+                        <div className="absolute -top-10 opacity-0 group-hover:opacity-100 transition-opacity bg-black text-[#FCDAD7] text-[10px] font-bold py-1 px-2 rounded shadow whitespace-nowrap z-20 pointer-events-none">
+                          ₹{d.rev.toLocaleString('en-IN')} ({d.units} sold)
+                        </div>
+                        <div 
+                          className="w-full bg-gradient-to-t from-[#F8B3AC] to-[#FCDAD7] border border-black/15 rounded-t-lg transition-all duration-500 group-hover:brightness-110 shadow-sm"
+                          style={{ height: `${Math.max(pct, 12)}%` }}
+                        ></div>
+                      </div>
+                    );
+                  })}
+                </div>
 
-            <div className="flex justify-between gap-3 px-2 mt-2 text-[10px] text-on-surface-variant font-bold">
-              {currentAnalytics.chartData.map((d, i) => (
-                <span key={i} className="flex-1 text-center truncate">{d.day}</span>
-              ))}
-            </div>
+                <div className="flex justify-between gap-3 px-2 mt-2 text-[10px] text-on-surface-variant font-bold">
+                  {currentAnalytics.chartData.map((d, i) => (
+                    <span key={i} className="flex-1 text-center truncate">{d.day}</span>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div className="h-48 flex flex-col items-center justify-center text-center text-stone-400">
+                <span className="material-symbols-outlined text-3xl mb-1">bar_chart</span>
+                <p className="text-xs">No orders recorded in this date range.</p>
+              </div>
+            )}
           </div>
         </div>
 
@@ -192,127 +201,114 @@ export default function AnalyticsTab({
           </div>
 
           <div className="pt-6 pb-2">
-            <div className="h-48 flex items-end justify-between gap-3 border-b border-outline-variant/30 px-2">
-              {currentAnalytics.chartData.map((d, i) => {
-                const pct = Math.round((d.units / maxUnitsInChart) * 100);
-                return (
-                  <div key={i} className="flex-1 flex flex-col items-center group relative">
-                    <div className="absolute -top-10 opacity-0 group-hover:opacity-100 transition-opacity bg-deep-onyx text-white text-[10px] font-bold py-1 px-2 rounded shadow whitespace-nowrap z-20 pointer-events-none">
-                      {d.units} Items Sold ({d.day})
-                    </div>
-                    <div 
-                      className="w-full bg-gradient-to-t from-emerald-700 to-emerald-500 rounded-t-lg transition-all duration-500 group-hover:brightness-110 shadow-sm"
-                      style={{ height: `${Math.max(pct, 15)}%` }}
-                    ></div>
-                  </div>
-                );
-              })}
-            </div>
+            {currentAnalytics.chartData && currentAnalytics.chartData.length > 0 ? (
+              <>
+                <div className="h-48 flex items-end justify-between gap-3 border-b border-outline-variant/30 px-2">
+                  {currentAnalytics.chartData.map((d, i) => {
+                    const pct = Math.round((d.units / maxUnitsInChart) * 100);
+                    return (
+                      <div key={i} className="flex-1 flex flex-col items-center group relative">
+                        <div className="absolute -top-10 opacity-0 group-hover:opacity-100 transition-opacity bg-black text-white text-[10px] font-bold py-1 px-2 rounded shadow whitespace-nowrap z-20 pointer-events-none">
+                          {d.units} Items Sold ({d.day})
+                        </div>
+                        <div 
+                          className="w-full bg-gradient-to-t from-emerald-700 to-emerald-500 rounded-t-lg transition-all duration-500 group-hover:brightness-110 shadow-sm"
+                          style={{ height: `${Math.max(pct, 15)}%` }}
+                        ></div>
+                      </div>
+                    );
+                  })}
+                </div>
 
-            <div className="flex justify-between gap-3 px-2 mt-2 text-[10px] text-on-surface-variant font-bold">
-              {currentAnalytics.chartData.map((d, i) => (
-                <span key={i} className="flex-1 text-center truncate">{d.day}</span>
-              ))}
-            </div>
+                <div className="flex justify-between gap-3 px-2 mt-2 text-[10px] text-on-surface-variant font-bold">
+                  {currentAnalytics.chartData.map((d, i) => (
+                    <span key={i} className="flex-1 text-center truncate">{d.day}</span>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div className="h-48 flex flex-col items-center justify-center text-center text-stone-400">
+                <span className="material-symbols-outlined text-3xl mb-1">show_chart</span>
+                <p className="text-xs">No product sales in this date range.</p>
+              </div>
+            )}
           </div>
         </div>
 
       </div>
 
-      {/* REGIONAL & CATEGORY BREAKDOWN */}
+      {/* REGIONAL & CATEGORY BREAKDOWN (100% REAL ORDERS DATA) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         
-        {/* Category Revenue Breakdown */}
+        {/* Real Category Revenue Breakdown */}
         <div className="bg-white border border-outline-variant/40 rounded-2xl p-6 shadow-sm space-y-4">
-          <h3 className="font-headline-sm text-base text-on-surface font-bold">Category Sales Breakdown</h3>
+          <div className="flex items-center justify-between">
+            <h3 className="font-headline-sm text-base text-on-surface font-bold">Category Sales Breakdown</h3>
+            <span className="text-[10px] text-on-surface-variant font-bold uppercase bg-stone-100 px-2 py-0.5 rounded">
+              Live Database
+            </span>
+          </div>
           
           <div className="space-y-3">
-            <div>
-              <div className="flex justify-between text-xs mb-1">
-                <span className="text-on-surface font-bold">Necklaces &amp; Chokers</span>
-                <span className="text-black font-bold">₹84,500 (45%)</span>
-              </div>
-              <div className="w-full bg-[#F9F6F0] h-2.5 rounded-full overflow-hidden border border-outline-variant/30">
-                <div className="bg-heritage-gold h-full w-[45%] rounded-full"></div>
-              </div>
-            </div>
+            {currentAnalytics.categoryBreakdown && currentAnalytics.categoryBreakdown.length > 0 ? (
+              currentAnalytics.categoryBreakdown.map((cat, idx) => {
+                const colors = ['bg-[#C27B7F]', 'bg-amber-600', 'bg-blue-600', 'bg-emerald-600', 'bg-purple-600', 'bg-rose-600'];
+                const colorClass = colors[idx % colors.length];
 
-            <div>
-              <div className="flex justify-between text-xs mb-1">
-                <span className="text-on-surface font-bold">Earrings &amp; Chandbalis</span>
-                <span className="text-amber-800 font-bold">₹42,000 (22%)</span>
+                return (
+                  <div key={idx}>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="text-on-surface font-bold">{cat.name}</span>
+                      <span className="text-black font-bold font-mono">₹{cat.rev.toLocaleString('en-IN')} ({cat.pct}%)</span>
+                    </div>
+                    <div className="w-full bg-[#F9F6F0] h-2.5 rounded-full overflow-hidden border border-outline-variant/30">
+                      <div className={`${colorClass} h-full rounded-full transition-all duration-500`} style={{ width: `${Math.max(cat.pct, 4)}%` }}></div>
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="py-8 text-center text-stone-400">
+                <span className="material-symbols-outlined text-3xl mb-1">category</span>
+                <p className="text-xs">No category sales recorded yet for this period.</p>
               </div>
-              <div className="w-full bg-[#F9F6F0] h-2.5 rounded-full overflow-hidden border border-outline-variant/30">
-                <div className="bg-amber-600 h-full w-[22%] rounded-full"></div>
-              </div>
-            </div>
-
-            <div>
-              <div className="flex justify-between text-xs mb-1">
-                <span className="text-on-surface font-bold">Solitaires &amp; Rings</span>
-                <span className="text-blue-800 font-bold">₹36,000 (19%)</span>
-              </div>
-              <div className="w-full bg-[#F9F6F0] h-2.5 rounded-full overflow-hidden border border-outline-variant/30">
-                <div className="bg-blue-600 h-full w-[19%] rounded-full"></div>
-              </div>
-            </div>
-
-            <div>
-              <div className="flex justify-between text-xs mb-1">
-                <span className="text-on-surface font-bold">Bangles &amp; Cuffs</span>
-                <span className="text-emerald-800 font-bold">₹26,000 (14%)</span>
-              </div>
-              <div className="w-full bg-[#F9F6F0] h-2.5 rounded-full overflow-hidden border border-outline-variant/30">
-                <div className="bg-emerald-600 h-full w-[14%] rounded-full"></div>
-              </div>
-            </div>
+            )}
           </div>
         </div>
 
-        {/* Sales by Region */}
+        {/* Real Sales by Region */}
         <div className="bg-white border border-outline-variant/40 rounded-2xl p-6 shadow-sm space-y-4">
-          <h3 className="font-headline-sm text-base text-on-surface font-bold">Sales by Top Region</h3>
+          <div className="flex items-center justify-between">
+            <h3 className="font-headline-sm text-base text-on-surface font-bold">Sales by Top Region</h3>
+            <span className="text-[10px] text-on-surface-variant font-bold uppercase bg-stone-100 px-2 py-0.5 rounded">
+              Order Locations
+            </span>
+          </div>
           
           <div className="space-y-3">
-            <div>
-              <div className="flex justify-between text-xs mb-1">
-                <span className="text-on-surface font-bold">Maharashtra (Mumbai, Pune)</span>
-                <span className="text-black font-bold">45%</span>
-              </div>
-              <div className="w-full bg-[#F9F6F0] h-2.5 rounded-full overflow-hidden border border-outline-variant/30">
-                <div className="bg-black h-full w-[45%] rounded-full"></div>
-              </div>
-            </div>
+            {currentAnalytics.regionBreakdown && currentAnalytics.regionBreakdown.length > 0 ? (
+              currentAnalytics.regionBreakdown.map((reg, idx) => {
+                const colors = ['bg-black', 'bg-[#C27B7F]', 'bg-blue-600', 'bg-purple-600', 'bg-emerald-600'];
+                const colorClass = colors[idx % colors.length];
 
-            <div>
-              <div className="flex justify-between text-xs mb-1">
-                <span className="text-on-surface font-bold">Gujarat (Ahmedabad, Surat)</span>
-                <span className="text-heritage-gold font-bold">25%</span>
+                return (
+                  <div key={idx}>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="text-on-surface font-bold">{reg.name}</span>
+                      <span className="text-black font-bold font-mono">{reg.pct}% ({reg.count} {reg.count === 1 ? 'order' : 'orders'})</span>
+                    </div>
+                    <div className="w-full bg-[#F9F6F0] h-2.5 rounded-full overflow-hidden border border-outline-variant/30">
+                      <div className={`${colorClass} h-full rounded-full transition-all duration-500`} style={{ width: `${Math.max(reg.pct, 4)}%` }}></div>
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="py-8 text-center text-stone-400">
+                <span className="material-symbols-outlined text-3xl mb-1">location_on</span>
+                <p className="text-xs">No regional sales data available for this period.</p>
               </div>
-              <div className="w-full bg-[#F9F6F0] h-2.5 rounded-full overflow-hidden border border-outline-variant/30">
-                <div className="bg-heritage-gold h-full w-[25%] rounded-full"></div>
-              </div>
-            </div>
-
-            <div>
-              <div className="flex justify-between text-xs mb-1">
-                <span className="text-on-surface font-bold">Delhi NCR</span>
-                <span className="text-blue-700 font-bold">18%</span>
-              </div>
-              <div className="w-full bg-[#F9F6F0] h-2.5 rounded-full overflow-hidden border border-outline-variant/30">
-                <div className="bg-blue-600 h-full w-[18%] rounded-full"></div>
-              </div>
-            </div>
-
-            <div>
-              <div className="flex justify-between text-xs mb-1">
-                <span className="text-on-surface font-bold">Karnataka (Bengaluru)</span>
-                <span className="text-purple-700 font-bold">12%</span>
-              </div>
-              <div className="w-full bg-[#F9F6F0] h-2.5 rounded-full overflow-hidden border border-outline-variant/30">
-                <div className="bg-purple-600 h-full w-[12%] rounded-full"></div>
-              </div>
-            </div>
+            )}
           </div>
         </div>
 

@@ -3427,45 +3427,199 @@ app.get('/api/reviews/pending-prompt', async (req, res) => {
 });
 
 
-// POST Submit Product Review
+// GET Check Customer Review Eligibility for a Product (Only Verified Buyers Allowed)
+app.get('/api/reviews/eligibility', async (req, res) => {
+  try {
+    const db = await getDb();
+    const { productId, userId, email } = req.query;
+
+    if (!productId) {
+      return res.status(400).json({ eligible: false, error: 'Product ID is required' });
+    }
+
+    if (!userId && !email) {
+      return res.json({ 
+        eligible: false, 
+        hasPurchased: false, 
+        hasReviewed: false, 
+        reason: 'Please sign in or provide your registered email to verify your purchase.' 
+      });
+    }
+
+    const cleanEmail = (email || '').trim().toLowerCase();
+    const cleanUserId = (userId || '').trim();
+
+    // 1. Check if user has already submitted a review for this specific product
+    const existingReview = await db.get(
+      `SELECT id, rating, status, created_at FROM product_reviews 
+       WHERE product_id = ? AND (user_id = ? OR LOWER(customer_email) = ?)`,
+      [productId, cleanUserId, cleanEmail]
+    );
+
+    if (existingReview) {
+      return res.json({
+        eligible: false,
+        hasPurchased: true,
+        hasReviewed: true,
+        reviewId: existingReview.id,
+        reason: 'You have already submitted a verified review for this product.'
+      });
+    }
+
+    // 2. Check if customer has placed any valid order containing this product
+    const orders = await db.all(
+      `SELECT id, order_code, customer_name, customer_email, user_id, status, items_json 
+       FROM orders 
+       WHERE (user_id = ? OR LOWER(customer_email) = ?) 
+       AND status NOT IN ('Cancelled', 'Refunded')
+       ORDER BY created_at DESC`,
+      [cleanUserId, cleanEmail]
+    );
+
+    let matchingOrder = null;
+    for (const ord of orders) {
+      let items = [];
+      try {
+        items = typeof ord.items_json === 'string' ? JSON.parse(ord.items_json) : (ord.items_json || []);
+      } catch (_) { items = []; }
+
+      const match = items.some(item => 
+        String(item.id).trim() === String(productId).trim() ||
+        String(item.productId).trim() === String(productId).trim() ||
+        (item.productCode && String(item.productCode).trim().toLowerCase() === String(productId).trim().toLowerCase())
+      );
+
+      if (match) {
+        matchingOrder = ord;
+        break;
+      }
+    }
+
+    if (!matchingOrder) {
+      return res.json({
+        eligible: false,
+        hasPurchased: false,
+        hasReviewed: false,
+        reason: 'Only verified customers who have ordered this jewellery can write a review.'
+      });
+    }
+
+    return res.json({
+      eligible: true,
+      hasPurchased: true,
+      hasReviewed: false,
+      orderId: matchingOrder.id,
+      orderCode: matchingOrder.order_code,
+      customerName: matchingOrder.customer_name,
+      customerEmail: matchingOrder.customer_email,
+      orderStatus: matchingOrder.status
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST Submit Product Review (Strict Verified Purchaser Validation & Deduplication)
 app.post('/api/reviews', async (req, res) => {
   try {
     const db = await getDb();
-    const { userId, orderId, productId, productName, productImage, customerName, customerEmail, rating, reviewText } = req.body;
+    const { userId, orderId, productId, productName, productImage, customerName, customerEmail, rating, reviewText, headline } = req.body;
 
-    if (!orderId || !productId || !rating) {
-      return res.status(400).json({ error: 'Order ID, Product ID, and Rating are required' });
+    if (!productId || !rating) {
+      return res.status(400).json({ error: 'Product ID and Rating (1-5) are required' });
+    }
+
+    const cleanRating = Math.max(1, Math.min(5, Number(rating)));
+    const cleanEmail = (customerEmail || '').trim().toLowerCase();
+    const cleanUserId = (userId || '').trim();
+
+    if (!cleanUserId && !cleanEmail) {
+      return res.status(401).json({ error: 'Please log in or provide your registered email to submit a verified review.' });
+    }
+
+    // 1. Prevent duplicate reviews by same customer for this product
+    const existingReview = await db.get(
+      `SELECT id FROM product_reviews WHERE product_id = ? AND (user_id = ? OR LOWER(customer_email) = ?)`,
+      [productId, cleanUserId, cleanEmail]
+    );
+
+    if (existingReview) {
+      return res.status(400).json({ error: 'You have already submitted a review for this product.' });
+    }
+
+    // 2. Strict Order Verification: Verify that the customer actually bought this specific product
+    const orders = await db.all(
+      `SELECT id, order_code, customer_name, customer_email, user_id, status, items_json 
+       FROM orders 
+       WHERE (user_id = ? OR LOWER(customer_email) = ? OR id = ?) 
+       AND status NOT IN ('Cancelled', 'Refunded')
+       ORDER BY created_at DESC`,
+      [cleanUserId, cleanEmail, orderId || '']
+    );
+
+    let matchingOrder = null;
+    for (const ord of orders) {
+      let items = [];
+      try {
+        items = typeof ord.items_json === 'string' ? JSON.parse(ord.items_json) : (ord.items_json || []);
+      } catch (_) { items = []; }
+
+      const match = items.some(item => 
+        String(item.id).trim() === String(productId).trim() ||
+        String(item.productId).trim() === String(productId).trim() ||
+        (item.productCode && String(item.productCode).trim().toLowerCase() === String(productId).trim().toLowerCase())
+      );
+
+      if (match) {
+        matchingOrder = ord;
+        break;
+      }
+    }
+
+    if (!matchingOrder) {
+      return res.status(403).json({ 
+        error: 'Access Denied: You can only review jewellery items that you have purchased from Jiza Jewellery Studio.' 
+      });
     }
 
     let validUserId = null;
-    if (userId) {
-      const userExists = await db.get('SELECT id FROM users WHERE id = ?', [userId]);
+    if (cleanUserId) {
+      const userExists = await db.get('SELECT id FROM users WHERE id = ?', [cleanUserId]);
       if (userExists) validUserId = userExists.id;
     }
 
     const reviewId = 'REV-' + Date.now() + '-' + Math.floor(1000 + Math.random() * 9000);
+    const finalOrderId = matchingOrder.id;
+    const finalCustomerName = (customerName || matchingOrder.customer_name || 'Verified Buyer').trim();
+    const finalCustomerEmail = cleanEmail || matchingOrder.customer_email || '';
+    const fullReviewContent = (headline ? `${headline.trim()}\n\n` : '') + (reviewText || '').trim();
 
     await db.run(
       `INSERT INTO product_reviews (
         id, user_id, order_id, product_id, product_name, product_image,
         customer_name, customer_email, rating, review_text, status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Pending')`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Approved')`,
       [
-        reviewId, validUserId, orderId, productId, productName || 'Product',
-        productImage || '', customerName || 'Customer', customerEmail || '',
-        Number(rating), reviewText || ''
+        reviewId, validUserId, finalOrderId, productId, productName || 'Jewellery',
+        productImage || '', finalCustomerName, finalCustomerEmail,
+        cleanRating, fullReviewContent
       ]
     );
 
-    const promptId = 'PRM-' + orderId + '-' + productId;
+    // Also update review prompt if present
+    const promptId = 'PRM-' + finalOrderId + '-' + productId;
     await db.run(
       `INSERT INTO review_prompts (id, user_id, order_id, product_id, status)
        VALUES (?, ?, ?, ?, 'submitted')
        ON CONFLICT(id) DO UPDATE SET status = 'submitted', updated_at = CURRENT_TIMESTAMP`,
-      [promptId, validUserId, orderId, productId]
+      [promptId, validUserId, finalOrderId, productId]
     );
 
-    res.status(201).json({ message: 'Review submitted successfully! Pending admin approval.', reviewId, id: reviewId });
+    res.status(201).json({ 
+      message: 'Thank you! Your verified customer review has been published.', 
+      reviewId, 
+      id: reviewId 
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -3503,30 +3657,30 @@ app.post('/api/reviews/dismiss-prompt', async (req, res) => {
   }
 });
 
-// GET Approved Reviews for a Product
+// GET Approved Reviews for a Specific Product (Strict Product Isolation)
 app.get('/api/reviews/approved', async (req, res) => {
   try {
     const db = await getDb();
     const { productId } = req.query;
 
-    let reviews = [];
-    if (productId) {
-      reviews = await db.all(
-        `SELECT * FROM product_reviews WHERE product_id = ? AND status = 'Approved' ORDER BY created_at DESC`,
-        [productId]
-      );
-    } else {
-      reviews = await db.all(
-        `SELECT * FROM product_reviews WHERE status = 'Approved' ORDER BY created_at DESC`
-      );
+    if (!productId) {
+      return res.status(400).json({ error: 'productId is required' });
     }
+
+    const reviews = await db.all(
+      `SELECT id, product_id, product_name, product_image, customer_name, rating, review_text, created_at 
+       FROM product_reviews 
+       WHERE product_id = ? AND status = 'Approved' 
+       ORDER BY created_at DESC`,
+      [productId]
+    );
 
     const totalCount = reviews.length;
     const avgRating = totalCount > 0
-      ? (reviews.reduce((sum, r) => sum + Number(r.rating), 0) / totalCount).toFixed(1)
-      : 0;
+      ? Number((reviews.reduce((sum, r) => sum + Number(r.rating), 0) / totalCount).toFixed(1))
+      : 5.0;
 
-    res.json({ reviews, count: totalCount, averageRating: Number(avgRating) });
+    res.json({ reviews, count: totalCount, averageRating: avgRating });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

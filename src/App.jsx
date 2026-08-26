@@ -1339,6 +1339,11 @@ export default function App() {
                 productsList={productsList}
                 onSelectProduct={handleSelectProduct}
                 setActiveView={setActiveView}
+                currentUser={currentUser}
+                onOpenAuthModal={(msg) => {
+                  setAuthModalMessage(msg || 'Please sign in to verify your purchase and review.');
+                  setIsAuthModalOpen(true);
+                }}
               />
             )}
 

@@ -1505,7 +1505,7 @@ export default function AdminPanel({
   };
 
   const getAnalyticsData = () => {
-    const filtered = ordersList.filter(matchesAnalyticsDateFilter);
+    const filtered = (ordersList || []).filter(matchesAnalyticsDateFilter);
     const totalRev = filtered.reduce((acc, o) => acc + (parseInt(String(o.amount).replace(/[^0-9]/g, '')) || 0), 0);
     const totalUnits = filtered.reduce((acc, o) => {
       let parsed = [];
@@ -1519,26 +1519,87 @@ export default function AdminPanel({
 
     const avgOrder = filtered.length > 0 ? Math.round(totalRev / filtered.length) : 0;
 
-    let chartData = [
-      { day: 'Day 1', rev: Math.round(totalRev * 0.1), units: Math.max(1, Math.round(totalUnits * 0.1)) },
-      { day: 'Day 2', rev: Math.round(totalRev * 0.15), units: Math.max(1, Math.round(totalUnits * 0.15)) },
-      { day: 'Day 3', rev: Math.round(totalRev * 0.2), units: Math.max(1, Math.round(totalUnits * 0.2)) },
-      { day: 'Day 4', rev: Math.round(totalRev * 0.12), units: Math.max(1, Math.round(totalUnits * 0.12)) },
-      { day: 'Day 5', rev: Math.round(totalRev * 0.25), units: Math.max(1, Math.round(totalUnits * 0.25)) },
-      { day: 'Day 6', rev: Math.round(totalRev * 0.18), units: Math.max(1, Math.round(totalUnits * 0.18)) }
-    ];
+    // 1. Group real daily revenue & units by actual order dates
+    const dailyMap = {};
+    filtered.forEach(o => {
+      const dStr = o.created_at ? o.created_at.split('T')[0] : (o.date || '');
+      if (!dStr) return;
+      const formattedDay = new Date(dStr).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' });
+      if (!dailyMap[formattedDay]) {
+        dailyMap[formattedDay] = { day: formattedDay, rev: 0, units: 0 };
+      }
+      const amt = parseInt(String(o.amount).replace(/[^0-9]/g, '')) || 0;
+      dailyMap[formattedDay].rev += amt;
+
+      let items = [];
+      try {
+        items = typeof o.itemsJson === 'string' ? JSON.parse(o.itemsJson) : (o.items_json ? (typeof o.items_json === 'string' ? JSON.parse(o.items_json) : o.items_json) : []);
+      } catch (e) { items = []; }
+      dailyMap[formattedDay].units += items.length > 0 ? items.reduce((sum, i) => sum + (i.quantity || 1), 0) : 1;
+    });
+
+    const chartData = Object.values(dailyMap);
+
+    // 2. Real Category Sales Breakdown from real orders & products
+    const categoryMap = {};
+    filtered.forEach(o => {
+      let items = [];
+      try {
+        items = typeof o.itemsJson === 'string' ? JSON.parse(o.itemsJson) : (o.items_json ? (typeof o.items_json === 'string' ? JSON.parse(o.items_json) : o.items_json) : []);
+      } catch (e) { items = []; }
+
+      if (items.length === 0) {
+        const cat = 'Jewellery';
+        const amt = parseInt(String(o.amount).replace(/[^0-9]/g, '')) || 0;
+        categoryMap[cat] = (categoryMap[cat] || 0) + amt;
+      } else {
+        items.forEach(item => {
+          const prod = (productsList || []).find(p => p.id === item.id || p.id === item.productId);
+          const cat = (prod && (prod.categoryLabel || prod.category)) || item.category || 'Handcrafted Jewellery';
+          const itemTotal = (Number(item.price || item.sellingPrice || (prod ? prod.price : 0)) || 0) * (item.quantity || 1);
+          categoryMap[cat] = (categoryMap[cat] || 0) + itemTotal;
+        });
+      }
+    });
+
+    const categoryBreakdown = Object.entries(categoryMap).map(([name, rev]) => {
+      const pct = totalRev > 0 ? Math.round((rev / totalRev) * 100) : 0;
+      return { name, rev, pct };
+    }).sort((a, b) => b.rev - a.rev);
+
+    // 3. Real Region Breakdown from real customer shipping states/cities
+    const regionMap = {};
+    filtered.forEach(o => {
+      let region = 'Maharashtra (Mumbai, Pune)';
+      if (o.state) region = o.state;
+      else if (o.city) region = o.city;
+      else if (o.shipping_address && typeof o.shipping_address === 'string') {
+        const lower = o.shipping_address.toLowerCase();
+        if (lower.includes('maharashtra') || lower.includes('pune') || lower.includes('mumbai')) region = 'Maharashtra (Mumbai, Pune)';
+        else if (lower.includes('gujarat') || lower.includes('surat') || lower.includes('ahmedabad')) region = 'Gujarat (Ahmedabad, Surat)';
+        else if (lower.includes('delhi')) region = 'Delhi NCR';
+        else if (lower.includes('karnataka') || lower.includes('bengaluru')) region = 'Karnataka (Bengaluru)';
+        else region = 'Other Regions';
+      }
+      regionMap[region] = (regionMap[region] || 0) + 1;
+    });
+
+    const regionBreakdown = Object.entries(regionMap).map(([name, count]) => {
+      const pct = filtered.length > 0 ? Math.round((count / filtered.length) * 100) : 0;
+      return { name, count, pct };
+    }).sort((a, b) => b.count - a.count);
 
     let label = 'Showing data for the Last 7 Days';
     if (analyticsPreset === '30days') label = 'Showing data for the Last 30 Days';
     if (analyticsPreset === 'month') label = 'Showing data for This Month';
     if (analyticsPreset === 'custom') label = `Showing data from ${startDate || 'Start'} to ${endDate || 'Today'}`;
 
-    return { totalRev, totalUnits, avgOrder, chartData, label };
+    return { totalRev, totalUnits, avgOrder, chartData, categoryBreakdown, regionBreakdown, label };
   };
 
   const currentAnalytics = getAnalyticsData();
-  const maxRevenueInChart = Math.max(...currentAnalytics.chartData.map(d => d.rev), 1);
-  const maxUnitsInChart = Math.max(...currentAnalytics.chartData.map(d => d.units), 1);
+  const maxRevenueInChart = currentAnalytics.chartData.length > 0 ? Math.max(...currentAnalytics.chartData.map(d => d.rev), 1) : 1;
+  const maxUnitsInChart = currentAnalytics.chartData.length > 0 ? Math.max(...currentAnalytics.chartData.map(d => d.units), 1) : 1;
 
   const handleChatbotSend = (queryText) => {
     if (!queryText || !queryText.trim()) return;
