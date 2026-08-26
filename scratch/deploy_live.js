@@ -50,6 +50,7 @@ conn.on('ready', () => {
           'src/main.jsx',
           'src/config.js',
           'vite.config.js',
+          'src/components/ProductDetailPage.jsx',
           'src/components/ProductDetailModal.jsx',
           'src/components/MobileNavDrawer.jsx',
           'src/components/ExchangePolicyModal.jsx',

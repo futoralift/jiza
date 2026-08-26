@@ -15,7 +15,7 @@ import CategoriesView from './components/CategoriesView';
 import SubCategoryView from './components/SubCategoryView';
 import ProfileView from './components/ProfileView';
 import CheckoutView from './components/CheckoutView';
-import ProductDetailModal from './components/ProductDetailModal';
+import ProductDetailPage from './components/ProductDetailPage';
 import CartDrawer from './components/CartDrawer';
 import WishlistDrawer from './components/WishlistDrawer';
 import RoyalDoorSplash from './components/RoyalDoorSplash';
@@ -393,15 +393,99 @@ export default function App() {
   }, [activeView, activeCategoryId]);
 
   // ======================================================
-  // BROWSER HISTORY & BACK BUTTON INTERCEPTOR
-  // Prevents exiting the web application when pressing Back
+  // BROWSER HISTORY, CLEAN URLS & BACK BUTTON MANAGEMENT
+  // Full-page e-commerce navigation with zero popup locking
   // ======================================================
+
+  const handleSelectProduct = (product, shouldPush = true) => {
+    if (!product) return;
+    const fullProd = productsList.find(p => p.id === product.id) || product;
+    setSelectedProduct(fullProd);
+    setActiveView('product');
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+
+    if (shouldPush && typeof window !== 'undefined' && window.history && window.history.pushState) {
+      const codeOrSlug = fullProd.product_code || fullProd.productCode || fullProd.id;
+      const cleanPath = `/product/${encodeURIComponent(codeOrSlug)}`;
+      window.history.pushState({ view: 'product', prodId: fullProd.id }, `${fullProd.title} | Jiza Jewellery Studio`, cleanPath);
+    }
+  };
+
+  const handleBackFromProduct = () => {
+    setSelectedProduct(null);
+    if (typeof window !== 'undefined' && window.history && window.history.state?.view && window.history.state.view !== 'product') {
+      window.history.back();
+    } else {
+      setActiveView('home');
+      if (typeof window !== 'undefined' && window.history && window.history.pushState) {
+        window.history.pushState({ view: 'home' }, document.title, '/');
+      }
+    }
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  };
+
+  // URL route parsing on initial load and product list update
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const pathname = window.location.pathname || '';
+    const params = new URLSearchParams(window.location.search);
+    const hash = window.location.hash || '';
+
+    // Detect /product/:code or /products/:code
+    let prodKey = '';
+    if (pathname.startsWith('/product/')) {
+      prodKey = decodeURIComponent(pathname.replace('/product/', '').trim());
+    } else if (pathname.startsWith('/products/')) {
+      prodKey = decodeURIComponent(pathname.replace('/products/', '').trim());
+    } else if (params.get('product') || params.get('productId') || params.get('p')) {
+      prodKey = params.get('product') || params.get('productId') || params.get('p');
+    } else if (hash.startsWith('#product-')) {
+      prodKey = hash.replace('#product-', '');
+    }
+
+    if (prodKey && productsList.length > 0) {
+      const found = productsList.find(
+        (p) => String(p.id) === prodKey ||
+               String(p.product_code || '').toUpperCase() === prodKey.toUpperCase() ||
+               String(p.productCode || '').toUpperCase() === prodKey.toUpperCase() ||
+               String(p.title || '').toLowerCase().replace(/[^a-z0-9]+/g, '-') === prodKey.toLowerCase()
+      );
+      if (found) {
+        setSelectedProduct(found);
+        setActiveView('product');
+        return;
+      }
+    }
+
+    // Other standard views
+    if (pathname === '/categories' || hash === '#categories') {
+      setActiveView('categories');
+    } else if (pathname === '/profile' || hash === '#profile') {
+      setActiveView('profile');
+    } else if (pathname === '/search' || hash === '#search') {
+      setActiveView('search');
+    } else if (pathname === '/checkout' || hash === '#checkout') {
+      setActiveView('checkout');
+    } else if (pathname === '/rental-gallery' || hash === '#rental-gallery') {
+      setActiveView('rental-gallery');
+    } else if (pathname === '/faq' || hash === '#faq') {
+      setActiveView('faq');
+    } else if (pathname === '/privacy' || hash === '#privacy') {
+      setActiveView('privacy');
+    } else if (pathname === '/terms' || hash === '#terms') {
+      setActiveView('terms');
+    } else if (pathname === '/cancellation-policy' || hash === '#cancellation-policy') {
+      setActiveView('cancellation-policy');
+    }
+  }, [productsList]);
+
+  // Sync browser history state on view changes
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.history) return;
     const currentState = window.history.state;
     const newState = {
       view: activeView,
       catId: activeCategoryId,
-      hasProduct: Boolean(selectedProduct),
       prodId: selectedProduct?.id || null,
       isCartOpen,
       isWishlistOpen,
@@ -417,25 +501,41 @@ export default function App() {
       currentState.isWishlistOpen !== newState.isWishlistOpen ||
       currentState.isAuthModalOpen !== newState.isAuthModalOpen
     ) {
-      let hash = `#${activeView}`;
-      if (activeView === 'subcategory') hash = `#category-${activeCategoryId}`;
-      if (selectedProduct) hash = `#product-${selectedProduct.id}`;
-      if (isCartOpen) hash = '#cart';
-      if (isWishlistOpen) hash = '#wishlist';
+      let targetPath = window.location.pathname;
+      if (activeView === 'product' && selectedProduct) {
+        const code = selectedProduct.product_code || selectedProduct.productCode || selectedProduct.id;
+        targetPath = `/product/${encodeURIComponent(code)}`;
+      } else if (activeView === 'home' && !targetPath.startsWith('/admin')) {
+        targetPath = '/';
+      }
 
-      const urlParams = new URLSearchParams(window.location.search);
-      const searchStr = urlParams.toString() ? `?${urlParams.toString()}` : '';
-
-      window.history.pushState(newState, '', `${window.location.pathname}${searchStr}${hash}`);
+      window.history.pushState(newState, '', targetPath);
     }
   }, [activeView, activeCategoryId, selectedProduct, isCartOpen, isWishlistOpen, isAuthModalOpen]);
 
+  // Back/Forward PopState Event Listener
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+
     const handlePopState = (event) => {
-      if (selectedProduct) {
-        setSelectedProduct(null);
-        return;
+      const pathname = window.location.pathname || '';
+
+      // Check if Back/Forward landed on a product URL
+      if (pathname.startsWith('/product/') || pathname.startsWith('/products/')) {
+        const prodKey = decodeURIComponent(pathname.replace(/^\/products?\//, '').trim());
+        const found = productsList.find(
+          (p) => String(p.id) === prodKey ||
+                 String(p.product_code || '').toUpperCase() === prodKey.toUpperCase() ||
+                 String(p.productCode || '').toUpperCase() === prodKey.toUpperCase()
+        );
+        if (found) {
+          setSelectedProduct(found);
+          setActiveView('product');
+          return;
+        }
       }
+
+      // Close open drawers on Back without leaving current page
       if (isCartOpen) {
         setIsCartOpen(false);
         return;
@@ -452,21 +552,22 @@ export default function App() {
       const state = event.state;
       if (state && state.view) {
         setActiveView(state.view);
-        if (state.catId) setActiveCategoryId(state.catId);
-        if (state.prodId) {
+        if (state.view === 'product' && state.prodId) {
           const found = productsList.find(p => p.id === state.prodId);
           if (found) setSelectedProduct(found);
+        } else {
+          setSelectedProduct(null);
         }
+        if (state.catId) setActiveCategoryId(state.catId);
       } else {
-        if (activeView !== 'home') {
-          setActiveView('home');
-        }
+        setSelectedProduct(null);
+        setActiveView('home');
       }
     };
 
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
-  }, [selectedProduct, isCartOpen, isWishlistOpen, isAuthModalOpen, activeView, productsList]);
+  }, [isCartOpen, isWishlistOpen, isAuthModalOpen, productsList]);
 
   const showToast = (msg) => {
     setToastMessage(msg);
@@ -1217,7 +1318,7 @@ export default function App() {
             {activeView === 'home' && (
               <HomeView 
                 onSelectCategory={handleSelectCategory}
-                onSelectProduct={(p) => setSelectedProduct(p)}
+                onSelectProduct={(p) => handleSelectProduct(p)}
                 onToggleWishlist={handleToggleWishlist}
                 wishlistIds={wishlistIds}
                 onAddToCart={handleAddToCart}
@@ -1227,11 +1328,25 @@ export default function App() {
               />
             )}
 
+            {activeView === 'product' && (
+              <ProductDetailPage 
+                product={selectedProduct ? (productsList.find(p => p.id === selectedProduct.id) || selectedProduct) : null}
+                onBack={handleBackFromProduct}
+                onAddToCart={handleAddToCart}
+                onBuyNow={handleBuyNow}
+                onToggleWishlist={handleToggleWishlist}
+                isWishlisted={selectedProduct ? wishlistIds.includes(selectedProduct.id) : false}
+                productsList={productsList}
+                onSelectProduct={handleSelectProduct}
+                setActiveView={setActiveView}
+              />
+            )}
+
             {activeView === 'search' && (
               <SearchView 
                 initialQuery={searchQuery}
                 initialCategory={selectedCategory}
-                onSelectProduct={(p) => setSelectedProduct(p)}
+                onSelectProduct={(p) => handleSelectProduct(p)}
                 onToggleWishlist={handleToggleWishlist}
                 wishlistIds={wishlistIds}
                 onAddToCart={handleAddToCart}
@@ -1280,7 +1395,7 @@ export default function App() {
                 onBuyNow={handleBuyNow}
                 onUpdateQuantity={handleUpdateQuantity}
                 onRemoveFromCart={handleRemoveFromCart}
-                onSelectProduct={(p) => setSelectedProduct(p)}
+                onSelectProduct={(p) => handleSelectProduct(p)}
                 onRefreshOrders={fetchDbOrders}
               />
             )}
@@ -1385,16 +1500,6 @@ export default function App() {
         registeredCustomers={registeredCustomers}
       />
 
-      {/* Product Detail Modal */}
-      <ProductDetailModal 
-        product={selectedProduct ? (productsList.find(p => p.id === selectedProduct.id) || selectedProduct) : null}
-        onClose={() => setSelectedProduct(null)}
-        onAddToCart={handleAddToCart}
-        onBuyNow={handleBuyNow}
-        onToggleWishlist={handleToggleWishlist}
-        isWishlisted={selectedProduct ? wishlistIds.includes(selectedProduct.id) : false}
-      />
-
       {/* Cart & Wishlist Drawers */}
       <CartDrawer 
         isOpen={isCartOpen}
@@ -1403,7 +1508,10 @@ export default function App() {
         onUpdateQuantity={handleUpdateQuantity}
         onRemoveItem={handleRemoveFromCart}
         onCheckout={handleProceedToCheckout}
-        onSelectProduct={(p) => setSelectedProduct(p)}
+        onSelectProduct={(p) => {
+          setIsCartOpen(false);
+          handleSelectProduct(p);
+        }}
         productsList={productsList}
       />
 
@@ -1414,7 +1522,10 @@ export default function App() {
         onToggleWishlist={handleToggleWishlist}
         onAddToCart={handleAddToCart}
         onBuyNow={handleBuyNow}
-        onSelectProduct={(p) => setSelectedProduct(p)}
+        onSelectProduct={(p) => {
+          setIsWishlistOpen(false);
+          handleSelectProduct(p);
+        }}
         productsList={productsList}
       />
 
