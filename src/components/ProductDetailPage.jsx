@@ -52,12 +52,28 @@ export default function ProductDetailPage({
   const [activeTab, setActiveTab] = useState('description'); // 'description' | 'details' | 'care' | 'reviews' | 'exchange'
   const [isAdded, setIsAdded] = useState(false);
 
+  // Available Stock from Backend DB
+  const maxStock = product?.stockQuantity !== undefined 
+    ? Number(product.stockQuantity) 
+    : (product?.stock_quantity !== undefined ? Number(product.stock_quantity) : 10);
+  
+  const isSoldOut = Boolean(product?.soldOut || product?.sold_out || !product?.inStock || maxStock <= 0);
+
   // Keep activeMedia within valid range
   useEffect(() => {
     if (activeMedia >= mediaItems.length) {
       setActiveMedia(0);
     }
   }, [mediaItems.length, activeMedia]);
+
+  // Reset quantity if it exceeds maxStock
+  useEffect(() => {
+    if (quantity > maxStock && maxStock > 0) {
+      setQuantity(maxStock);
+    } else if (quantity < 1 && maxStock > 0) {
+      setQuantity(1);
+    }
+  }, [maxStock]);
 
   const handlePrevMedia = (e) => {
     if (e) e.stopPropagation();
@@ -96,32 +112,87 @@ export default function ProductDetailPage({
     touchEndX.current = null;
   };
 
-  // Approved Reviews
+  // ==========================================
+  // REVIEWS & RATINGS SYSTEM (DATABASE CONNECTED)
+  // ==========================================
   const [approvedReviews, setApprovedReviews] = useState([]);
-  const [avgRating, setAvgRating] = useState(product?.rating || 4.8);
+  const [avgRating, setAvgRating] = useState(product?.rating || 4.9);
   const [reviewsCount, setReviewsCount] = useState(product?.reviewsCount || 0);
+  const [isWriteReviewOpen, setIsWriteReviewOpen] = useState(false);
+  const [reviewFormData, setReviewFormData] = useState({
+    customerName: '',
+    customerEmail: '',
+    rating: 5,
+    title: '',
+    comment: ''
+  });
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+  const [reviewSuccessMsg, setReviewSuccessMsg] = useState('');
 
-  useEffect(() => {
+  const fetchReviews = async () => {
     if (!product?.id) return;
-    const fetchReviews = async () => {
-      try {
-        const res = await fetch(`${API_BASE}/api/reviews/approved?productId=${product.id}`);
-        if (res.ok) {
-          const data = await res.json();
-          if (Array.isArray(data.reviews)) {
-            setApprovedReviews(data.reviews);
-            if (data.count > 0) {
-              setReviewsCount(data.count);
-              setAvgRating(data.averageRating);
-            }
+    try {
+      const res = await fetch(`${API_BASE}/api/reviews/approved?productId=${encodeURIComponent(product.id)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.reviews)) {
+          setApprovedReviews(data.reviews);
+          if (data.count > 0) {
+            setReviewsCount(data.count);
+            setAvgRating(data.averageRating);
           }
         }
-      } catch (err) {
-        console.log('Error loading reviews:', err);
       }
-    };
+    } catch (err) {
+      console.log('Error loading reviews:', err);
+    }
+  };
+
+  useEffect(() => {
     fetchReviews();
   }, [product?.id]);
+
+  const handleReviewSubmit = async (e) => {
+    e.preventDefault();
+    if (!reviewFormData.customerName.trim() || !reviewFormData.comment.trim()) {
+      alert('Please fill in your Name and Comments.');
+      return;
+    }
+
+    setIsSubmittingReview(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/reviews`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          productId: product.id,
+          productTitle: product.title,
+          customerName: reviewFormData.customerName.trim(),
+          customerEmail: reviewFormData.customerEmail.trim(),
+          rating: Number(reviewFormData.rating) || 5,
+          title: reviewFormData.title.trim() || 'Verified Customer Review',
+          comment: reviewFormData.comment.trim()
+        })
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setReviewSuccessMsg('✨ Thank you! Your review has been submitted.');
+        setReviewFormData({ customerName: '', customerEmail: '', rating: 5, title: '', comment: '' });
+        setTimeout(() => {
+          setIsWriteReviewOpen(false);
+          setReviewSuccessMsg('');
+        }, 3000);
+        fetchReviews();
+      } else {
+        alert(data.error || 'Failed to submit review. Please try again.');
+      }
+    } catch (err) {
+      alert('Network error while submitting review.');
+    } finally {
+      setIsSubmittingReview(false);
+    }
+  };
 
   // Colours Parsing
   const availableColors = product?.colour
@@ -140,13 +211,16 @@ export default function ProductDetailPage({
   const sellingPrice = product.price || product.sellingPrice || 0;
   const mrp = product.mrp || product.originalPrice || 0;
   const discount = product.discount || (mrp > 0 ? Math.round(((mrp - sellingPrice) / mrp) * 100) : 0);
-  const maxStock = product?.stockQuantity !== undefined ? Number(product.stockQuantity) : (product?.stock_quantity !== undefined ? Number(product.stock_quantity) : 10);
-  const isSoldOut = Boolean(product?.soldOut || product?.sold_out || !product?.inStock);
 
+  // STOCK VALIDATED ADD TO CART
   const handleAdd = (e) => {
-    if (isSoldOut) return;
+    if (isSoldOut || maxStock <= 0) {
+      alert('⚠️ This product is currently Sold Out.');
+      return;
+    }
+    const validatedQty = Math.min(Math.max(1, quantity), maxStock);
     const rect = e.currentTarget.getBoundingClientRect();
-    onAddToCart(product, quantity, selectedSize, selectedColor, {
+    onAddToCart(product, validatedQty, selectedSize, selectedColor, {
       left: rect.left,
       top: rect.top,
       width: rect.width,
@@ -157,9 +231,14 @@ export default function ProductDetailPage({
     setTimeout(() => setIsAdded(false), 2000);
   };
 
+  // STOCK VALIDATED BUY NOW
   const handleBuy = () => {
-    if (isSoldOut) return;
-    onBuyNow(product, quantity, selectedSize, selectedColor);
+    if (isSoldOut || maxStock <= 0) {
+      alert('⚠️ This product is currently Sold Out.');
+      return;
+    }
+    const validatedQty = Math.min(Math.max(1, quantity), maxStock);
+    onBuyNow(product, validatedQty, selectedSize, selectedColor);
   };
 
   const currentMedia = mediaItems[activeMedia] || mediaItems[0] || { type: 'image', url: '/logo-j.png' };
@@ -259,7 +338,7 @@ export default function ProductDetailPage({
                   </span>
                 )}
                 {isSoldOut && (
-                  <span className="bg-stone-900 text-white text-xs uppercase font-bold px-3 py-1 rounded-full shadow">
+                  <span className="bg-red-600 text-white text-xs uppercase font-bold px-3 py-1 rounded-full shadow-md animate-pulse">
                     Sold Out
                   </span>
                 )}
@@ -343,7 +422,7 @@ export default function ProductDetailPage({
           </div>
 
           {/* ===== RIGHT COLUMN: PRODUCT SPECIFICATIONS & ACTIONS ===== */}
-          <div className="lg:col-span-5 flex flex-col space-y-5">
+          <div className="lg:col-span-5 flex flex-col space-y-4">
             
             {/* Header: Title, Category & Code */}
             <div>
@@ -366,8 +445,8 @@ export default function ProductDetailPage({
                   <span className="material-symbols-outlined text-sm text-black" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
                   <span>{avgRating}</span>
                 </div>
-                <span className="text-xs text-on-surface-variant">
-                  ({reviewsCount > 0 ? `${reviewsCount} customer reviews` : 'Handcrafted Masterpiece'})
+                <span className="text-xs text-on-surface-variant font-medium">
+                  ({reviewsCount > 0 ? `${reviewsCount} verified customer reviews` : '4.9 • Handcrafted Masterpiece'})
                 </span>
               </div>
             </div>
@@ -390,8 +469,27 @@ export default function ProductDetailPage({
                 )}
               </div>
               <p className="text-[11px] text-on-surface-variant mt-1.5">
-                Inclusive of all taxes • Free Insured Delivery across India
+                Inclusive of all taxes • Insured Delivery across India
               </p>
+            </div>
+
+            {/* ======================================================== */}
+            {/* PROMINENT RED DELIVERY & EXCHANGE POLICY NOTICE BOX */}
+            {/* ======================================================== */}
+            <div className="bg-red-50/95 border-2 border-red-500 rounded-2xl p-4 shadow-xs text-red-950 space-y-2">
+              <div className="flex items-center gap-2 font-bold text-sm text-red-700">
+                <span className="material-symbols-outlined text-xl text-red-600">local_shipping</span>
+                <span>🚚 8–10 Days Delivery</span>
+              </div>
+              <div className="flex items-start gap-2 text-xs text-red-900 leading-snug">
+                <span className="material-symbols-outlined text-base text-red-600 shrink-0 mt-0.5">assignment_return</span>
+                <div>
+                  <span className="font-bold text-red-700">Exchange Policy: </span>
+                  <span className="font-semibold text-red-800">
+                    Strictly <strong>Only Exchange • No Return</strong>. Continuous, uncut <strong>unboxing video proof</strong> is mandatory within <strong>10 hours of delivery</strong>.
+                  </span>
+                </div>
+              </div>
             </div>
 
             {/* Colors Selection (if applicable) */}
@@ -419,41 +517,62 @@ export default function ProductDetailPage({
               </div>
             )}
 
-            {/* Quantity Selector & Stock Status */}
+            {/* ======================================================== */}
+            {/* AVAILABLE STOCK & QUANTITY SELECTOR (STRICT STOCK LIMITS) */}
+            {/* ======================================================== */}
             <div>
               <div className="flex items-center justify-between mb-2">
                 <label className="text-xs font-bold uppercase tracking-wider text-black">
                   Quantity
                 </label>
-                <span className={`text-xs font-bold flex items-center gap-1 ${isSoldOut ? 'text-red-600' : 'text-emerald-700'}`}>
-                  <span className="material-symbols-outlined text-sm">
-                    {isSoldOut ? 'cancel' : 'check_circle'}
+
+                {/* Stock Messaging Badge */}
+                {isSoldOut || maxStock <= 0 ? (
+                  <span className="text-xs font-bold bg-red-100 text-red-700 border border-red-300 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                    <span className="material-symbols-outlined text-sm">cancel</span>
+                    <span>Sold Out (0 Available)</span>
                   </span>
-                  <span>{isSoldOut ? 'Out of Stock' : (maxStock <= 3 ? `Only ${maxStock} left in stock!` : 'In Stock Ready to Ship')}</span>
-                </span>
+                ) : maxStock <= 5 ? (
+                  <span className="text-xs font-bold bg-red-100 text-red-700 border border-red-300 px-2.5 py-0.5 rounded-full flex items-center gap-1 animate-pulse">
+                    <span className="material-symbols-outlined text-sm">bolt</span>
+                    <span>⚡ Only {maxStock} left in stock — Order soon!</span>
+                  </span>
+                ) : (
+                  <span className="text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                    <span className="material-symbols-outlined text-sm">check_circle</span>
+                    <span>✓ In Stock ({maxStock} units available)</span>
+                  </span>
+                )}
               </div>
 
-              {!isSoldOut && (
-                <div className="inline-flex items-center border border-black/20 rounded-xl bg-white p-1">
-                  <button
-                    type="button"
-                    onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                    disabled={quantity <= 1}
-                    className="w-8 h-8 rounded-lg flex items-center justify-center text-black hover:bg-[#FCDAD7] disabled:opacity-30 cursor-pointer transition-colors"
-                  >
-                    <span className="material-symbols-outlined text-sm">remove</span>
-                  </button>
-                  <span className="w-12 text-center font-bold text-sm text-black">
-                    {quantity}
+              {!isSoldOut && maxStock > 0 && (
+                <div className="flex items-center gap-3">
+                  <div className="inline-flex items-center border border-black/25 rounded-xl bg-white p-1 shadow-xs">
+                    <button
+                      type="button"
+                      onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                      disabled={quantity <= 1}
+                      className="w-9 h-9 rounded-lg flex items-center justify-center text-black hover:bg-[#FCDAD7] disabled:opacity-30 cursor-pointer transition-colors"
+                      title="Decrease Quantity"
+                    >
+                      <span className="material-symbols-outlined text-base">remove</span>
+                    </button>
+                    <span className="w-12 text-center font-bold text-base text-black">
+                      {quantity}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setQuantity((q) => Math.min(maxStock, q + 1))}
+                      disabled={quantity >= maxStock}
+                      className="w-9 h-9 rounded-lg flex items-center justify-center text-black hover:bg-[#FCDAD7] disabled:opacity-30 cursor-pointer transition-colors"
+                      title="Increase Quantity"
+                    >
+                      <span className="material-symbols-outlined text-base">add</span>
+                    </button>
+                  </div>
+                  <span className="text-xs text-on-surface-variant font-medium">
+                    (Max {maxStock} units per order)
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => setQuantity((q) => Math.min(maxStock, q + 1))}
-                    disabled={quantity >= maxStock}
-                    className="w-8 h-8 rounded-lg flex items-center justify-center text-black hover:bg-[#FCDAD7] disabled:opacity-30 cursor-pointer transition-colors"
-                  >
-                    <span className="material-symbols-outlined text-sm">add</span>
-                  </button>
                 </div>
               )}
             </div>
@@ -464,9 +583,9 @@ export default function ProductDetailPage({
                 <button
                   type="button"
                   onClick={handleAdd}
-                  disabled={isSoldOut}
+                  disabled={isSoldOut || maxStock <= 0}
                   className={`w-full py-3.5 px-4 rounded-2xl font-bold text-sm uppercase tracking-wider flex items-center justify-center gap-2 border transition-all cursor-pointer shadow-sm ${
-                    isSoldOut
+                    isSoldOut || maxStock <= 0
                       ? 'bg-stone-200 text-stone-400 border-stone-300 cursor-not-allowed'
                       : isAdded
                       ? 'bg-emerald-600 text-white border-emerald-700'
@@ -476,15 +595,15 @@ export default function ProductDetailPage({
                   <span className="material-symbols-outlined text-lg">
                     {isAdded ? 'done' : 'shopping_bag'}
                   </span>
-                  <span>{isAdded ? 'Added to Bag!' : 'Add to Bag'}</span>
+                  <span>{isSoldOut || maxStock <= 0 ? 'Sold Out' : isAdded ? 'Added to Bag!' : 'Add to Bag'}</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={handleBuy}
-                  disabled={isSoldOut}
+                  disabled={isSoldOut || maxStock <= 0}
                   className={`w-full py-3.5 px-4 rounded-2xl font-bold text-sm uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md ${
-                    isSoldOut
+                    isSoldOut || maxStock <= 0
                       ? 'bg-stone-300 text-stone-500 cursor-not-allowed'
                       : 'bg-black hover:bg-stone-900 text-[#FCDAD7] active:scale-98'
                   }`}
@@ -519,18 +638,6 @@ export default function ProductDetailPage({
                   <span className="material-symbols-outlined text-base text-emerald-600">chat</span>
                   <span>WhatsApp Styling</span>
                 </a>
-              </div>
-            </div>
-
-            {/* Trust Assurances Pill Row */}
-            <div className="grid grid-cols-2 gap-2 pt-2 border-t border-[#F8B3AC]/40 text-[11px] text-stone-800 font-semibold">
-              <div className="flex items-center gap-2 p-2.5 bg-white/70 rounded-xl border border-[#F8B3AC]/30">
-                <span className="material-symbols-outlined text-base text-amber-700">local_shipping</span>
-                <span>{product.deliveryTime || '2-4 Days Fast Delivery'}</span>
-              </div>
-              <div className="flex items-center gap-2 p-2.5 bg-white/70 rounded-xl border border-[#F8B3AC]/30">
-                <span className="material-symbols-outlined text-base text-emerald-700">verified</span>
-                <span>100% Handcrafted Quality</span>
               </div>
             </div>
 
@@ -602,11 +709,11 @@ export default function ProductDetailPage({
 
                 {activeTab === 'exchange' && (
                   <div className="space-y-2">
-                    <div className="flex items-center gap-1.5 text-rose-800 font-bold">
+                    <div className="flex items-center gap-1.5 text-red-700 font-bold">
                       <span className="material-symbols-outlined text-sm">videocam</span>
                       <span>Strict Exchange Policy (Only Exchange • No Return)</span>
                     </div>
-                    <p className="text-[11px] text-stone-700">
+                    <p className="text-[11px] text-stone-800 leading-normal">
                       Exchange is available <strong>only for broken jewellery received in transit</strong>.
                       A continuous, unedited <strong>unboxing video proof</strong> is mandatory within <strong>10 hours of delivery</strong>.
                     </p>
@@ -617,6 +724,227 @@ export default function ProductDetailPage({
 
           </div>
 
+        </div>
+
+        {/* ======================================================== */}
+        {/* SECTION 1: COMPLETE REVIEWS & RATINGS (DATABASE PERSISTENT) */}
+        {/* ======================================================== */}
+        <div className="mt-16 pt-10 border-t border-[#F8B3AC]/40">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+            <div>
+              <h2 className="text-2xl sm:text-3xl font-serif font-bold text-black flex items-center gap-2">
+                <span>Customer Ratings & Reviews</span>
+                <span className="text-sm font-sans font-bold bg-[#FCDAD7] text-black px-2.5 py-0.5 rounded-full border border-black/15">
+                  ★ {avgRating}
+                </span>
+              </h2>
+              <p className="text-xs text-on-surface-variant mt-1">
+                Verified feedback from real customers who purchased this jewellery
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIsWriteReviewOpen(!isWriteReviewOpen)}
+              className="px-5 py-2.5 bg-black text-[#FCDAD7] hover:bg-stone-900 font-bold text-xs uppercase tracking-wider rounded-xl shadow-sm transition-all flex items-center gap-2 cursor-pointer shrink-0 self-start sm:self-auto"
+            >
+              <span className="material-symbols-outlined text-base">rate_review</span>
+              <span>{isWriteReviewOpen ? 'Close Form' : 'Write a Review'}</span>
+            </button>
+          </div>
+
+          {/* Write a Review Collapsible Form */}
+          {isWriteReviewOpen && (
+            <div className="mb-10 bg-white border border-[#F8B3AC]/60 rounded-3xl p-6 sm:p-8 shadow-sm">
+              <h3 className="font-serif font-bold text-lg text-black mb-4">Share Your Experience</h3>
+              
+              {reviewSuccessMsg ? (
+                <div className="p-4 bg-emerald-50 text-emerald-800 border border-emerald-300 rounded-2xl text-sm font-bold text-center">
+                  {reviewSuccessMsg}
+                </div>
+              ) : (
+                <form onSubmit={handleReviewSubmit} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-black mb-1.5">
+                      Your Rating
+                    </label>
+                    <div className="flex items-center gap-2">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <button
+                          key={star}
+                          type="button"
+                          onClick={() => setReviewFormData(prev => ({ ...prev, rating: star }))}
+                          className="cursor-pointer transition-transform hover:scale-110 focus:outline-none"
+                        >
+                          <span 
+                            className={`material-symbols-outlined text-2xl ${
+                              star <= reviewFormData.rating ? 'text-amber-500' : 'text-stone-300'
+                            }`}
+                            style={{ fontVariationSettings: "'FILL' 1" }}
+                          >
+                            star
+                          </span>
+                        </button>
+                      ))}
+                      <span className="text-xs font-bold text-stone-700 ml-2">
+                        {reviewFormData.rating} / 5 Stars
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-black mb-1">
+                        Full Name *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={reviewFormData.customerName}
+                        onChange={(e) => setReviewFormData(prev => ({ ...prev, customerName: e.target.value }))}
+                        placeholder="e.g. Pooja Sharma"
+                        className="w-full px-3.5 py-2.5 bg-[#FFF9F9] border border-black/15 rounded-xl text-xs text-black focus:outline-none focus:border-black"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-black mb-1">
+                        Email Address (Optional)
+                      </label>
+                      <input
+                        type="email"
+                        value={reviewFormData.customerEmail}
+                        onChange={(e) => setReviewFormData(prev => ({ ...prev, customerEmail: e.target.value }))}
+                        placeholder="pooja@example.com"
+                        className="w-full px-3.5 py-2.5 bg-[#FFF9F9] border border-black/15 rounded-xl text-xs text-black focus:outline-none focus:border-black"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-black mb-1">
+                      Review Headline
+                    </label>
+                    <input
+                      type="text"
+                      value={reviewFormData.title}
+                      onChange={(e) => setReviewFormData(prev => ({ ...prev, title: e.target.value }))}
+                      placeholder="e.g. Absolutely stunning polish and premium feel!"
+                      className="w-full px-3.5 py-2.5 bg-[#FFF9F9] border border-black/15 rounded-xl text-xs text-black focus:outline-none focus:border-black"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-black mb-1">
+                      Detailed Review *
+                    </label>
+                    <textarea
+                      required
+                      rows="3"
+                      value={reviewFormData.comment}
+                      onChange={(e) => setReviewFormData(prev => ({ ...prev, comment: e.target.value }))}
+                      placeholder="Write your honest thoughts on the quality, weight, finish, and packaging..."
+                      className="w-full px-3.5 py-2.5 bg-[#FFF9F9] border border-black/15 rounded-xl text-xs text-black focus:outline-none focus:border-black"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isSubmittingReview}
+                    className="px-6 py-2.5 bg-black text-[#FCDAD7] font-bold text-xs uppercase tracking-wider rounded-xl shadow hover:bg-stone-900 disabled:opacity-50 transition-all cursor-pointer flex items-center gap-2"
+                  >
+                    {isSubmittingReview ? 'Submitting...' : 'Submit Review'}
+                  </button>
+                </form>
+              )}
+            </div>
+          )}
+
+          {/* Reviews List & Ratings Summary */}
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
+            {/* Rating Summary Card */}
+            <div className="md:col-span-4 bg-white border border-[#F8B3AC]/40 rounded-3xl p-6 shadow-xs flex flex-col justify-center items-center text-center">
+              <span className="text-5xl font-bold text-black font-serif">{avgRating}</span>
+              <div className="flex items-center gap-1 my-2 text-amber-500">
+                {[...Array(5)].map((_, i) => (
+                  <span key={i} className="material-symbols-outlined text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>
+                    star
+                  </span>
+                ))}
+              </div>
+              <p className="text-xs font-semibold text-stone-700">
+                Based on {reviewsCount > 0 ? `${reviewsCount} customer reviews` : 'verified store ratings'}
+              </p>
+              <div className="mt-4 pt-4 border-t border-black/10 w-full text-[11px] text-stone-600 space-y-1 text-left">
+                <div className="flex justify-between font-medium">
+                  <span>Authentic Craftsmanship</span>
+                  <span className="font-bold text-emerald-700">100%</span>
+                </div>
+                <div className="flex justify-between font-medium">
+                  <span>Safe & Insured Shipping</span>
+                  <span className="font-bold text-emerald-700">100%</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Individual Review Cards */}
+            <div className="md:col-span-8 space-y-4">
+              {approvedReviews.length > 0 ? (
+                approvedReviews.map((rev) => (
+                  <div key={rev.id} className="bg-white border border-[#F8B3AC]/40 rounded-2xl p-5 shadow-xs space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-full bg-[#FCDAD7] text-black font-bold text-xs flex items-center justify-center border border-black/15">
+                          {rev.customer_name ? rev.customer_name.charAt(0).toUpperCase() : 'C'}
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-xs text-black">{rev.customer_name}</h4>
+                          <span className="text-[10px] text-emerald-700 font-semibold flex items-center gap-0.5">
+                            <span className="material-symbols-outlined text-xs">verified</span>
+                            <span>Verified Buyer</span>
+                          </span>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center gap-0.5 text-amber-500">
+                        {[...Array(Number(rev.rating) || 5)].map((_, i) => (
+                          <span key={i} className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>
+                            star
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    {rev.title && (
+                      <h5 className="font-bold text-xs text-black pt-1">{rev.title}</h5>
+                    )}
+
+                    <p className="text-xs text-stone-700 leading-relaxed">
+                      {rev.comment}
+                    </p>
+
+                    <div className="text-[10px] text-on-surface-variant pt-1">
+                      Reviewed on {new Date(rev.created_at || Date.now()).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="bg-white border border-[#F8B3AC]/30 rounded-2xl p-8 text-center space-y-3">
+                  <span className="material-symbols-outlined text-4xl text-[#B87A75]">star_half</span>
+                  <h4 className="font-bold text-sm text-black">Be the first to review this jewellery!</h4>
+                  <p className="text-xs text-on-surface-variant max-w-md mx-auto">
+                    Purchased this piece? Share your styling experience and help other brides and jewellery enthusiasts.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setIsWriteReviewOpen(true)}
+                    className="px-4 py-2 bg-[#FCDAD7] hover:bg-[#F9C5C0] text-black font-bold text-xs rounded-xl border border-black/15 cursor-pointer"
+                  >
+                    Write First Review
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* ===== RELATED PRODUCTS SECTION ===== */}
