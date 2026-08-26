@@ -859,7 +859,7 @@ export default function AdminPanel({
   const [uploadedImages, setUploadedImages] = useState(['', '', '', '']);
   const [isDragging, setIsDragging] = useState(false);
 
-  const handleCreateProductSubmit = (e) => {
+  const handleCreateProductSubmit = async (e) => {
     e.preventDefault();
     if (!newProd.productCode || !newProd.productCode.trim()) {
       alert('⚠️ Validation Warning: Product Code is required!\n\nPlease enter a valid Product Code (e.g. 101, JIZA-PRL-001) before publishing.');
@@ -929,30 +929,34 @@ export default function AdminPanel({
     };
 
     if (onAddProduct) {
-      onAddProduct(productPayload);
-      setIsAddProductOpen(false);
-      setNewProd({
-        productCode: '',
-        title: '',
-        category: 'maharashtrian',
-        categoryLabel: 'Maharashtrian',
-        subcategory: 'Long Sets',
-        subcategoryLabel: 'Long Sets',
-        sellingPrice: '',
-        mrp: '',
-        discount: '',
-        description: '',
-        material: '',
-        colour: '',
-        careInstructions: '',
-        deliveryTime: '2-4 Business Days',
-        badge: 'New Arrival',
-        specialSection: 'None',
-        inStock: true,
-        stockQuantity: 10
-      });
-      setUploadedImages(['', '', '', '']);
-      setUploadedVideo('');
+      try {
+        await onAddProduct(productPayload);
+        setIsAddProductOpen(false);
+        setNewProd({
+          productCode: '',
+          title: '',
+          category: 'maharashtrian',
+          categoryLabel: 'Maharashtrian',
+          subcategory: 'Long Sets',
+          subcategoryLabel: 'Long Sets',
+          sellingPrice: '',
+          mrp: '',
+          discount: '',
+          description: '',
+          material: '',
+          colour: '',
+          careInstructions: '',
+          deliveryTime: '2-4 Business Days',
+          badge: 'New Arrival',
+          specialSection: 'None',
+          inStock: true,
+          stockQuantity: 10
+        });
+        setUploadedImages(['', '', '', '']);
+        setUploadedVideo('');
+      } catch (err) {
+        alert(`❌ Failed to save product to database:\n\n${err.message || 'Server connection error. Please ensure backend is running.'}`);
+      }
     }
   };
 
@@ -992,7 +996,7 @@ export default function AdminPanel({
     });
   };
 
-  const handleUpdateProductSubmit = (e) => {
+  const handleUpdateProductSubmit = async (e) => {
     e.preventDefault();
     if (!editProdForm.productCode || !editProdForm.productCode.trim()) {
       alert('⚠️ Validation Warning: Product Code is required!\n\nPlease enter a valid Product Code (e.g. 101, JIZA-PRL-001) before saving.');
@@ -1063,8 +1067,12 @@ export default function AdminPanel({
     };
 
     if (onUpdateProduct) {
-      onUpdateProduct(updatedPayload);
-      setEditingProduct(null);
+      try {
+        await onUpdateProduct(updatedPayload);
+        setEditingProduct(null);
+      } catch (err) {
+        alert(`❌ Failed to update product in database:\n\n${err.message || 'Server connection error. Please ensure backend is running.'}`);
+      }
     }
   };
 

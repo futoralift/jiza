@@ -45,6 +45,9 @@ conn.on('ready', () => {
         const remoteBase = '/var/www/jiza';
 
         const filesToUpload = [
+          '.env',
+          'package.json',
+          'src/main.jsx',
           'src/config.js',
           'vite.config.js',
           'src/components/ProductDetailModal.jsx',
@@ -116,8 +119,8 @@ conn.on('ready', () => {
 });
 
 function runBuildAndReload() {
-  const buildCmd = 'cd /var/www/jiza && sed -i "/client_max_body_size/d" /etc/nginx/nginx.conf 2>/dev/null; sed -i "/http {/a \\    client_max_body_size 50M;" /etc/nginx/nginx.conf 2>/dev/null && nginx -t && systemctl reload nginx 2>/dev/null; npm run build && pm2 reload jiza-backend || pm2 restart jiza-backend && pm2 status';
-  console.log('🔨 Running npm run build, Nginx config & reloading PM2 on VPS...');
+  const buildCmd = 'cd /var/www/jiza && npm install && sed -i "/client_max_body_size/d" /etc/nginx/nginx.conf 2>/dev/null; sed -i "/http {/a \\    client_max_body_size 50M;" /etc/nginx/nginx.conf 2>/dev/null && nginx -t && systemctl reload nginx 2>/dev/null; npm run build && pm2 reload jiza-backend || pm2 restart jiza-backend && pm2 status';
+  console.log('🔨 Running npm install, npm run build, Nginx config & reloading PM2 on VPS...');
 
   conn.exec(buildCmd, (err, stream) => {
     if (err) {

@@ -10,6 +10,7 @@ import dotenv from 'dotenv';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { fileURLToPath } from 'url';
+import * as Sentry from '@sentry/node';
 import { sendWelcomeEmail, sendOrderConfirmationEmail } from './services/emailService.js';
 import { createRazorpayOrder, verifyRazorpaySignature, verifyRazorpayWebhookSignature } from './services/razorpayService.js';
 
@@ -17,6 +18,15 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 dotenv.config({ path: path.join(__dirname, '../.env') });
+
+const SENTRY_DSN = process.env.SENTRY_DSN || 'https://9fe104c67d0a43ee8326b779491da71f@o4511975489273856.ingest.us.sentry.io/4511975493009408';
+if (SENTRY_DSN) {
+  Sentry.init({
+    dsn: SENTRY_DSN,
+    environment: process.env.NODE_ENV || 'production',
+    tracesSampleRate: 1.0,
+  });
+}
 
 const app = express();
 app.disable('x-powered-by');
@@ -189,15 +199,25 @@ function saveBase64MediaToDisk(base64Str, folderName = 'general') {
     return base64Str || '';
   }
 
-  // Handle Images
-  if (base64Str.startsWith('data:image')) {
-    try {
-      const matches = base64Str.match(/^data:image\/([a-zA-Z0-9+]+);base64,(.+)$/);
-      if (!matches || matches.length !== 3) return base64Str;
+  const trimmed = base64Str.trim();
 
-      const rawExt = matches[1].toLowerCase();
-      const ext = rawExt === 'jpeg' ? 'jpg' : (rawExt.includes('webp') ? 'webp' : (rawExt.includes('png') ? 'png' : 'jpg'));
-      const dataBuffer = Buffer.from(matches[2], 'base64');
+  // Handle Images (data:image/...)
+  if (trimmed.startsWith('data:image/')) {
+    try {
+      const commaIdx = trimmed.indexOf(',');
+      if (commaIdx === -1) return trimmed;
+
+      const header = trimmed.substring(0, commaIdx).toLowerCase();
+      const dataPayload = trimmed.substring(commaIdx + 1);
+
+      let ext = 'jpg';
+      if (header.includes('png')) ext = 'png';
+      else if (header.includes('webp')) ext = 'webp';
+      else if (header.includes('gif')) ext = 'gif';
+      else if (header.includes('svg')) ext = 'svg';
+      else if (header.includes('jpeg') || header.includes('jpg')) ext = 'jpg';
+
+      const dataBuffer = Buffer.from(dataPayload, 'base64');
       const targetFolder = path.join(__dirname, '../public/uploads', folderName);
 
       if (!fs.existsSync(targetFolder)) {
@@ -211,19 +231,27 @@ function saveBase64MediaToDisk(base64Str, folderName = 'general') {
       return `/uploads/${folderName}/${filename}`;
     } catch (err) {
       console.error(`Error saving base64 image to disk (${folderName}):`, err);
-      return base64Str;
+      return trimmed;
     }
   }
 
-  // Handle Videos (MP4, WebM, QuickTime MOV)
-  if (base64Str.startsWith('data:video')) {
+  // Handle Videos (data:video/...)
+  if (trimmed.startsWith('data:video/')) {
     try {
-      const matches = base64Str.match(/^data:video\/([a-zA-Z0-9+]+);base64,(.+)$/);
-      if (!matches || matches.length !== 3) return base64Str;
+      const commaIdx = trimmed.indexOf(',');
+      if (commaIdx === -1) return trimmed;
 
-      const rawExt = matches[1].toLowerCase();
-      const ext = rawExt.includes('webm') ? 'webm' : (rawExt.includes('quicktime') ? 'mov' : 'mp4');
-      const dataBuffer = Buffer.from(matches[2], 'base64');
+      const header = trimmed.substring(0, commaIdx).toLowerCase();
+      const dataPayload = trimmed.substring(commaIdx + 1);
+
+      let ext = 'mp4';
+      if (header.includes('webm')) ext = 'webm';
+      else if (header.includes('quicktime') || header.includes('mov')) ext = 'mov';
+      else if (header.includes('mkv') || header.includes('matroska')) ext = 'mkv';
+      else if (header.includes('avi')) ext = 'avi';
+      else if (header.includes('3gp')) ext = '3gp';
+
+      const dataBuffer = Buffer.from(dataPayload, 'base64');
       const targetFolder = path.join(__dirname, '../public/uploads', folderName);
 
       if (!fs.existsSync(targetFolder)) {
@@ -233,15 +261,16 @@ function saveBase64MediaToDisk(base64Str, folderName = 'general') {
       const filename = `${folderName}-vid-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}.${ext}`;
       const filePath = path.join(targetFolder, filename);
       fs.writeFileSync(filePath, dataBuffer);
+      console.log(`🎥 Video successfully saved to disk: /uploads/${folderName}/${filename} (${(dataBuffer.length / (1024 * 1024)).toFixed(2)} MB)`);
 
       return `/uploads/${folderName}/${filename}`;
     } catch (err) {
       console.error(`Error saving base64 video to disk (${folderName}):`, err);
-      return base64Str;
+      return '';
     }
   }
 
-  return base64Str;
+  return trimmed;
 }
 
 const saveBase64ImageToDisk = saveBase64MediaToDisk;
