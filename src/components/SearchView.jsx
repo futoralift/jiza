@@ -103,16 +103,6 @@ export default function SearchView({
       const tags = Array.isArray(product.tags) ? product.tags : [];
       const price = Number(product.price || product.sellingPrice || 0);
 
-      // Text match query across product title, product code, description, tags, materials, etc.
-      const prodSpecialSec = String(product.specialSection || product.special_section || '').toLowerCase();
-      const isSaleSearch = q === 'sale' || q === 'clearance' || q === 'discount' || q === 'offer' || q === 'stock clearance sale';
-      const hasDiscountOrSaleBadge = (product.discount && Number(product.discount) > 0) ||
-        prodSpecialSec.includes('clearance') ||
-        prodSpecialSec.includes('sale') ||
-        (product.badge && (product.badge.toLowerCase().includes('sale') || product.badge.toLowerCase().includes('clearance') || product.badge.toLowerCase().includes('off'))) ||
-        (product.mrp && Number(product.mrp) > price) ||
-        (product.originalPrice && Number(product.originalPrice) > price);
-
       // PRODUCT CODE MATCHING (Full, substring, and delimiter-insensitive)
       const matchesProductCode = Boolean(
         code && (
@@ -122,16 +112,53 @@ export default function SearchView({
         )
       );
 
-      const matchesQuery = q === '' || 
-        matchesProductCode ||
-        (isSaleSearch && hasDiscountOrSaleBadge) ||
-        prodSpecialSec.includes(q) ||
-        title.includes(q) ||
-        desc.includes(q) ||
-        material.includes(q) ||
-        colour.includes(q) ||
-        (product.badge && product.badge.toLowerCase().includes(q)) ||
-        tags.some(t => typeof t === 'string' && t.toLowerCase().includes(q));
+      const prodSpecialSec = String(product.specialSection || product.special_section || '').toLowerCase();
+
+      // Special Section Specific Exact Matching
+      const isClearanceSearch = q === 'stock clearance sale' || q === 'clearance' || q === 'stock clearance';
+      const isNewArrivalSearch = q === 'new arrival' || q === 'new arrivals';
+      const isBestSellerSearch = q === 'best seller' || q === 'bestseller' || q === 'best sellers';
+
+      const matchesClearance = Boolean(
+        prodSpecialSec === 'stock clearance sale' ||
+        prodSpecialSec.includes('clearance') ||
+        (product.badge && product.badge.toLowerCase().includes('clearance'))
+      );
+
+      const matchesNewArrival = Boolean(
+        prodSpecialSec === 'new arrival' ||
+        prodSpecialSec.includes('new arrival') ||
+        (product.badge && product.badge.toLowerCase().includes('new arrival'))
+      );
+
+      const matchesBestSeller = Boolean(
+        prodSpecialSec === 'best seller' ||
+        prodSpecialSec.includes('best seller') ||
+        (product.badge && (product.badge.toLowerCase().includes('bestseller') || product.badge.toLowerCase().includes('best seller')))
+      );
+
+      let matchesQuery = false;
+      if (q === '') {
+        matchesQuery = true;
+      } else if (matchesProductCode) {
+        matchesQuery = true;
+      } else if (isClearanceSearch) {
+        matchesQuery = matchesClearance || title.includes(q);
+      } else if (isNewArrivalSearch) {
+        matchesQuery = matchesNewArrival || title.includes(q);
+      } else if (isBestSellerSearch) {
+        matchesQuery = matchesBestSeller || title.includes(q);
+      } else {
+        // General text search across title, description, material, colour, tags, product code, badge
+        matchesQuery = 
+          title.includes(q) ||
+          desc.includes(q) ||
+          material.includes(q) ||
+          colour.includes(q) ||
+          prodSpecialSec.includes(q) ||
+          (product.badge && product.badge.toLowerCase().includes(q)) ||
+          tags.some(t => typeof t === 'string' && t.toLowerCase().includes(q));
+      }
 
       // STRICT RELATIONAL CATEGORY MATCHING (Parent Category Isolation)
       let matchesCategory = true;
