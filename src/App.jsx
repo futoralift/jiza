@@ -1360,7 +1360,7 @@ export default function App() {
               setActiveView('search');
             }}
             onClearanceSale={() => {
-              setSearchQuery('Sale');
+              setSearchQuery('Stock Clearance Sale');
               setSelectedCategory('');
               setActiveView('search');
             }}
@@ -1392,6 +1392,11 @@ export default function App() {
                 onBuyNow={handleBuyNow}
                 setActiveView={setActiveView}
                 productsList={productsList}
+                onClearanceSale={() => {
+                  setSearchQuery('Stock Clearance Sale');
+                  setSelectedCategory('');
+                  setActiveView('search');
+                }}
               />
             )}
 

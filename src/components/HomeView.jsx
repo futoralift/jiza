@@ -149,7 +149,8 @@ export default function HomeView({
   onAddToCart,
   onBuyNow,
   setActiveView,
-  productsList
+  productsList,
+  onClearanceSale
 }) {
   const allProducts = React.useMemo(() => {
     return (productsList && productsList.length > 0) ? productsList : PRODUCTS;
@@ -233,6 +234,18 @@ export default function HomeView({
   const bestSellers = React.useMemo(() => {
     return allProducts
       .filter(p => p.specialSection === 'Best Seller' || p.badge === 'Bestseller' || p.badge === 'Best Seller')
+      .sort((a, b) => (a.soldOut ? 1 : 0) - (b.soldOut ? 1 : 0))
+      .slice(0, 4);
+  }, [allProducts]);
+
+  // Stock Clearance Sale: Only products explicitly assigned by admin via Special Section = 'Stock Clearance Sale'
+  const stockClearanceProducts = React.useMemo(() => {
+    return allProducts
+      .filter(p => {
+        const sec = String(p.specialSection || p.special_section || '').toLowerCase();
+        const badge = String(p.badge || '').toLowerCase();
+        return sec === 'stock clearance sale' || sec.includes('clearance') || badge === 'stock clearance sale' || badge.includes('clearance');
+      })
       .sort((a, b) => (a.soldOut ? 1 : 0) - (b.soldOut ? 1 : 0))
       .slice(0, 4);
   }, [allProducts]);
@@ -567,6 +580,33 @@ export default function HomeView({
           </div>
         )}
       </section>
+
+      {/* ===== STOCK CLEARANCE SALE SECTION ===== */}
+      {stockClearanceProducts.length > 0 && (
+        <section className="py-12 px-margin-mobile md:px-margin-desktop">
+          <div className="text-center mb-10">
+            <p className="font-label-sm text-xs uppercase tracking-widest mb-1" style={{ color: '#e53e3e' }}>Limited Time</p>
+            <h2 className="font-headline-sm text-on-surface mb-2">Stock Clearance Sale 🔥</h2>
+            <div className="w-16 h-px mx-auto" style={{ backgroundColor: '#e53e3e' }}></div>
+            <p className="text-stone-500 text-sm mt-3">Grab these deals before they're gone!</p>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-gutter">
+            {stockClearanceProducts.map((p, idx) => (
+              <ProductCard key={p.id} product={p} idx={idx} onSelect={onSelectProduct} onAddToCart={onAddToCart} onBuyNow={onBuyNow} onToggleWishlist={onToggleWishlist} wishlisted={wishlistIds.includes(p.id)} />
+            ))}
+          </div>
+          <div className="text-center mt-8">
+            <button
+              onClick={() => onClearanceSale && onClearanceSale()}
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-full text-white text-sm font-semibold transition-all hover:opacity-90 active:scale-95"
+              style={{ backgroundColor: '#e53e3e' }}
+            >
+              View All Clearance Products
+              <span className="material-symbols-outlined text-base">arrow_forward</span>
+            </button>
+          </div>
+        </section>
+      )}
 
       {/* ===== TESTIMONIALS ===== */}
       <section className="py-12 px-margin-mobile md:px-margin-desktop">

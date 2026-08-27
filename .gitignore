@@ -5,5 +5,9 @@ dist
 .env.*.local
 .DS_Store
 *.log
+scratch/
+*.tar.gz
+*.zip
+
 
 

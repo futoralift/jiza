@@ -47,6 +47,24 @@ export async function createRazorpayOrder({ amountInRupees, receipt, notes = {} 
 }
 
 /**
+ * Fetch a Razorpay Order by ID directly from Razorpay API
+ */
+export async function fetchRazorpayOrder(orderId) {
+  const instance = getRazorpayInstance();
+  if (!instance) return null;
+  return await instance.orders.fetch(orderId);
+}
+
+/**
+ * Fetch a Razorpay Payment by ID directly from Razorpay API
+ */
+export async function fetchRazorpayPayment(paymentId) {
+  const instance = getRazorpayInstance();
+  if (!instance) return null;
+  return await instance.payments.fetch(paymentId);
+}
+
+/**
  * Server-side HMAC SHA256 Signature Verification for Razorpay Checkout
  */
 export function verifyRazorpaySignature({ razorpay_order_id, razorpay_payment_id, razorpay_signature }) {

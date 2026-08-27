@@ -12,7 +12,7 @@ import rateLimit from 'express-rate-limit';
 import { fileURLToPath } from 'url';
 import * as Sentry from '@sentry/node';
 import { sendWelcomeEmail, sendOrderConfirmationEmail } from './services/emailService.js';
-import { createRazorpayOrder, verifyRazorpaySignature, verifyRazorpayWebhookSignature } from './services/razorpayService.js';
+import { createRazorpayOrder, verifyRazorpaySignature, verifyRazorpayWebhookSignature, fetchRazorpayOrder, fetchRazorpayPayment } from './services/razorpayService.js';
 import { calculateShipping, getShippingConfig, saveShippingConfig, isIndia } from './services/shippingService.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -2556,6 +2556,23 @@ app.post('/api/payment/verify-payment', async (req, res) => {
     if (!isValidSignature) {
       console.error(`🚨 [SECURITY ALERT] Invalid Razorpay Signature attempt for order ${razorpay_order_id}`);
       return res.status(400).json({ error: 'Payment signature verification failed. Invalid transaction.' });
+    }
+
+    // 1.1 Direct Server-to-Server Razorpay API Verification
+    try {
+      const rzpPayment = await fetchRazorpayPayment(razorpay_payment_id);
+      if (rzpPayment) {
+        if (rzpPayment.order_id && rzpPayment.order_id !== razorpay_order_id) {
+          console.error(`🚨 [SECURITY ALERT] Order ID mismatch: Expected ${razorpay_order_id}, got ${rzpPayment.order_id}`);
+          return res.status(400).json({ error: 'Security verification failed: Order ID mismatch.' });
+        }
+        if (rzpPayment.status !== 'captured' && rzpPayment.status !== 'authorized') {
+          console.error(`🚨 [SECURITY ALERT] Payment not authorized: Status is ${rzpPayment.status}`);
+          return res.status(400).json({ error: `Payment not verified: Status is ${rzpPayment.status}` });
+        }
+      }
+    } catch (rzpErr) {
+      console.warn('⚠️ Razorpay API fetch warning (proceeding with HMAC signature):', rzpErr.message);
     }
 
     // 2. Idempotency Check: Don't process duplicate callback
