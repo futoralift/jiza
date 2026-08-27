@@ -58,9 +58,6 @@ export default function CategoriesView({ onSelectCategory, setActiveView, catego
                 className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
                 loading="lazy"
               />
-              <div className="absolute top-2 right-2 bg-deep-onyx/75 backdrop-blur text-surface font-label-sm text-[10px] px-2 py-0.5 rounded-full font-bold">
-                {cat.count || 0} Items
-              </div>
             </div>
 
             {/* Text Container at the bottom (Pink pastel bg with bold black text in normal sans font) */}
