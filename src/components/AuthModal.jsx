@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { API_BASE } from '../config';
+import { COUNTRIES } from '../data/countries';
 
 export default function AuthModal({ isOpen, onClose, onLoginSuccess, pendingActionMessage, registeredCustomers = [] }) {
   const [isSignUp, setIsSignUp] = useState(true);
@@ -11,7 +12,8 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess, pendingActi
     phone: '',
     address: '',
     city: '',
-    pincode: ''
+    pincode: '',
+    country: 'India'
   });
 
   const [errorMsg, setErrorMsg] = useState('');
@@ -47,8 +49,9 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess, pendingActi
         return;
       }
 
-      if (!/^\d{6}$/.test(cleanPin)) {
-        setErrorMsg('Please enter a valid 6-digit pincode.');
+      const isDomestic = !formData.country || formData.country === 'India';
+      if (isDomestic && !/^\d{6}$/.test(cleanPin)) {
+        setErrorMsg('Please enter a valid 6-digit pincode for India.');
         return;
       }
 
@@ -64,7 +67,8 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess, pendingActi
             phone: cleanPhone,
             address: formData.address.trim(),
             city: formData.city.trim(),
-            pincode: formData.pincode.trim()
+            pincode: formData.pincode.trim(),
+            country: formData.country || 'India'
           })
         });
 
@@ -272,6 +276,26 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess, pendingActi
                     className="w-full bg-surface-container-lowest border border-black/20 rounded-lg px-3 py-1.5 text-xs text-black focus:outline-none focus:border-black shadow-xs font-semibold font-mono"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-label-sm text-black font-bold mb-0.5 uppercase tracking-wider">
+                  Country *
+                </label>
+                <select
+                  name="country"
+                  required
+                  value={formData.country || 'India'}
+                  onChange={handleChange}
+                  className="w-full bg-surface-container-lowest border border-black/20 rounded-lg px-3 py-1.5 text-xs text-black focus:outline-none focus:border-black shadow-xs font-semibold"
+                >
+                  <option value="India">🇮🇳 India (Domestic)</option>
+                  <optgroup label="─── International ───">
+                    {COUNTRIES.filter(c => c.name !== 'India').map(c => (
+                      <option key={c.name} value={c.name}>{c.flag} {c.name}</option>
+                    ))}
+                  </optgroup>
+                </select>
               </div>
             </>
           ) : (

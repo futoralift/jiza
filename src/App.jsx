@@ -45,8 +45,28 @@ function hasArrayChanged(prev, next, checkKeys = ['id', 'stockQuantity', 'sellin
 }
 
 export default function App() {
-  const [showSplash, setShowSplash] = useState(true);
-  const [activeView, setActiveView] = useState('home'); // 'home', 'search', 'categories', 'subcategory', 'profile', 'checkout', 'admin', '404'
+  const [showSplash, setShowSplash] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const p = window.location.pathname;
+      return p === '/' || p === '';
+    }
+    return false;
+  });
+  const [activeView, setActiveView] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const p = window.location.pathname;
+      if (p === '/checkout') return 'checkout';
+      if (p === '/categories') return 'categories';
+      if (p === '/search') return 'search';
+      if (p === '/profile') return 'profile';
+      if (p === '/shipping-policy' || p === '/shipping') return 'shipping-policy';
+      if (p === '/rental-gallery') return 'rental-gallery';
+      if (p === '/faq') return 'faq';
+      if (p === '/cancellation-policy') return 'cancellation-policy';
+      if (p.startsWith('/product/')) return 'product';
+    }
+    return 'home';
+  }); // 'home', 'search', 'categories', 'subcategory', 'profile', 'checkout', 'admin', '404'
   const [activeCategoryId, setActiveCategoryId] = useState('maharashtrian');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { API_BASE } from '../config';
 import InternationalShippingNotice from './InternationalShippingNotice';
+import { COUNTRIES, isIndia as checkIsIndia } from '../data/countries';
 
 export default function CheckoutView({ cartItems, totalAmount, onOrderSuccess, onBackToCart, currentUser, setActiveView }) {
   const [step, setStep] = useState(1); // 1: Delivery, 2: Payment, 3: Success Confirmation
@@ -10,9 +11,6 @@ export default function CheckoutView({ cartItems, totalAmount, onOrderSuccess, o
 
   // International shipping notice popup state
   const [showIntlNotice, setShowIntlNotice] = useState(false);
-
-  // Shipping Charge Calculations — Server is authoritative; this is UI preview only.
-  // NOTE: These are placed after state declarations below to avoid forward reference.
 
   // Studio Pickup Configuration (Fetched dynamically from backend store_settings)
   const [storePickupSettings, setStorePickupSettings] = useState({
@@ -34,21 +32,22 @@ export default function CheckoutView({ cartItems, totalAmount, onOrderSuccess, o
     phone: currentUser?.phone || '',
     email: currentUser?.email || '',
     address: currentUser?.address || '',
-    city: 'Pune',
-    state: 'Maharashtra',
-    pincode: '411051',
-    country: 'India'
+    city: currentUser?.city || '',
+    state: currentUser?.state || '',
+    pincode: currentUser?.pincode || '',
+    country: currentUser?.country || 'India'
   });
 
-  // Handle country change and show international notice
+  // Handle country change and show international notice ONLY when non-India is selected
   const handleCountryChange = useCallback((newCountry) => {
-    const wasIndia = !shippingData.country || shippingData.country === 'India';
-    const nowInternational = newCountry && newCountry !== 'India';
+    const isNowIntl = newCountry && newCountry !== 'India';
     setShippingData(prev => ({ ...prev, country: newCountry }));
-    if (wasIndia && nowInternational) {
+    if (isNowIntl) {
       setShowIntlNotice(true);
+    } else {
+      setShowIntlNotice(false);
     }
-  }, [shippingData.country]);
+  }, []);
 
   // Pickup Contact details (when customer chooses Pickup)
   const [pickupDetails, setPickupDetails] = useState({
@@ -105,7 +104,11 @@ export default function CheckoutView({ cartItems, totalAmount, onOrderSuccess, o
         fullName: prev.fullName || currentUser.name || '',
         phone: prev.phone || currentUser.phone || '',
         email: prev.email || currentUser.email || '',
-        address: prev.address || currentUser.address || ''
+        address: prev.address || currentUser.address || '',
+        city: prev.city || currentUser.city || '',
+        state: prev.state || currentUser.state || '',
+        pincode: prev.pincode || currentUser.pincode || '',
+        country: prev.country || currentUser.country || 'India'
       }));
 
       setPickupDetails(prev => ({
@@ -610,31 +613,13 @@ export default function CheckoutView({ cartItems, totalAmount, onOrderSuccess, o
                     required
                     value={shippingData.country || 'India'}
                     onChange={(e) => handleCountryChange(e.target.value)}
-                    className="w-full bg-[#FFF9F9] border border-[#F8B3AC]/60 rounded-xl px-3.5 py-2.5 text-xs text-black focus:outline-none focus:border-black focus:bg-white font-medium appearance-none"
+                    className="w-full bg-[#FFF9F9] border border-[#F8B3AC]/60 rounded-xl px-3.5 py-2.5 text-xs text-black focus:outline-none focus:border-black focus:bg-white font-medium"
                   >
                     <option value="India">🇮🇳 India (Domestic)</option>
-                    <optgroup label="─── International ───">
-                      <option value="United Arab Emirates">🇦🇪 United Arab Emirates</option>
-                      <option value="Saudi Arabia">🇸🇦 Saudi Arabia</option>
-                      <option value="Qatar">🇶🇦 Qatar</option>
-                      <option value="Kuwait">🇰🇼 Kuwait</option>
-                      <option value="Bahrain">🇧🇭 Bahrain</option>
-                      <option value="Oman">🇴🇲 Oman</option>
-                      <option value="United Kingdom">🇬🇧 United Kingdom</option>
-                      <option value="United States">🇺🇸 United States</option>
-                      <option value="Canada">🇨🇦 Canada</option>
-                      <option value="Australia">🇦🇺 Australia</option>
-                      <option value="New Zealand">🇳🇿 New Zealand</option>
-                      <option value="Singapore">🇸🇬 Singapore</option>
-                      <option value="Malaysia">🇲🇾 Malaysia</option>
-                      <option value="Germany">🇩🇪 Germany</option>
-                      <option value="France">🇫🇷 France</option>
-                      <option value="Netherlands">🇳🇱 Netherlands</option>
-                      <option value="Switzerland">🇨🇭 Switzerland</option>
-                      <option value="Sri Lanka">🇱🇰 Sri Lanka</option>
-                      <option value="Bangladesh">🇧🇩 Bangladesh</option>
-                      <option value="Nepal">🇳🇵 Nepal</option>
-                      <option value="Other">🌎 Other Country</option>
+                    <optgroup label="─── All International Countries & Territories ───">
+                      {COUNTRIES.filter(c => c.name !== 'India').map(c => (
+                        <option key={c.name} value={c.name}>{c.flag} {c.name}</option>
+                      ))}
                     </optgroup>
                   </select>
                 </div>

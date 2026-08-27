@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { API_BASE } from '../config';
 import ProductReviewPopupModal from './ProductReviewPopupModal';
+import InternationalShippingNotice from './InternationalShippingNotice';
+import { COUNTRIES, isIndia as checkIsIndia } from '../data/countries';
 
 export default function ProfileView({ 
   setActiveView, 
@@ -52,6 +54,10 @@ export default function ProfileView({
     return `${mins.toString().padStart(2, '0')}m ${secs.toString().padStart(2, '0')}s`;
   };
 
+  // International Notice State in Profile
+  const [showIntlNotice, setShowIntlNotice] = useState(false);
+  const [intlNoticeCountry, setIntlNoticeCountry] = useState('');
+
   // ORDER MODIFICATION STATE
   const [modifyingOrder, setModifyingOrder] = useState(null);
   const [modifyTab, setModifyTab] = useState('address'); // 'address' | 'variant' | 'add_items'
@@ -60,8 +66,9 @@ export default function ProfileView({
     phone: '',
     address: '',
     city: '',
-    state: 'Maharashtra',
+    state: '',
     pincode: '',
+    country: 'India',
     pickupPersonName: '',
     pickupPersonPhone: '',
     notes: ''
@@ -76,6 +83,15 @@ export default function ProfileView({
   const [isModifyingSubmitting, setIsModifyingSubmitting] = useState(false);
   const [modifyErrorMsg, setModifyErrorMsg] = useState('');
   const [modifySuccessMsg, setModifySuccessMsg] = useState('');
+
+  const handleModifyCountryChange = (newCountry) => {
+    const isNowIntl = newCountry && newCountry !== 'India';
+    setModifyAddressForm(prev => ({ ...prev, country: newCountry }));
+    if (isNowIntl) {
+      setIntlNoticeCountry(newCountry);
+      setShowIntlNotice(true);
+    }
+  };
 
   const handleOpenModifyModal = (order, e) => {
     if (e) e.stopPropagation();
@@ -98,8 +114,9 @@ export default function ProfileView({
       phone: order.customerPhone || order.customer_phone || currentUser?.phone || '',
       address: order.shippingAddressLine1 || order.shipping_address_line1 || order.address || order.shipping_address || '',
       city: order.shippingCity || order.shipping_city || currentUser?.city || '',
-      state: order.shippingState || order.shipping_state || currentUser?.state || 'Maharashtra',
+      state: order.shippingState || order.shipping_state || currentUser?.state || '',
       pincode: order.shippingPincode || order.shipping_pincode || currentUser?.pincode || '',
+      country: order.shippingCountry || order.shipping_country || currentUser?.country || 'India',
       pickupPersonName: pDetails.pickupPersonName || order.customerName || order.customer_name || '',
       pickupPersonPhone: pDetails.pickupPersonPhone || order.customerPhone || order.customer_phone || '',
       notes: pDetails.notes || ''
@@ -1109,6 +1126,22 @@ export default function ProfileView({
                     className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 text-xs focus:outline-none focus:border-heritage-gold font-semibold" />
                 </div>
               </div>
+
+              <div>
+                <label className="text-xs font-bold text-gray-500 block mb-1">Country</label>
+                <select
+                  value={editableProfile.country || 'India'}
+                  onChange={(e) => setEditableProfile({ ...editableProfile, country: e.target.value })}
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 text-xs text-on-surface focus:outline-none focus:border-heritage-gold font-semibold"
+                >
+                  <option value="India">🇮🇳 India (Domestic)</option>
+                  <optgroup label="─── International ───">
+                    {COUNTRIES.filter(c => c.name !== 'India').map(c => (
+                      <option key={c.name} value={c.name}>{c.flag} {c.name}</option>
+                    ))}
+                  </optgroup>
+                </select>
+              </div>
               <div className="flex items-center gap-3 pt-3 border-t border-gray-100">
                 <button type="submit" className="px-6 py-2.5 bg-[#FCDAD7] hover:bg-[#F9C5C0] text-black font-bold text-xs rounded-xl shadow flex-grow border border-black/20 transition-colors cursor-pointer">
                   Save Changes
@@ -1589,6 +1622,23 @@ export default function ProfileView({
                             />
                           </div>
                         </div>
+
+                        <div>
+                          <label className="font-bold text-gray-700 block mb-1">Country *</label>
+                          <select
+                            required
+                            value={modifyAddressForm.country || 'India'}
+                            onChange={(e) => handleModifyCountryChange(e.target.value)}
+                            className="w-full bg-white border border-gray-300 rounded-xl px-3.5 py-2.5 text-xs focus:outline-none focus:border-black font-medium"
+                          >
+                            <option value="India">🇮🇳 India (Domestic)</option>
+                            <optgroup label="─── International ───">
+                              {COUNTRIES.filter(c => c.name !== 'India').map(c => (
+                                <option key={c.name} value={c.name}>{c.flag} {c.name}</option>
+                              ))}
+                            </optgroup>
+                          </select>
+                        </div>
                       </>
                     )}
                   </div>
@@ -1797,6 +1847,17 @@ export default function ProfileView({
           </div>
         </div>
       )}
+      
+      {/* International Shipping Notice Popup in Profile */}
+      <InternationalShippingNotice
+        isOpen={showIntlNotice}
+        onClose={() => setShowIntlNotice(false)}
+        onViewPolicy={() => {
+          setShowIntlNotice(false);
+          if (typeof setActiveView === 'function') setActiveView('shipping-policy');
+        }}
+        country={intlNoticeCountry}
+      />
       
     </main>
   );
