@@ -2120,11 +2120,6 @@ app.delete('/api/admin/rental-gallery/:id', requireAdminAuth, async (req, res) =
 
 // ======================================================
 // Helper to extract and validate delivery address snapshot for orders
-function isIndia(country) {
-  if (typeof country !== 'string') return false;
-  const c = country.toLowerCase().trim();
-  return c === 'india' || c === 'in' || c === 'ind';
-}
 
 function extractAndValidateAddressSnapshot(reqBody, fulfillmentType = 'ship', storePickupSettings = null) {
   const sd = reqBody.shippingData || reqBody.customerInfo || reqBody;
