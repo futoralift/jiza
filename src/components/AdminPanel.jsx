@@ -239,6 +239,7 @@ export default function AdminPanel({
   categoriesList = [],
   onRefreshCategories,
   onRefreshProducts,
+  onRefreshOrders,
   onAddProduct,
   onUpdateProduct,
   onDeleteProduct,
@@ -1791,7 +1792,7 @@ export default function AdminPanel({
           {activeTab === 'shipping' && (
             <ShippingTab
               showToast={showAdminToast}
-              onRefreshOrders={fetchDbOrders}
+              onRefreshOrders={onRefreshOrders}
               ordersList={ordersList}
             />
           )}

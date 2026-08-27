@@ -1350,6 +1350,7 @@ export default function App() {
             categoriesList={categoriesList}
             onRefreshCategories={fetchDbCategories}
             onRefreshProducts={fetchDbProducts}
+            onRefreshOrders={fetchDbOrders}
             onAddProduct={handleAddProduct}
             onUpdateProduct={handleFullUpdateProduct}
             onDeleteProduct={handleDeleteProduct}
