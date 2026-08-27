@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { API_BASE, getMediaUrl } from '../config';
+import ProductImageLightbox from './ProductImageLightbox';
 
 export default function ProductDetailPage({ 
   product, 
@@ -55,6 +56,39 @@ export default function ProductDetailPage({
   }, [videoUrl, rawImages]);
 
   const [activeMedia, setActiveMedia] = useState(0);
+
+  // Extract all pure image items for this product only
+  const productImages = useMemo(() => {
+    const imagesOnly = mediaItems.filter(item => item.type === 'image');
+    if (imagesOnly.length > 0) return imagesOnly;
+    return [{ type: 'image', url: product?.img ? getMediaUrl(product.img) : '/logo-j.png' }];
+  }, [mediaItems, product?.img]);
+
+  // Fullscreen Lightbox State
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+  const [lightboxInitialIndex, setLightboxInitialIndex] = useState(0);
+
+  const handleOpenLightbox = (mediaIdx = activeMedia) => {
+    const targetItem = mediaItems[mediaIdx] || mediaItems[0];
+    if (targetItem && targetItem.type === 'video') {
+      setLightboxInitialIndex(0);
+      setIsLightboxOpen(true);
+      return;
+    }
+    const imgIndex = productImages.findIndex(img => img.url === targetItem?.url);
+    setLightboxInitialIndex(imgIndex >= 0 ? imgIndex : 0);
+    setIsLightboxOpen(true);
+  };
+
+  const handleLightboxIndexChange = (newImgIdx) => {
+    const targetImg = productImages[newImgIdx];
+    if (targetImg) {
+      const mediaIdx = mediaItems.findIndex(m => m.url === targetImg.url);
+      if (mediaIdx >= 0) {
+        setActiveMedia(mediaIdx);
+      }
+    }
+  };
 
   // Reset active media when product changes
   useEffect(() => {
@@ -390,12 +424,19 @@ export default function ProductDetailPage({
           {/* ===== LEFT COLUMN: COMPACT INTERACTIVE MEDIA SHOWCASE ===== */}
           <div className="lg:col-span-5 flex flex-col gap-2.5 max-w-md mx-auto lg:max-w-none w-full">
             
-            {/* Main Compact Media Frame with Touch Swipe */}
+            {/* Main Compact Media Frame with Touch Swipe & Fullscreen Lightbox trigger */}
             <div 
-              className="relative w-full aspect-square max-h-[340px] sm:max-h-[390px] md:max-h-[410px] rounded-3xl overflow-hidden bg-white border border-[#F8B3AC]/40 flex items-center justify-center shadow-md select-none group mx-auto"
+              className={`relative w-full aspect-square max-h-[340px] sm:max-h-[390px] md:max-h-[410px] rounded-3xl overflow-hidden bg-white border border-[#F8B3AC]/40 flex items-center justify-center shadow-md select-none group mx-auto ${
+                currentMedia.type !== 'video' ? 'cursor-zoom-in' : ''
+              }`}
               onTouchStart={handleTouchStart}
               onTouchMove={handleTouchMove}
               onTouchEnd={handleTouchEnd}
+              onClick={() => {
+                if (currentMedia.type !== 'video') {
+                  handleOpenLightbox(activeMedia);
+                }
+              }}
             >
               {/* Media Tag (Video Player or Image) */}
               {currentMedia.type === 'video' ? (
@@ -450,6 +491,21 @@ export default function ProductDetailPage({
                 </div>
               )}
 
+              {/* Zoom In Pill Indicator (Hover & Click) */}
+              {currentMedia.type !== 'video' && (
+                <div 
+                  className="absolute bottom-3 left-3 bg-black/70 hover:bg-black text-white px-2.5 py-1 rounded-full backdrop-blur-md transition-all shadow-md active:scale-95 z-20 flex items-center gap-1 cursor-pointer border border-white/20 text-[11px] font-medium opacity-90 group-hover:opacity-100"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleOpenLightbox(activeMedia);
+                  }}
+                  title="Click to open fullscreen gallery"
+                >
+                  <span className="material-symbols-outlined text-sm">fullscreen</span>
+                  <span className="hidden sm:inline">Fullscreen</span>
+                </div>
+              )}
+
               {/* Counter Pill */}
               {mediaItems.length > 1 && (
                 <div className="absolute bottom-3 right-3 bg-black/70 backdrop-blur-sm text-white text-[11px] font-mono font-bold px-2.5 py-0.5 rounded-full z-10">
@@ -462,7 +518,10 @@ export default function ProductDetailPage({
                 <>
                   <button
                     type="button"
-                    onClick={handlePrevMedia}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handlePrevMedia();
+                    }}
                     className="absolute left-2.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/60 hover:bg-black/90 text-white flex items-center justify-center backdrop-blur-sm transition-all shadow-md active:scale-90 cursor-pointer z-20"
                     title="Previous Photo/Video"
                     aria-label="Previous"
@@ -471,7 +530,10 @@ export default function ProductDetailPage({
                   </button>
                   <button
                     type="button"
-                    onClick={handleNextMedia}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleNextMedia();
+                    }}
                     className="absolute right-2.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/60 hover:bg-black/90 text-white flex items-center justify-center backdrop-blur-sm transition-all shadow-md active:scale-90 cursor-pointer z-20"
                     title="Next Photo/Video"
                     aria-label="Next"
@@ -1223,6 +1285,17 @@ export default function ProductDetailPage({
         )}
 
       </div>
+
+      {/* Fullscreen Vertical Image Viewer Lightbox */}
+      <ProductImageLightbox
+        isOpen={isLightboxOpen}
+        images={productImages}
+        initialIndex={lightboxInitialIndex}
+        productTitle={product.title}
+        productCode={product.productCode || product.product_code || ''}
+        onClose={() => setIsLightboxOpen(false)}
+        onActiveIndexChange={handleLightboxIndexChange}
+      />
 
     </div>
   );
