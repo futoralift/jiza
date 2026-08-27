@@ -1743,14 +1743,14 @@ app.post(['/api/products', '/api/admin/products'], requireAdminAuth, async (req,
 
     const sec = specialSection || 'None';
 
-    if (sec === 'New Arrival' || sec === 'Best Seller') {
+    if (sec === 'New Arrival' || sec === 'Best Seller' || sec === 'Stock Clearance Sale') {
       const countRes = await db.get(
         'SELECT COUNT(*) as count FROM products WHERE special_section = ? OR badge = ?',
         [sec, sec]
       );
-      if (countRes && Number(countRes.count) >= 4) {
+      if (countRes && Number(countRes.count) >= 12) {
         return res.status(400).json({
-          error: `⚠️ Limit Reached: Maximum 4 products allowed in '${sec}'. Please remove an existing product first.`
+          error: `⚠️ Limit Reached: Maximum 12 products allowed in '${sec}'. Please remove an existing product first.`
         });
       }
     }
@@ -1964,14 +1964,14 @@ app.patch(['/api/products/:id/special-section', '/api/admin/products/:id/special
     const { specialSection } = req.body;
     const productId = req.params.id;
 
-    if (specialSection === 'New Arrival' || specialSection === 'Best Seller') {
+    if (specialSection === 'New Arrival' || specialSection === 'Best Seller' || specialSection === 'Stock Clearance Sale') {
       const countRes = await db.get(
         'SELECT COUNT(*) as count FROM products WHERE id != ? AND (special_section = ? OR badge = ?)',
         [productId, specialSection, specialSection]
       );
-      if (countRes && Number(countRes.count) >= 4) {
+      if (countRes && Number(countRes.count) >= 12) {
         return res.status(400).json({
-          error: `⚠️ Limit Reached: Maximum 4 products allowed in '${specialSection}'. Please remove an existing product first.`
+          error: `⚠️ Limit Reached: Maximum 12 products allowed in '${specialSection}'. Please remove an existing product first.`
         });
       }
     }

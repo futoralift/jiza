@@ -28,13 +28,13 @@ const TESTIMONIALS = [
   }
 ];
 
-const ProductCard = React.memo(function ProductCard({ product, onSelect, onAddToCart, onBuyNow, onToggleWishlist, wishlisted, idx }) {
+const ProductCard = React.memo(function ProductCard({ product, onSelect, onAddToCart, onBuyNow, onToggleWishlist, wishlisted, idx, hideOnMobile }) {
   const isSoldOut = product.soldOut || !product.inStock;
 
   return (
     <article
-      className="group cursor-pointer flex flex-col bg-surface-container-lowest rounded-xl p-3 border border-outline-variant/30 hover:border-heritage-gold/60 transition-all duration-300 gold-glow-hover animate-fadeIn"
-      style={{ animationDelay: `${idx * 80}ms` }}
+      className={`${hideOnMobile ? 'hidden md:flex' : 'flex'} group cursor-pointer flex-col bg-surface-container-lowest rounded-xl p-2.5 sm:p-3 border border-outline-variant/30 hover:border-heritage-gold/60 transition-all duration-300 gold-glow-hover animate-fadeIn`}
+      style={{ animationDelay: `${(idx % 6) * 60}ms` }}
     >
       <div
         onClick={() => !isSoldOut && onSelect(product)}
@@ -222,23 +222,23 @@ export default function HomeView({
 
   const scrollRatio = heroHeight ? Math.min(scrollY / heroHeight, 1) : 0;
 
-  // New Arrivals: Explicitly assigned by admin via Special Section = 'New Arrival' (Max 4 products)
+  // New Arrivals: Explicitly assigned by admin via Special Section = 'New Arrival' (Max 12 on desktop, 4 on mobile)
   const newArrivals = React.useMemo(() => {
     return allProducts
       .filter(p => p.specialSection === 'New Arrival' || p.badge === 'New Arrival')
       .sort((a, b) => (a.soldOut ? 1 : 0) - (b.soldOut ? 1 : 0))
-      .slice(0, 4);
+      .slice(0, 12);
   }, [allProducts]);
 
-  // Best Sellers: Explicitly assigned by admin via Special Section = 'Best Seller' (Max 4 products)
+  // Best Sellers: Explicitly assigned by admin via Special Section = 'Best Seller' (Max 12 on desktop, 4 on mobile)
   const bestSellers = React.useMemo(() => {
     return allProducts
       .filter(p => p.specialSection === 'Best Seller' || p.badge === 'Bestseller' || p.badge === 'Best Seller')
       .sort((a, b) => (a.soldOut ? 1 : 0) - (b.soldOut ? 1 : 0))
-      .slice(0, 4);
+      .slice(0, 12);
   }, [allProducts]);
 
-  // Stock Clearance Sale: Only products explicitly assigned by admin via Special Section = 'Stock Clearance Sale'
+  // Stock Clearance Sale: Only products explicitly assigned by admin via Special Section = 'Stock Clearance Sale' (Max 12 on desktop, 4 on mobile)
   const stockClearanceProducts = React.useMemo(() => {
     return allProducts
       .filter(p => {
@@ -247,7 +247,7 @@ export default function HomeView({
         return sec === 'stock clearance sale' || sec.includes('clearance') || badge === 'stock clearance sale' || badge.includes('clearance');
       })
       .sort((a, b) => (a.soldOut ? 1 : 0) - (b.soldOut ? 1 : 0))
-      .slice(0, 4);
+      .slice(0, 12);
   }, [allProducts]);
 
   return (
@@ -537,12 +537,12 @@ export default function HomeView({
           <div className="text-center py-12 bg-white rounded-2xl border border-black/15 shadow-sm">
             <span className="material-symbols-outlined text-4xl text-black/40 mb-2 block">inventory_2</span>
             <p className="text-stone-800 font-body-md text-sm font-bold">No products assigned to New Arrivals yet.</p>
-            <p className="text-stone-500 text-xs mt-1">Assign products in the Admin Panel using the "Special Section" field.</p>
+            <p className="text-stone-500 text-xs mt-1">Assign up to 12 products in the Admin Panel using the "Special Section" field.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-gutter">
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-3 sm:gap-4 md:gap-5">
             {newArrivals.map((p, idx) => (
-              <ProductCard key={p.id} product={p} idx={idx} onSelect={onSelectProduct} onAddToCart={onAddToCart} onBuyNow={onBuyNow} onToggleWishlist={onToggleWishlist} wishlisted={wishlistIds.includes(p.id)} />
+              <ProductCard key={p.id} product={p} idx={idx} hideOnMobile={idx >= 4} onSelect={onSelectProduct} onAddToCart={onAddToCart} onBuyNow={onBuyNow} onToggleWishlist={onToggleWishlist} wishlisted={wishlistIds.includes(p.id)} />
             ))}
           </div>
         )}
@@ -570,12 +570,12 @@ export default function HomeView({
           <div className="text-center py-12 bg-white/80 rounded-2xl border border-black/15 shadow-sm">
             <span className="material-symbols-outlined text-4xl text-black/40 mb-2 block">star</span>
             <p className="text-stone-800 font-body-md text-sm font-bold">No products assigned to Best Sellers yet.</p>
-            <p className="text-stone-500 text-xs mt-1">Assign up to 4 products in the Admin Panel using the "Special Section" field.</p>
+            <p className="text-stone-500 text-xs mt-1">Assign up to 12 products in the Admin Panel using the "Special Section" field.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-gutter">
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-3 sm:gap-4 md:gap-5">
             {bestSellers.map((p, idx) => (
-              <ProductCard key={p.id} product={p} idx={idx} onSelect={onSelectProduct} onAddToCart={onAddToCart} onBuyNow={onBuyNow} onToggleWishlist={onToggleWishlist} wishlisted={wishlistIds.includes(p.id)} />
+              <ProductCard key={p.id} product={p} idx={idx} hideOnMobile={idx >= 4} onSelect={onSelectProduct} onAddToCart={onAddToCart} onBuyNow={onBuyNow} onToggleWishlist={onToggleWishlist} wishlisted={wishlistIds.includes(p.id)} />
             ))}
           </div>
         )}
@@ -590,9 +590,9 @@ export default function HomeView({
             <div className="w-16 h-px mx-auto" style={{ backgroundColor: '#e53e3e' }}></div>
             <p className="text-stone-500 text-sm mt-3">Grab these deals before they're gone!</p>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-gutter">
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-3 sm:gap-4 md:gap-5">
             {stockClearanceProducts.map((p, idx) => (
-              <ProductCard key={p.id} product={p} idx={idx} onSelect={onSelectProduct} onAddToCart={onAddToCart} onBuyNow={onBuyNow} onToggleWishlist={onToggleWishlist} wishlisted={wishlistIds.includes(p.id)} />
+              <ProductCard key={p.id} product={p} idx={idx} hideOnMobile={idx >= 4} onSelect={onSelectProduct} onAddToCart={onAddToCart} onBuyNow={onBuyNow} onToggleWishlist={onToggleWishlist} wishlisted={wishlistIds.includes(p.id)} />
             ))}
           </div>
           <div className="text-center mt-8">

@@ -163,9 +163,9 @@ export default function EditProductModal({
                     className="w-full bg-[#FFF0F2]/40 border border-[#F7C5C0] focus:border-black rounded-xl px-3.5 py-2.5 text-xs text-on-surface font-semibold focus:outline-none transition-all shadow-sm"
                   >
                     <option value="None">None (Default)</option>
-                    <option value="New Arrival">New Arrival (Max 4)</option>
-                    <option value="Best Seller">Best Seller (Max 4)</option>
-                    <option value="Stock Clearance Sale">Stock Clearance Sale 🔥</option>
+                    <option value="New Arrival">New Arrival (Max 12)</option>
+                    <option value="Best Seller">Best Seller (Max 12)</option>
+                    <option value="Stock Clearance Sale">Stock Clearance Sale 🔥 (Max 12)</option>
                   </select>
                 </div>
               </div>

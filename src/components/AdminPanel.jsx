@@ -872,10 +872,10 @@ export default function AdminPanel({
       return;
     }
 
-    if (newProd.specialSection === 'New Arrival' || newProd.specialSection === 'Best Seller') {
-      const currentSectionCount = productsList.filter(p => p.specialSection === newProd.specialSection || (newProd.specialSection === 'New Arrival' && p.badge === 'New Arrival') || (newProd.specialSection === 'Best Seller' && (p.badge === 'Bestseller' || p.badge === 'Best Seller'))).length;
-      if (currentSectionCount >= 4) {
-        alert(`⚠️ Validation Warning: Section Limit Reached!\n\nMaximum 4 products can be assigned to '${newProd.specialSection}' on the Home Page. Please remove an existing product from '${newProd.specialSection}' first.`);
+    if (newProd.specialSection === 'New Arrival' || newProd.specialSection === 'Best Seller' || newProd.specialSection === 'Stock Clearance Sale') {
+      const currentSectionCount = productsList.filter(p => p.specialSection === newProd.specialSection || (newProd.specialSection === 'New Arrival' && p.badge === 'New Arrival') || (newProd.specialSection === 'Best Seller' && (p.badge === 'Bestseller' || p.badge === 'Best Seller')) || (newProd.specialSection === 'Stock Clearance Sale' && (p.badge === 'Stock Clearance Sale' || p.badge === 'Clearance'))).length;
+      if (currentSectionCount >= 12) {
+        alert(`⚠️ Validation Warning: Section Limit Reached!\n\nMaximum 12 products can be assigned to '${newProd.specialSection}' on the Home Page. Please remove an existing product from '${newProd.specialSection}' first.`);
         return;
       }
     }
@@ -1009,10 +1009,10 @@ export default function AdminPanel({
       return;
     }
 
-    if (editProdForm.specialSection === 'New Arrival' || editProdForm.specialSection === 'Best Seller') {
-      const currentSectionCount = productsList.filter(p => p.id !== editProdForm.id && (p.specialSection === editProdForm.specialSection || (editProdForm.specialSection === 'New Arrival' && p.badge === 'New Arrival') || (editProdForm.specialSection === 'Best Seller' && (p.badge === 'Bestseller' || p.badge === 'Best Seller')))).length;
-      if (currentSectionCount >= 4) {
-        alert(`⚠️ Validation Warning: Section Limit Reached!\n\nMaximum 4 products can be assigned to '${editProdForm.specialSection}' on the Home Page. Please remove an existing product from '${editProdForm.specialSection}' first.`);
+    if (editProdForm.specialSection === 'New Arrival' || editProdForm.specialSection === 'Best Seller' || editProdForm.specialSection === 'Stock Clearance Sale') {
+      const currentSectionCount = productsList.filter(p => p.id !== editProdForm.id && (p.specialSection === editProdForm.specialSection || (editProdForm.specialSection === 'New Arrival' && p.badge === 'New Arrival') || (editProdForm.specialSection === 'Best Seller' && (p.badge === 'Bestseller' || p.badge === 'Best Seller')) || (editProdForm.specialSection === 'Stock Clearance Sale' && (p.badge === 'Stock Clearance Sale' || p.badge === 'Clearance')))).length;
+      if (currentSectionCount >= 12) {
+        alert(`⚠️ Validation Warning: Section Limit Reached!\n\nMaximum 12 products can be assigned to '${editProdForm.specialSection}' on the Home Page. Please remove an existing product from '${editProdForm.specialSection}' first.`);
         return;
       }
     }
