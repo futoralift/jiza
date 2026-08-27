@@ -43,27 +43,47 @@ function InfoCard({ label, value, highlight }) {
   );
 }
 
-export default function ShippingPolicyView({ setActiveView }) {
+export default function ShippingPolicyView({ setActiveView, previousView, onBack }) {
   const [expandedSection, setExpandedSection] = useState(null);
+
+  const handleGoBack = () => {
+    if (typeof onBack === 'function') {
+      onBack();
+    } else if (typeof setActiveView === 'function') {
+      setActiveView(previousView || 'home');
+    }
+  };
 
   return (
     <main className="min-h-screen bg-[#FFF8F7]">
       {/* Header */}
       <div className="bg-[#FCDAD7] border-b border-black/10 sticky top-0 z-10 shadow-sm">
-        <div className="max-w-4xl mx-auto px-4 py-3 flex items-center gap-3">
-          <button
-            onClick={() => setActiveView('home')}
-            className="w-9 h-9 rounded-full bg-white/70 border border-black/10 flex items-center justify-center hover:bg-white transition-all active:scale-95"
-            aria-label="Go back"
-          >
-            <span className="material-symbols-outlined text-[20px]">arrow_back</span>
-          </button>
-          <div>
-            <h1 className="font-bold text-base text-black" style={{ fontFamily: "'Cinzel Decorative', 'Cinzel', serif" }}>
-              Shipping Policy
-            </h1>
-            <p className="text-[11px] text-stone-600">Jiza Jewellery Studio — Effective 2026</p>
+        <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleGoBack}
+              className="w-9 h-9 rounded-full bg-white/80 border border-black/10 flex items-center justify-center hover:bg-white transition-all active:scale-95 cursor-pointer shadow-xs"
+              aria-label="Go back"
+            >
+              <span className="material-symbols-outlined text-[20px]">arrow_back</span>
+            </button>
+            <div>
+              <h1 className="font-bold text-base text-black" style={{ fontFamily: "'Cinzel Decorative', 'Cinzel', serif" }}>
+                Shipping Policy
+              </h1>
+              <p className="text-[11px] text-stone-600">Jiza Jewellery Studio — Effective 2026</p>
+            </div>
           </div>
+
+          {previousView === 'checkout' && (
+            <button
+              onClick={handleGoBack}
+              className="px-3 py-1.5 bg-black text-white text-xs font-bold rounded-xl hover:bg-stone-800 transition-all flex items-center gap-1 shadow-sm cursor-pointer"
+            >
+              <span>Back to Checkout</span>
+              <span className="material-symbols-outlined text-sm">arrow_forward</span>
+            </button>
+          )}
         </div>
       </div>
 

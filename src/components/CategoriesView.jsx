@@ -5,17 +5,29 @@ export default function CategoriesView({ onSelectCategory, setActiveView, catego
   const activeCategories = categoriesList && categoriesList.length > 0 ? categoriesList : CATEGORIES;
 
   return (
-    <main className="w-full max-w-container-max mx-auto pt-6 pb-24 px-margin-mobile md:px-margin-desktop">
+    <main className="w-full max-w-container-max mx-auto pt-4 pb-24 px-margin-mobile md:px-margin-desktop">
       
+      {/* Top Back Navigation Bar */}
+      <div className="flex items-center justify-between mb-4">
+        <button
+          onClick={() => setActiveView('home')}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#FCDAD7]/80 hover:bg-[#FCDAD7] text-black font-bold text-xs border border-black/15 shadow-xs transition-all active:scale-95 cursor-pointer"
+        >
+          <span className="material-symbols-outlined text-[16px]">arrow_back</span>
+          <span>Back to Home</span>
+        </button>
+        <span className="text-xs text-stone-500 font-semibold">{activeCategories.length} Collections</span>
+      </div>
+
       {/* Category View Header */}
-      <div className="text-center mb-10">
-        <span className="font-label-sm text-heritage-gold uppercase tracking-[0.2em] mb-2 block font-semibold">
+      <div className="text-center mb-8">
+        <span className="font-label-sm text-heritage-gold uppercase tracking-[0.2em] mb-1.5 block font-semibold text-xs">
           Curated Craftsmanship
         </span>
-        <h1 className="font-headline-md md:font-display-lg text-on-surface mb-3">
+        <h1 className="font-headline-md md:font-display-lg text-on-surface mb-2">
           Explore All Categories
         </h1>
-        <div className="w-20 h-px bg-heritage-gold mx-auto mt-4"></div>
+        <div className="w-16 h-0.5 bg-[#FCDAD7] mx-auto mt-3 rounded-full"></div>
       </div>
 
       {/* Categories Grid: 2 columns on mobile, 6 columns on desktop, 4:5 aspect ratio cards */}

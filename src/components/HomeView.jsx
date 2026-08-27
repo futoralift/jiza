@@ -518,12 +518,12 @@ export default function HomeView({
         </div>
       </section>
 
-      {/* ===== 1. CUSTOMER FAVOURITES ===== */}
+      {/* ===== 1. NEW ARRIVALS ===== */}
       <section className="py-10 px-margin-mobile md:px-margin-desktop">
         <div className="flex justify-between items-end mb-7">
           <div>
-            <p className="font-label-sm text-xs text-black/60 uppercase tracking-widest mb-1 font-bold">Handpicked Selection</p>
-            <h2 className="font-headline-sm text-black font-bold text-2xl">Customer Favourites</h2>
+            <p className="font-label-sm text-xs text-black/60 uppercase tracking-widest mb-1 font-bold">Latest Collection</p>
+            <h2 className="font-headline-sm text-black font-bold text-2xl">New Arrivals</h2>
           </div>
           {/* View All → shows all products sorted newest first */}
           <button
@@ -536,8 +536,8 @@ export default function HomeView({
         {newArrivals.length === 0 ? (
           <div className="text-center py-12 bg-white rounded-2xl border border-black/15 shadow-sm">
             <span className="material-symbols-outlined text-4xl text-black/40 mb-2 block">inventory_2</span>
-            <p className="text-stone-800 font-body-md text-sm font-bold">No products assigned to Customer Favourites yet.</p>
-            <p className="text-stone-500 text-xs mt-1">Assign up to 4 products in the Admin Panel using the "Special Section" field.</p>
+            <p className="text-stone-800 font-body-md text-sm font-bold">No products assigned to New Arrivals yet.</p>
+            <p className="text-stone-500 text-xs mt-1">Assign products in the Admin Panel using the "Special Section" field.</p>
           </div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-gutter">

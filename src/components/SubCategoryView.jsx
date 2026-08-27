@@ -94,18 +94,22 @@ export default function SubCategoryView({
     <div className="w-full max-w-container-max mx-auto pb-24 animate-fadeIn">
       
       {/* Top Bar with Back Button */}
-      <header className="bg-surface/95 backdrop-blur-md w-full px-margin-mobile py-4 flex items-center justify-between sticky top-0 z-40 border-b border-outline-variant/40">
+      <div className="w-full px-margin-mobile py-3 flex items-center justify-between border-b border-black/10 bg-[#FFF8F7]">
         <button 
           onClick={onBack}
-          className="flex items-center gap-2 text-on-surface-variant hover:text-heritage-gold transition-colors cursor-pointer"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#FCDAD7]/80 hover:bg-[#FCDAD7] text-black font-bold text-xs border border-black/15 shadow-xs transition-all active:scale-95 cursor-pointer"
         >
-          <span className="material-symbols-outlined">arrow_back</span>
+          <span className="material-symbols-outlined text-[16px]">arrow_back</span>
+          <span>Back to Categories</span>
         </button>
-        <h1 className="font-headline-sm text-lg md:text-xl text-heritage-gold text-center font-bold tracking-tight">
-          Jiza Jewellery Studio
-        </h1>
-        <div className="w-6"></div>
-      </header>
+        <button 
+          onClick={() => setActiveView('home')}
+          className="text-xs text-stone-500 hover:text-black font-bold flex items-center gap-1 cursor-pointer transition-colors"
+        >
+          <span>Home</span>
+          <span className="material-symbols-outlined text-xs">home</span>
+        </button>
+      </div>
 
       {/* Breadcrumb Navigation */}
       <nav aria-label="Breadcrumb" className="px-margin-mobile py-3">

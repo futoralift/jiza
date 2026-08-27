@@ -12,6 +12,8 @@ export default function SearchView({
   onAddToCart,
   onBuyNow,
   setActiveView,
+  previousView = 'home',
+  onBack,
   productsList = [],
   categoriesList = []
 }) {
@@ -226,8 +228,54 @@ export default function SearchView({
   };
 
   return (
-    <main className="flex-grow pt-6 pb-24 px-margin-mobile md:px-margin-desktop max-w-container-max mx-auto w-full">
+    <main className="flex-grow pt-4 pb-24 px-margin-mobile md:px-margin-desktop max-w-container-max mx-auto w-full animate-fadeIn">
       
+      {/* Top Back Navigation Bar (Visible on all Tablet/iPad, Desktop, and Mobile screens) */}
+      <div className="flex items-center justify-between mb-4 max-w-2xl mx-auto w-full">
+        <button
+          type="button"
+          onClick={() => {
+            if (typeof onBack === 'function') {
+              onBack();
+            } else if (typeof setActiveView === 'function') {
+              setActiveView(previousView && previousView !== 'search' ? previousView : 'home');
+            }
+          }}
+          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#FCDAD7]/80 hover:bg-[#FCDAD7] text-black font-bold text-xs border border-black/15 shadow-xs transition-all active:scale-95 cursor-pointer"
+        >
+          <span className="material-symbols-outlined text-[16px]">arrow_back</span>
+          <span>Back to {previousView === 'subcategory' ? 'Subcategories' : previousView === 'categories' ? 'Categories' : previousView === 'profile' ? 'Account' : previousView === 'checkout' ? 'Checkout' : 'Home'}</span>
+        </button>
+
+        <div className="flex items-center gap-2">
+          {(searchQuery || selectedCategory || selectedSubCategory || priceFilter !== 'all' || sortBy !== 'featured') && (
+            <button
+              type="button"
+              onClick={() => {
+                setSearchQuery('');
+                setSelectedCategory('');
+                setSelectedSubCategory('');
+                setSelectedSubCategoryId('');
+                setPriceFilter('all');
+                setSortBy('featured');
+              }}
+              className="text-xs text-stone-500 hover:text-black font-bold flex items-center gap-1 cursor-pointer transition-colors px-2 py-1"
+            >
+              <span>Reset Filters</span>
+              <span className="material-symbols-outlined text-xs">restart_alt</span>
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setActiveView('home')}
+            className="text-xs text-stone-500 hover:text-black font-bold flex items-center gap-1 cursor-pointer transition-colors px-2 py-1"
+          >
+            <span>Home</span>
+            <span className="material-symbols-outlined text-xs">home</span>
+          </button>
+        </div>
+      </div>
+
       {/* Search Header */}
       <section className="mb-8">
         <div className="relative w-full max-w-2xl mx-auto group">

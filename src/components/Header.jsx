@@ -30,10 +30,10 @@ export default function Header({
           
           {/* Top Nav Left: Hamburger Button (Mobile) + Circular Logo */}
           <div className="flex items-center space-x-1.5 md:space-x-2">
-            {/* Mobile Hamburger Toggle Button */}
+            {/* Universal Hamburger Toggle Button (Mobile, Tablet, Laptop) */}
             <button 
               onClick={() => setIsMenuOpen(true)}
-              className="md:hidden p-1.5 -ml-1 text-black hover:bg-black/5 active:scale-95 rounded-xl transition-all flex items-center justify-center focus:outline-none"
+              className="p-1.5 -ml-1 text-black hover:bg-black/10 active:scale-95 rounded-xl transition-all flex items-center justify-center focus:outline-none cursor-pointer"
               aria-label="Open Navigation Menu"
               title="Open Navigation Menu"
             >

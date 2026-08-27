@@ -67,6 +67,7 @@ export default function App() {
     }
     return 'home';
   }); // 'home', 'search', 'categories', 'subcategory', 'profile', 'checkout', 'admin', '404'
+  const [previousView, setPreviousView] = useState('home');
   const [activeCategoryId, setActiveCategoryId] = useState('maharashtrian');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
@@ -658,6 +659,7 @@ export default function App() {
   };
 
   const handleSelectCategory = (catId, clickMeta) => {
+    setPreviousView(activeView);
     setSelectedCategory(catId);
     setSelectedSubCategory('');
     setSelectedSubCategoryId('');
@@ -761,6 +763,9 @@ export default function App() {
   };
 
   const handleNavigateView = (viewName, clickMeta) => {
+    if (viewName !== activeView) {
+      setPreviousView(activeView);
+    }
     if (viewName === 'search' && clickMeta && clickMeta.left !== undefined) {
       triggerSearchTransition(clickMeta);
     } else {
@@ -773,6 +778,7 @@ export default function App() {
     setSelectedCategory(parentCatId || activeCategoryId || '');
     setSelectedSubCategory(subCatName || '');
     setSelectedSubCategoryId(subCatId || '');
+    setPreviousView('subcategory');
     setActiveView('search');
   };
 
@@ -1451,6 +1457,15 @@ export default function App() {
                 onAddToCart={handleAddToCart}
                 onBuyNow={handleBuyNow}
                 setActiveView={setActiveView}
+                previousView={previousView}
+                onBack={() => {
+                  if (selectedSubCategory || selectedCategory) {
+                    setSelectedSubCategory('');
+                    setSelectedSubCategoryId('');
+                    setSelectedCategory('');
+                  }
+                  setActiveView(previousView && previousView !== 'search' ? previousView : 'home');
+                }}
                 productsList={productsList}
                 categoriesList={categoriesList}
               />
@@ -1520,7 +1535,13 @@ export default function App() {
             )}
 
             {activeView === 'shipping-policy' && (
-              <ShippingPolicyView setActiveView={setActiveView} />
+              <ShippingPolicyView 
+                setActiveView={setActiveView}
+                previousView={previousView}
+                onBack={() => {
+                  setActiveView(previousView || 'home');
+                }}
+              />
             )}
 
             {activeView === 'checkout' && (
@@ -1530,7 +1551,10 @@ export default function App() {
                 onOrderSuccess={handleOrderSuccess}
                 onBackToCart={() => setIsCartOpen(true)}
                 currentUser={currentUser}
-                setActiveView={setActiveView}
+                setActiveView={(view) => {
+                  setPreviousView('checkout');
+                  setActiveView(view);
+                }}
               />
             )}
           </div>
