@@ -27,6 +27,7 @@ import AdminLoginModal from './components/AdminLoginModal';
 import LegalPagesView from './components/LegalPagesView';
 import RentalGalleryView from './components/RentalGalleryView';
 import CancellationPolicyView from './components/CancellationPolicyView';
+import ShippingPolicyView from './components/ShippingPolicyView';
 import { PRODUCTS, CATEGORIES } from './data/products';
 
 function hasArrayChanged(prev, next, checkKeys = ['id', 'stockQuantity', 'sellingPrice', 'status', 'totalSpent', 'totalOrders']) {
@@ -47,8 +48,10 @@ export default function App() {
   const [showSplash, setShowSplash] = useState(true);
   const [activeView, setActiveView] = useState('home'); // 'home', 'search', 'categories', 'subcategory', 'profile', 'checkout', 'admin', '404'
   const [activeCategoryId, setActiveCategoryId] = useState('maharashtrian');
-  const [searchQuery, setSearchQuery] = useState('Kundan');
+  const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
+  const [selectedSubCategory, setSelectedSubCategory] = useState('');
+  const [selectedSubCategoryId, setSelectedSubCategoryId] = useState('');
   const [selectedProduct, setSelectedProduct] = useState(null);
   
   // Category transition ripple circle state
@@ -326,7 +329,19 @@ export default function App() {
         if (cartRes.ok) {
           const cartData = await cartRes.json();
           if (Array.isArray(cartData)) {
-            setCartItems(cartData);
+            setCartItems((prev) => {
+              if (prev.length > 0) {
+                const merged = [...prev];
+                for (const dbItem of cartData) {
+                  const exists = merged.some(
+                    (m) => m.id === dbItem.id && m.selectedSize === dbItem.selectedSize && (m.selectedColor || '') === (dbItem.selectedColor || '')
+                  );
+                  if (!exists) merged.push(dbItem);
+                }
+                return merged;
+              }
+              return cartData;
+            });
           }
         }
         setIsCartLoaded(true);
@@ -476,6 +491,8 @@ export default function App() {
       setActiveView('terms');
     } else if (pathname === '/cancellation-policy' || hash === '#cancellation-policy') {
       setActiveView('cancellation-policy');
+    } else if (pathname === '/shipping-policy' || hash === '#shipping-policy' || pathname === '/shipping' || hash === '#shipping') {
+      setActiveView('shipping-policy');
     }
   }, [productsList]);
 
@@ -505,6 +522,26 @@ export default function App() {
       if (activeView === 'product' && selectedProduct) {
         const code = selectedProduct.product_code || selectedProduct.productCode || selectedProduct.id;
         targetPath = `/product/${encodeURIComponent(code)}`;
+      } else if (activeView === 'shipping-policy') {
+        targetPath = '/shipping-policy';
+      } else if (activeView === 'checkout') {
+        targetPath = '/checkout';
+      } else if (activeView === 'categories') {
+        targetPath = '/categories';
+      } else if (activeView === 'search') {
+        targetPath = '/search';
+      } else if (activeView === 'profile') {
+        targetPath = '/profile';
+      } else if (activeView === 'rental-gallery') {
+        targetPath = '/rental-gallery';
+      } else if (activeView === 'faq') {
+        targetPath = '/faq';
+      } else if (activeView === 'privacy') {
+        targetPath = '/privacy';
+      } else if (activeView === 'terms') {
+        targetPath = '/terms';
+      } else if (activeView === 'cancellation-policy') {
+        targetPath = '/cancellation-policy';
       } else if (activeView === 'home' && !targetPath.startsWith('/admin')) {
         targetPath = '/';
       }
@@ -559,6 +596,30 @@ export default function App() {
           setSelectedProduct(null);
         }
         if (state.catId) setActiveCategoryId(state.catId);
+        return;
+      }
+
+      // Inspect pathname fallback if state.view is missing
+      if (pathname === '/checkout') {
+        setActiveView('checkout');
+      } else if (pathname === '/categories') {
+        setActiveView('categories');
+      } else if (pathname === '/search') {
+        setActiveView('search');
+      } else if (pathname === '/profile') {
+        setActiveView('profile');
+      } else if (pathname === '/shipping-policy' || pathname === '/shipping') {
+        setActiveView('shipping-policy');
+      } else if (pathname === '/rental-gallery') {
+        setActiveView('rental-gallery');
+      } else if (pathname === '/faq') {
+        setActiveView('faq');
+      } else if (pathname === '/privacy') {
+        setActiveView('privacy');
+      } else if (pathname === '/terms') {
+        setActiveView('terms');
+      } else if (pathname === '/cancellation-policy') {
+        setActiveView('cancellation-policy');
       } else {
         setSelectedProduct(null);
         setActiveView('home');
@@ -577,6 +638,10 @@ export default function App() {
   };
 
   const handleSelectCategory = (catId, clickMeta) => {
+    setSelectedCategory(catId);
+    setSelectedSubCategory('');
+    setSelectedSubCategoryId('');
+
     if (clickMeta && clickMeta.left !== undefined) {
       // Calculate centering translation coordinates
       const circleCenterX = clickMeta.left + clickMeta.width / 2;
@@ -683,9 +748,11 @@ export default function App() {
     }
   };
 
-  const handleSelectSubCategory = (subCatName) => {
-    setSearchQuery(subCatName);
-    setSelectedCategory('');
+  const handleSelectSubCategory = (subCatName, parentCatId, subCatId) => {
+    setSearchQuery('');
+    setSelectedCategory(parentCatId || activeCategoryId || '');
+    setSelectedSubCategory(subCatName || '');
+    setSelectedSubCategoryId(subCatId || '');
     setActiveView('search');
   };
 
@@ -1351,6 +1418,8 @@ export default function App() {
               <SearchView 
                 initialQuery={searchQuery}
                 initialCategory={selectedCategory}
+                initialSubCategory={selectedSubCategory}
+                initialSubCategoryId={selectedSubCategoryId}
                 onSelectProduct={(p) => handleSelectProduct(p)}
                 onToggleWishlist={handleToggleWishlist}
                 wishlistIds={wishlistIds}
@@ -1423,6 +1492,10 @@ export default function App() {
 
             {(activeView === 'cancellation-policy' || activeView === 'modification-policy') && (
               <CancellationPolicyView setActiveView={setActiveView} />
+            )}
+
+            {activeView === 'shipping-policy' && (
+              <ShippingPolicyView setActiveView={setActiveView} />
             )}
 
             {activeView === 'checkout' && (

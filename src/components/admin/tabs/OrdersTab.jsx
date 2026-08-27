@@ -46,7 +46,13 @@ export default function OrdersTab({
   const displayedOrders = filteredOrders.filter(o => {
     if (fulfillmentFilter === 'all') return true;
     const fType = (o.fulfillmentType || o.fulfillment_type || 'ship').toLowerCase();
-    return fType === fulfillmentFilter;
+    const country = (o.shippingCountry || o.shipping_country || 'India').trim().toLowerCase();
+    const isIntl = country !== 'india' && country !== 'in';
+
+    if (fulfillmentFilter === 'pickup') return fType === 'pickup';
+    if (fulfillmentFilter === 'international') return fType !== 'pickup' && isIntl;
+    if (fulfillmentFilter === 'domestic' || fulfillmentFilter === 'ship') return fType !== 'pickup' && !isIntl;
+    return true;
   });
 
   const displayedOrdersValue = displayedOrders.reduce((sum, o) => {
@@ -54,8 +60,17 @@ export default function OrdersTab({
     return sum + num;
   }, 0);
 
-  const shipCount = filteredOrders.filter(o => (o.fulfillmentType || o.fulfillment_type || 'ship').toLowerCase() === 'ship').length;
   const pickupCount = filteredOrders.filter(o => (o.fulfillmentType || o.fulfillment_type || 'ship').toLowerCase() === 'pickup').length;
+  const intlCount = filteredOrders.filter(o => {
+    const isP = (o.fulfillmentType || o.fulfillment_type || 'ship').toLowerCase() === 'pickup';
+    const c = (o.shippingCountry || o.shipping_country || 'India').trim().toLowerCase();
+    return !isP && c !== 'india' && c !== 'in';
+  }).length;
+  const domesticCount = filteredOrders.filter(o => {
+    const isP = (o.fulfillmentType || o.fulfillment_type || 'ship').toLowerCase() === 'pickup';
+    const c = (o.shippingCountry || o.shipping_country || 'India').trim().toLowerCase();
+    return !isP && (c === 'india' || c === 'in');
+  }).length;
 
   return (
     <div className="space-y-6 animate-fadeIn">
@@ -195,15 +210,27 @@ export default function OrdersTab({
           </button>
           <button
             type="button"
-            onClick={() => setFulfillmentFilter('ship')}
+            onClick={() => setFulfillmentFilter('domestic')}
             className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer ${
-              fulfillmentFilter === 'ship'
+              fulfillmentFilter === 'domestic'
                 ? 'bg-[#FCDAD7] text-black border border-black/20 shadow-xs'
                 : 'text-gray-700 hover:bg-white/60'
             }`}
           >
-            <span className="material-symbols-outlined text-[14px]">local_shipping</span>
-            <span>Ship ({shipCount})</span>
+            <span className="text-[12px]">🇮🇳</span>
+            <span>Domestic ({domesticCount})</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setFulfillmentFilter('international')}
+            className={`px-3 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer ${
+              fulfillmentFilter === 'international'
+                ? 'bg-[#FCDAD7] text-black border border-black/20 shadow-xs'
+                : 'text-gray-700 hover:bg-white/60'
+            }`}
+          >
+            <span className="text-[12px]">🌎</span>
+            <span>International ({intlCount})</span>
           </button>
           <button
             type="button"
@@ -317,16 +344,43 @@ export default function OrdersTab({
 
                       {/* 2. FULFILLMENT METHOD BADGE */}
                       <td className="p-3">
-                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border ${
-                          isPickup 
-                            ? 'bg-purple-50 text-purple-900 border-purple-200 shadow-2xs' 
-                            : 'bg-blue-50 text-blue-900 border-blue-200 shadow-2xs'
-                        }`}>
-                          <span className="material-symbols-outlined text-[13px]">
-                            {isPickup ? 'storefront' : 'local_shipping'}
-                          </span>
-                          <span>{isPickup ? 'Store Pickup' : 'Home Delivery'}</span>
-                        </span>
+                        {(() => {
+                          const country = (o.shippingCountry || o.shipping_country || 'India').trim();
+                          const isIntl = country.toLowerCase() !== 'india' && country.toLowerCase() !== 'in';
+                          const isPendingConf = (o.shippingChargeStatus || o.shipping_charge_status) === 'pending_confirmation';
+
+                          if (isPickup) {
+                            return (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border bg-purple-50 text-purple-900 border-purple-200 shadow-2xs">
+                                <span className="material-symbols-outlined text-[13px]">storefront</span>
+                                <span>Store Pickup</span>
+                              </span>
+                            );
+                          }
+
+                          if (isIntl) {
+                            return (
+                              <div className="space-y-1">
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border bg-amber-50 text-amber-900 border-amber-300 shadow-2xs">
+                                  <span>🌎</span>
+                                  <span className="truncate max-w-[100px]">{country}</span>
+                                </span>
+                                {isPendingConf && (
+                                  <span className="block text-[9px] font-bold text-amber-800 bg-amber-100/80 px-1.5 py-0.2 rounded border border-amber-300">
+                                    ⏳ Confirm Shipping
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          }
+
+                          return (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border bg-blue-50 text-blue-900 border-blue-200 shadow-2xs">
+                              <span className="text-[11px]">🇮🇳</span>
+                              <span>Domestic</span>
+                            </span>
+                          );
+                        })()}
                       </td>
 
                       {/* 3. CUSTOMER & PRODUCT TITLE */}

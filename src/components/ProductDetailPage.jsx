@@ -573,15 +573,23 @@ export default function ProductDetailPage({
             {/* DELIVERY & EXCHANGE POLICY BADGES (SIDE-BY-SIDE IN A ROW) */}
             {/* ======================================================== */}
             <div className="grid grid-cols-2 gap-2.5">
-              <div className="flex items-center justify-center gap-1.5 py-2 px-2.5 bg-[#FCDAD7]/60 text-stone-900 border border-black/15 rounded-xl font-bold text-[11px] sm:text-xs shadow-2xs">
+              <button
+                type="button"
+                onClick={() => setActiveTab('shipping')}
+                className="flex items-center justify-center gap-1.5 py-2 px-2.5 bg-[#FCDAD7]/60 hover:bg-[#FCDAD7] text-stone-900 border border-black/15 rounded-xl font-bold text-[11px] sm:text-xs shadow-2xs transition-colors cursor-pointer"
+              >
                 <span className="material-symbols-outlined text-base text-stone-800">local_shipping</span>
-                <span className="truncate">8–10 Days Delivery</span>
-              </div>
+                <span className="truncate">4–10 Days Delivery</span>
+              </button>
 
-              <div className="flex items-center justify-center gap-1.5 py-2 px-2.5 bg-red-50 text-red-700 border border-red-300 rounded-xl font-bold text-[11px] sm:text-xs shadow-2xs">
+              <button
+                type="button"
+                onClick={() => setActiveTab('exchange')}
+                className="flex items-center justify-center gap-1.5 py-2 px-2.5 bg-red-50 hover:bg-red-100/70 text-red-700 border border-red-300 rounded-xl font-bold text-[11px] sm:text-xs shadow-2xs transition-colors cursor-pointer"
+              >
                 <span className="material-symbols-outlined text-base text-red-600">published_with_changes</span>
                 <span className="truncate">Only Exchange • No Return</span>
-              </div>
+              </button>
             </div>
 
             {/* Colors Selection (if applicable) */}
@@ -758,10 +766,21 @@ export default function ProductDetailPage({
                 </button>
                 <button
                   type="button"
+                  onClick={() => setActiveTab('shipping')}
+                  className={`pb-2.5 px-3 border-b-2 transition-all cursor-pointer ${
+                    activeTab === 'shipping'
+                      ? 'border-black text-black font-bold'
+                      : 'border-transparent text-on-surface-variant hover:text-black'
+                  }`}
+                >
+                  Shipping &amp; Delivery
+                </button>
+                <button
+                  type="button"
                   onClick={() => setActiveTab('exchange')}
                   className={`pb-2.5 px-3 border-b-2 transition-all cursor-pointer ${
                     activeTab === 'exchange'
-                      ? 'border-black text-black'
+                      ? 'border-black text-black font-bold'
                       : 'border-transparent text-on-surface-variant hover:text-black'
                   }`}
                 >
@@ -793,6 +812,54 @@ export default function ProductDetailPage({
                     <div className="flex justify-between py-1">
                       <span className="text-on-surface-variant font-semibold">Origin:</span>
                       <span className="font-bold text-black">Handcrafted in Pune, India</span>
+                    </div>
+                  </div>
+                )}
+
+                {activeTab === 'shipping' && (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-stone-900 font-bold text-xs pb-1 border-b border-black/10">
+                      <span className="material-symbols-outlined text-base text-stone-800">local_shipping</span>
+                      <span>Delivery &amp; Store Pickup Options</span>
+                    </div>
+
+                    <div className="space-y-2.5 text-[11px] text-stone-800 leading-relaxed">
+                      <div className="bg-[#FFF0F2] border border-[#F8B3AC]/60 rounded-xl p-2.5 flex items-start gap-2">
+                        <span className="text-base shrink-0">🇮🇳</span>
+                        <div>
+                          <span className="font-bold text-stone-900">Domestic Delivery (India): </span>
+                          <span>Standard delivery in <strong>4–10 business days</strong>. Flat ₹99 shipping (<strong>FREE on orders ₹5,000 and above</strong>). Insured courier partners.</span>
+                        </div>
+                      </div>
+
+                      <div className="bg-[#FFF0F2] border border-[#F8B3AC]/60 rounded-xl p-2.5 flex items-start gap-2">
+                        <span className="text-base shrink-0">🏬</span>
+                        <div>
+                          <span className="font-bold text-stone-900">Pune Studio Pickup (FREE): </span>
+                          <span>Ready for collection in approximately <strong>12 hours</strong> at Shivpushpa Landmark, Sinhagad Road, Pune (10:30 AM – 8:00 PM).</span>
+                        </div>
+                      </div>
+
+                      <div className="bg-amber-50 border border-amber-200 rounded-xl p-2.5 flex items-start gap-2">
+                        <span className="text-base shrink-0">🌎</span>
+                        <div>
+                          <span className="font-bold text-amber-900">International Shipping Available: </span>
+                          <span>We ship worldwide. Final international shipping charge is confirmed by our team via WhatsApp / Phone after packing. Delivered DDU.</span>
+                        </div>
+                      </div>
+
+                      <div className="pt-1 flex items-center justify-between">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (typeof setActiveView === 'function') setActiveView('shipping-policy');
+                          }}
+                          className="text-black font-bold underline hover:text-stone-700 flex items-center gap-1 cursor-pointer"
+                        >
+                          <span>View Full Shipping &amp; Delivery Policy</span>
+                          <span className="material-symbols-outlined text-[13px]">arrow_outward</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}

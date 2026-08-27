@@ -18,7 +18,7 @@ export default function CartDrawer({
     return acc + (price * qty);
   }, 0);
   const cartSubtotal = subtotal;
-  const shippingFee = cartSubtotal >= 1000 ? 0 : (cartItems.length > 0 ? 100 : 0);
+  const shippingFee = cartSubtotal >= 5000 ? 0 : (cartItems.length > 0 ? 99 : 0);
   const finalTotal = cartSubtotal + shippingFee;
 
   return (
@@ -42,26 +42,26 @@ export default function CartDrawer({
           </button>
         </div>
 
-        {/* Free Shipping Progress Indicator (Threshold: ₹1,000) */}
+        {/* Free Shipping Progress Indicator (Threshold: ₹5,000) */}
         {cartItems.length > 0 && (
           <div className="px-4 md:px-6 pt-3 pb-2 bg-[#FFF9F9] border-b border-[#F8B3AC]/30">
             <div className="flex items-center justify-between text-xs mb-1.5">
               <span className="font-semibold text-black flex items-center gap-1">
                 <span className="material-symbols-outlined text-sm text-black">local_shipping</span>
-                {cartSubtotal >= 1000 ? (
-                  <span className="text-emerald-700 font-bold">🎉 You unlocked FREE Shipping!</span>
+                {cartSubtotal >= 5000 ? (
+                  <span className="text-emerald-700 font-bold">🎉 You unlocked FREE Domestic Shipping!</span>
                 ) : (
-                  <span>Add <strong className="text-black font-mono">₹{(1000 - cartSubtotal).toLocaleString('en-IN')}</strong> more for <strong className="text-black">FREE Shipping</strong></span>
+                  <span>Add <strong className="text-black font-mono">₹{(5000 - cartSubtotal).toLocaleString('en-IN')}</strong> more for <strong className="text-black">FREE Shipping</strong></span>
                 )}
               </span>
               <span className="text-[11px] font-bold text-black font-mono">
-                {Math.min(100, Math.round((cartSubtotal / 1000) * 100))}%
+                {Math.min(100, Math.round((cartSubtotal / 5000) * 100))}%
               </span>
             </div>
             <div className="w-full bg-[#FCDAD7]/50 h-2 rounded-full overflow-hidden border border-black/10">
               <div 
                 className="bg-black h-full transition-all duration-500 rounded-full"
-                style={{ width: `${Math.min(100, (cartSubtotal / 1000) * 100)}%` }}
+                style={{ width: `${Math.min(100, (cartSubtotal / 5000) * 100)}%` }}
               />
             </div>
           </div>

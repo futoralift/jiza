@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { API_BASE } from '../config';
+import InternationalShippingNotice from './InternationalShippingNotice';
 
 export default function CheckoutView({ cartItems, totalAmount, onOrderSuccess, onBackToCart, currentUser, setActiveView }) {
   const [step, setStep] = useState(1); // 1: Delivery, 2: Payment, 3: Success Confirmation
@@ -7,15 +8,11 @@ export default function CheckoutView({ cartItems, totalAmount, onOrderSuccess, o
   // Delivery Fulfillment Type: 'ship' (Home Delivery) vs 'pickup' (Studio Pickup)
   const [fulfillmentType, setFulfillmentType] = useState('ship');
 
-  // Automatic Shipping Charge Calculations
-  const calculatedSubtotal = (cartItems || []).reduce((acc, item) => {
-    const price = Number(item.price || item.sellingPrice || 0);
-    const qty = Number(item.quantity || 1);
-    return acc + (price * qty);
-  }, 0);
+  // International shipping notice popup state
+  const [showIntlNotice, setShowIntlNotice] = useState(false);
 
-  const shippingCharge = fulfillmentType === 'pickup' ? 0 : (calculatedSubtotal >= 1000 ? 0 : 100);
-  const effectiveTotalPayable = calculatedSubtotal + shippingCharge;
+  // Shipping Charge Calculations — Server is authoritative; this is UI preview only.
+  // NOTE: These are placed after state declarations below to avoid forward reference.
 
   // Studio Pickup Configuration (Fetched dynamically from backend store_settings)
   const [storePickupSettings, setStorePickupSettings] = useState({
@@ -39,8 +36,19 @@ export default function CheckoutView({ cartItems, totalAmount, onOrderSuccess, o
     address: currentUser?.address || '',
     city: 'Pune',
     state: 'Maharashtra',
-    pincode: '411051'
+    pincode: '411051',
+    country: 'India'
   });
+
+  // Handle country change and show international notice
+  const handleCountryChange = useCallback((newCountry) => {
+    const wasIndia = !shippingData.country || shippingData.country === 'India';
+    const nowInternational = newCountry && newCountry !== 'India';
+    setShippingData(prev => ({ ...prev, country: newCountry }));
+    if (wasIndia && nowInternational) {
+      setShowIntlNotice(true);
+    }
+  }, [shippingData.country]);
 
   // Pickup Contact details (when customer chooses Pickup)
   const [pickupDetails, setPickupDetails] = useState({
@@ -49,6 +57,21 @@ export default function CheckoutView({ cartItems, totalAmount, onOrderSuccess, o
     email: currentUser?.email || '',
     notes: ''
   });
+
+  // Shipping calculations — depend on shippingData state
+  const calculatedSubtotal = (cartItems || []).reduce((acc, item) => {
+    const price = Number(item.price || item.sellingPrice || 0);
+    const qty = Number(item.quantity || 1);
+    return acc + (price * qty);
+  }, 0);
+
+  const isInternational = fulfillmentType === 'ship' && shippingData.country && shippingData.country !== 'India';
+
+  // Domestic: ₹99 below ₹5,000, FREE at/above ₹5,000. Pickup: FREE. International: 0 at checkout (pending confirmation).
+  const shippingCharge = fulfillmentType === 'pickup' ? 0 : isInternational ? 0 : (calculatedSubtotal >= 5000 ? 0 : 99);
+  const isFreeShipping = fulfillmentType === 'pickup' || (!isInternational && calculatedSubtotal >= 5000);
+  const effectiveTotalPayable = calculatedSubtotal + shippingCharge;
+
 
   const [paymentMethod, setPaymentMethod] = useState('upi'); // 'upi', 'card'
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -101,17 +124,23 @@ export default function CheckoutView({ cartItems, totalAmount, onOrderSuccess, o
 
     if (fulfillmentType === 'ship') {
       const cleanPhone = (shippingData.phone || '').replace(/\D/g, '');
-      if (!shippingData.fullName.trim() || !cleanPhone || !shippingData.address.trim() || !shippingData.pincode.trim()) {
-        setErrorMsg('Please complete all required shipping address fields.');
+      const deliveryCountry = shippingData.country || 'India';
+      const isIntlDelivery = deliveryCountry !== 'India';
+
+      if (!shippingData.fullName.trim() || !cleanPhone || !shippingData.address.trim() || !shippingData.city.trim()) {
+        setErrorMsg('Please complete all required shipping address fields (Name, Phone, Address, City).');
         return;
       }
       if (cleanPhone.length !== 10) {
         setErrorMsg('Please enter a valid 10-digit mobile number.');
         return;
       }
-      if (shippingData.pincode.replace(/\D/g, '').length !== 6) {
-        setErrorMsg('Please enter a valid 6-digit postal pincode.');
-        return;
+      // For domestic orders only — require 6-digit pincode
+      if (!isIntlDelivery) {
+        if (!shippingData.pincode || shippingData.pincode.replace(/\D/g, '').length !== 6) {
+          setErrorMsg('Please enter a valid 6-digit postal pincode for India delivery.');
+          return;
+        }
       }
     } else {
       // Pickup validation
@@ -173,7 +202,9 @@ export default function CheckoutView({ cartItems, totalAmount, onOrderSuccess, o
         address: fulfillmentType === 'pickup' ? `[Store Pickup: ${storePickupSettings.storeName}]` : shippingData.address,
         city: shippingData.city,
         state: shippingData.state,
-        pincode: shippingData.pincode
+        pincode: shippingData.pincode,
+        country: fulfillmentType === 'pickup' ? 'India' : (shippingData.country || 'India'),
+        userId: currentUser?.id
       };
 
       // 1. Create Razorpay order on server
@@ -189,7 +220,8 @@ export default function CheckoutView({ cartItems, totalAmount, onOrderSuccess, o
             selectedColor: ci.selectedColor || ci.colour || ''
           })),
           customerInfo: effectiveCustomerInfo,
-          fulfillmentType
+          fulfillmentType,
+          country: effectiveCustomerInfo.country
         })
       });
 
@@ -227,8 +259,9 @@ export default function CheckoutView({ cartItems, totalAmount, onOrderSuccess, o
                 razorpay_order_id: response.razorpay_order_id,
                 razorpay_payment_id: response.razorpay_payment_id,
                 razorpay_signature: response.razorpay_signature,
-                shippingData: effectiveCustomerInfo,
+                shippingData: { ...effectiveCustomerInfo, country: effectiveCustomerInfo.country },
                 fulfillmentType,
+                country: effectiveCustomerInfo.country,
                 pickupDetails: {
                   ...storePickupSettings,
                   pickupPersonName: effectiveCustomerInfo.fullName,
@@ -295,6 +328,17 @@ export default function CheckoutView({ cartItems, totalAmount, onOrderSuccess, o
   return (
     <main className="w-full max-w-container-max mx-auto pt-6 pb-24 px-margin-mobile md:px-margin-desktop min-h-[75vh] animate-fadeIn">
       
+      {/* International Shipping Notice Popup */}
+      <InternationalShippingNotice
+        isOpen={showIntlNotice}
+        onClose={() => setShowIntlNotice(false)}
+        onViewPolicy={() => {
+          setShowIntlNotice(false);
+          if (typeof setActiveView === 'function') setActiveView('shipping-policy');
+        }}
+        country={shippingData.country}
+      />
+
       {/* Checkout Progress Stepper */}
       <div className="max-w-xl mx-auto mb-8">
         <div className="flex items-center justify-between relative">
@@ -354,8 +398,31 @@ export default function CheckoutView({ cartItems, totalAmount, onOrderSuccess, o
         </div>
       </div>
 
+      {/* EMPTY BAG GUARD */}
+      {step !== 3 && (!cartItems || cartItems.length === 0) && (
+        <div className="max-w-md mx-auto text-center py-16 bg-white border border-[#F8B3AC]/50 rounded-3xl p-8 shadow-sm animate-fadeIn">
+          <span className="material-symbols-outlined text-5xl text-black/40 mb-3 block">shopping_bag</span>
+          <h2 className="font-headline-sm text-xl font-bold text-black mb-2">Your Shopping Bag is Empty</h2>
+          <p className="text-xs text-stone-600 mb-6 leading-relaxed">Explore our handcrafted heritage collections to add items before checking out.</p>
+          <div className="flex gap-3 justify-center">
+            <button 
+              onClick={() => { if (typeof setActiveView === 'function') setActiveView('categories'); }}
+              className="px-5 py-2.5 bg-[#FCDAD7] hover:bg-[#F9C5C0] text-black font-bold text-xs rounded-xl border border-black/20 shadow-xs cursor-pointer active:scale-95 transition-all"
+            >
+              Explore Collections
+            </button>
+            <button 
+              onClick={() => { if (typeof setActiveView === 'function') setActiveView('home'); }}
+              className="px-5 py-2.5 bg-white hover:bg-[#FFF0F2] text-black font-bold text-xs rounded-xl border border-black/15 cursor-pointer active:scale-95 transition-all"
+            >
+              Return Home
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* STEP 1: DELIVERY / PICKUP SELECTION */}
-      {step === 1 && (
+      {step === 1 && cartItems && cartItems.length > 0 && (
         <div className="max-w-2xl mx-auto bg-white border border-[#F8B3AC]/60 rounded-3xl p-6 md:p-8 shadow-[0_8px_30px_rgba(252,218,215,0.4)] space-y-6">
           
           <div className="flex items-center justify-between pb-3 border-b border-[#FCDAD7]">
@@ -509,32 +576,93 @@ export default function CheckoutView({ cartItems, totalAmount, onOrderSuccess, o
                   </div>
 
                   <div>
-                    <label className="font-label-sm text-xs text-black block mb-1 font-bold">State *</label>
+                    <label className="font-label-sm text-xs text-black block mb-1 font-bold">State {!isInternational ? '*' : ''}</label>
                     <input 
                       type="text" 
-                      required
+                      required={!isInternational}
                       value={shippingData.state}
                       onChange={(e) => setShippingData({...shippingData, state: e.target.value})}
-                      placeholder="State"
+                      placeholder={isInternational ? "State / Province (optional)" : "State"}
                       className="w-full bg-[#FFF9F9] border border-[#F8B3AC]/60 rounded-xl px-3.5 py-2.5 text-xs text-black focus:outline-none focus:border-black focus:bg-white font-medium"
                     />
                   </div>
 
                   <div>
-                    <label className="font-label-sm text-xs text-black block mb-1 font-bold">Pincode *</label>
+                    <label className="font-label-sm text-xs text-black block mb-1 font-bold">
+                      {isInternational ? 'Postal Code' : 'Pincode *'}
+                    </label>
                     <input 
                       type="text" 
-                      required
-                      maxLength={6}
+                      required={!isInternational}
+                      maxLength={isInternational ? 20 : 6}
                       value={shippingData.pincode}
-                      onChange={(e) => setShippingData({...shippingData, pincode: e.target.value.replace(/\D/g, '').slice(0, 6)})}
-                      placeholder="6-digit PIN"
+                      onChange={(e) => setShippingData({...shippingData, pincode: isInternational ? e.target.value : e.target.value.replace(/\D/g, '').slice(0, 6)})}
+                      placeholder={isInternational ? "Postal / ZIP Code" : "6-digit PIN"}
                       className="w-full bg-[#FFF9F9] border border-[#F8B3AC]/60 rounded-xl px-3.5 py-2.5 text-xs text-black focus:outline-none focus:border-black focus:bg-white font-medium font-mono"
                     />
                   </div>
                 </div>
+
+                {/* Country Selector */}
+                <div>
+                  <label className="font-label-sm text-xs text-black block mb-1 font-bold">Country *</label>
+                  <select
+                    required
+                    value={shippingData.country || 'India'}
+                    onChange={(e) => handleCountryChange(e.target.value)}
+                    className="w-full bg-[#FFF9F9] border border-[#F8B3AC]/60 rounded-xl px-3.5 py-2.5 text-xs text-black focus:outline-none focus:border-black focus:bg-white font-medium appearance-none"
+                  >
+                    <option value="India">🇮🇳 India (Domestic)</option>
+                    <optgroup label="─── International ───">
+                      <option value="United Arab Emirates">🇦🇪 United Arab Emirates</option>
+                      <option value="Saudi Arabia">🇸🇦 Saudi Arabia</option>
+                      <option value="Qatar">🇶🇦 Qatar</option>
+                      <option value="Kuwait">🇰🇼 Kuwait</option>
+                      <option value="Bahrain">🇧🇭 Bahrain</option>
+                      <option value="Oman">🇴🇲 Oman</option>
+                      <option value="United Kingdom">🇬🇧 United Kingdom</option>
+                      <option value="United States">🇺🇸 United States</option>
+                      <option value="Canada">🇨🇦 Canada</option>
+                      <option value="Australia">🇦🇺 Australia</option>
+                      <option value="New Zealand">🇳🇿 New Zealand</option>
+                      <option value="Singapore">🇸🇬 Singapore</option>
+                      <option value="Malaysia">🇲🇾 Malaysia</option>
+                      <option value="Germany">🇩🇪 Germany</option>
+                      <option value="France">🇫🇷 France</option>
+                      <option value="Netherlands">🇳🇱 Netherlands</option>
+                      <option value="Switzerland">🇨🇭 Switzerland</option>
+                      <option value="Sri Lanka">🇱🇰 Sri Lanka</option>
+                      <option value="Bangladesh">🇧🇩 Bangladesh</option>
+                      <option value="Nepal">🇳🇵 Nepal</option>
+                      <option value="Other">🌎 Other Country</option>
+                    </optgroup>
+                  </select>
+                </div>
+
+                {/* International Shipping Notice Banner */}
+                {isInternational && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 animate-fadeIn">
+                    <div className="flex items-start gap-2.5">
+                      <span className="text-lg shrink-0">🌍</span>
+                      <div>
+                        <div className="font-bold text-amber-900 text-xs mb-1">International Order — Shipping Charge Pending</div>
+                        <p className="text-amber-800 text-[11px] leading-relaxed">
+                          You will pay the product total now. After we pack your order, our team will contact you by <strong>WhatsApp or phone</strong> to confirm the final international shipping charge before dispatch.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => typeof setActiveView === 'function' && setActiveView('shipping-policy')}
+                          className="text-amber-700 font-bold underline text-[11px] mt-1.5 hover:text-amber-900"
+                        >
+                          View Shipping Policy ↗
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
+
 
             {/* OPTION B: STORE PICKUP CARD & CONTACT */}
             {fulfillmentType === 'pickup' && (
@@ -655,7 +783,7 @@ export default function CheckoutView({ cartItems, totalAmount, onOrderSuccess, o
       )}
 
       {/* STEP 2: PAYMENT METHOD */}
-      {step === 2 && (
+      {step === 2 && cartItems && cartItems.length > 0 && (
         <div className="max-w-2xl mx-auto bg-white border border-[#F8B3AC]/60 rounded-3xl p-6 md:p-8 shadow-[0_8px_30px_rgba(252,218,215,0.4)] space-y-6">
           <div className="flex items-center justify-between pb-3 border-b border-[#FCDAD7]">
             <div>
@@ -681,15 +809,30 @@ export default function CheckoutView({ cartItems, totalAmount, onOrderSuccess, o
                 <span className="flex items-center gap-1">
                   <span>Shipping &amp; Delivery:</span>
                   <span className="text-[10px] text-stone-600">
-                    {fulfillmentType === 'pickup' ? '(Studio Pickup)' : (calculatedSubtotal >= 1000 ? '(Free on ₹1,000+)' : '(Orders below ₹1,000)')}
+                    {fulfillmentType === 'pickup'
+                      ? '(Studio Pickup)'
+                      : isInternational
+                        ? '(International — Pending)'
+                        : isFreeShipping
+                          ? '(Free on ₹5,000+)'
+                          : '(Standard Delivery)'}
                   </span>
                 </span>
-                {shippingCharge === 0 ? (
+                {fulfillmentType === 'pickup' ? (
+                  <span className="text-emerald-700 font-bold">FREE</span>
+                ) : isInternational ? (
+                  <span className="text-amber-600 font-bold text-[11px]">To Be Confirmed</span>
+                ) : isFreeShipping ? (
                   <span className="text-emerald-700 font-bold">FREE</span>
                 ) : (
-                  <span className="font-mono font-bold text-black">₹100</span>
+                  <span className="font-mono font-bold text-black">₹{shippingCharge}</span>
                 )}
               </div>
+              {isInternational && (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-[10px] text-amber-800 leading-relaxed">
+                  🌍 Final shipping charge confirmed after packing. Our team will contact you before dispatch.
+                </div>
+              )}
             </div>
 
             <div className="flex justify-between items-center text-sm pt-1">
@@ -823,14 +966,30 @@ export default function CheckoutView({ cartItems, totalAmount, onOrderSuccess, o
             </p>
           </div>
 
+          {isInternational && (
+            <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-2xl text-left text-xs space-y-1">
+              <div className="flex items-center gap-1.5 text-amber-900 font-bold">
+                <span className="material-symbols-outlined text-sm text-amber-700">public</span>
+                <span>International Shipping Confirmation Pending</span>
+              </div>
+              <p className="text-[11px] text-amber-800 leading-relaxed">
+                Your order items are confirmed! Our studio team will carefully pack your jewellery, calculate exact shipment weight, and contact you on WhatsApp / Phone to confirm the final shipping charge before dispatch.
+              </p>
+            </div>
+          )}
+
           <div className="bg-[#FCDAD7]/35 p-4 rounded-2xl text-left text-xs space-y-2 border border-black/15">
             <div className="flex justify-between">
               <span className="text-stone-800">Fulfillment:</span>
               <strong className="text-black font-bold flex items-center gap-1">
                 <span className="material-symbols-outlined text-xs text-black">
-                  {fulfillmentType === 'pickup' ? 'storefront' : 'local_shipping'}
+                  {fulfillmentType === 'pickup' ? 'storefront' : isInternational ? 'public' : 'local_shipping'}
                 </span>
-                {fulfillmentType === 'pickup' ? 'Studio Pickup (Pune)' : 'Insured Home Delivery'}
+                {fulfillmentType === 'pickup'
+                  ? 'Studio Pickup (Pune)'
+                  : isInternational
+                    ? `International Delivery (${shippingData.country})`
+                    : 'Standard Domestic Delivery'}
               </strong>
             </div>
 
@@ -846,13 +1005,25 @@ export default function CheckoutView({ cartItems, totalAmount, onOrderSuccess, o
 
             <div className="flex justify-between">
               <span className="text-stone-800">Shipping Charge:</span>
-              <strong className={shippingCharge === 0 ? "text-emerald-700 font-bold" : "text-black font-mono font-bold"}>
-                {shippingCharge === 0 ? 'FREE' : `₹${shippingCharge}`}
+              <strong className={
+                fulfillmentType === 'pickup' || isFreeShipping
+                  ? "text-emerald-700 font-bold"
+                  : isInternational
+                    ? "text-amber-700 font-bold"
+                    : "text-black font-mono font-bold"
+              }>
+                {fulfillmentType === 'pickup'
+                  ? 'FREE'
+                  : isInternational
+                    ? 'Pending Confirmation'
+                    : isFreeShipping
+                      ? 'FREE'
+                      : `₹${shippingCharge}`}
               </strong>
             </div>
 
             <div className="flex justify-between border-t border-black/10 pt-2 font-bold text-sm text-black">
-              <span>Total Paid:</span>
+              <span>{isInternational ? 'Amount Paid Now (Items):' : 'Total Paid:'}</span>
               <span className="font-mono">₹{effectiveTotalPayable.toLocaleString('en-IN')}</span>
             </div>
 
@@ -866,31 +1037,36 @@ export default function CheckoutView({ cartItems, totalAmount, onOrderSuccess, o
                 </div>
                 <div className="flex justify-between">
                   <span className="text-stone-800">Ready Time:</span>
-                  <strong className="text-emerald-700 font-semibold">2-4 Hours</strong>
+                  <strong className="text-emerald-700 font-semibold">Ready in ~12 Hours</strong>
                 </div>
               </>
+            ) : isInternational ? (
+              <div className="flex justify-between border-t border-black/10 pt-2">
+                <span className="text-stone-800">Estimated Transit:</span>
+                <strong className="text-amber-800 font-semibold">7–12 Business Days</strong>
+              </div>
             ) : (
               <div className="flex justify-between border-t border-black/10 pt-2">
                 <span className="text-stone-800">Estimated Courier:</span>
-                <strong className="text-emerald-700 font-semibold">3-5 Business Days</strong>
+                <strong className="text-emerald-700 font-semibold">4–10 Business Days</strong>
               </div>
             )}
 
             <div className="flex justify-between">
               <span className="text-stone-800">Package Protection:</span>
-              <strong className="text-black font-semibold">100% Insured Velvet Box</strong>
+              <strong className="text-black font-semibold">100% Insured Luxury Packaging</strong>
             </div>
           </div>
 
           <div className="flex gap-3">
             <button 
-              onClick={() => { if (typeof setActiveView === 'function') setActiveView('profile'); else window.location.reload(); }}
+              onClick={() => { if (typeof setActiveView === 'function') setActiveView('profile'); else window.location.href = '/profile'; }}
               className="flex-grow py-3 bg-[#FCDAD7] hover:bg-[#F9C5C0] text-black font-label-md font-bold text-xs rounded-xl shadow border border-black/20 transition-transform active:scale-95 cursor-pointer"
             >
               View Order in Profile
             </button>
             <button 
-              onClick={() => window.location.reload()}
+              onClick={() => { if (typeof setActiveView === 'function') setActiveView('home'); else window.location.href = '/'; }}
               className="px-5 py-3 border border-black/20 hover:bg-[#FCDAD7]/40 text-black font-bold text-xs rounded-xl transition-colors cursor-pointer"
             >
               Continue Shopping

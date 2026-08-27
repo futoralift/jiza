@@ -127,6 +127,21 @@ export default function AdminSidebar({
         </button>
 
         <button
+          onClick={() => setActiveTab('shipping')}
+          className={`w-full flex items-center space-x-2.5 px-2.5 py-2 rounded-lg text-[11px] font-label-md transition-all relative ${
+            activeTab === 'shipping'
+              ? 'bg-[#FCDAD7] text-black font-bold shadow-sm border border-black/20'
+              : 'text-stone-800 hover:bg-[#FCDAD7]/60 hover:text-black font-semibold'
+          }`}
+        >
+          {activeTab === 'shipping' && (
+            <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-black rounded-r-full"></span>
+          )}
+          <span className="material-symbols-outlined text-[18px]">local_shipping</span>
+          <span>Shipping &amp; Delivery</span>
+        </button>
+
+        <button
           onClick={() => setActiveTab('customers')}
           className={`w-full flex items-center space-x-2.5 px-2.5 py-2 rounded-lg text-[11px] font-label-md transition-all relative ${
             activeTab === 'customers'

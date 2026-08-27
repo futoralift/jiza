@@ -759,6 +759,14 @@ export default function HomeView({
                 <span className="text-[9px] bg-[#F8B3AC] text-black px-1.5 py-0.2 rounded-full font-bold border border-black/15">Only Exchange • No Return</span>
               </li>
               <li
+                className="hover:underline hover:text-black cursor-pointer transition-colors font-bold text-black flex items-center gap-1.5"
+                onClick={() => setActiveView('shipping-policy')}
+              >
+                <span className="material-symbols-outlined text-[14px]">local_shipping</span>
+                <span>Shipping Policy</span>
+                <span className="text-[9px] bg-[#F8B3AC] text-black px-1.5 py-0.2 rounded-full font-bold border border-black/15">Domestic &amp; International</span>
+              </li>
+              <li
                 className="hover:underline hover:text-black cursor-pointer transition-colors font-bold text-black flex items-center gap-1"
                 onClick={() => setActiveView('cancellation-policy')}
               >

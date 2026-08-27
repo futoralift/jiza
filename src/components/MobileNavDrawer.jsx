@@ -97,6 +97,17 @@ export default function MobileNavDrawer({
       }
     },
     {
+      id: 'shipping-policy',
+      label: 'Shipping Policy',
+      icon: 'local_shipping',
+      badge: 'Pan-India & Global',
+      badgeColor: 'bg-[#2D1B14] text-[#FCDAD7] text-[9px]',
+      onClick: () => {
+        setActiveView('shipping-policy');
+        onClose();
+      }
+    },
+    {
       id: 'exchange-policies',
       label: 'Exchange Policies',
       icon: 'published_with_changes',

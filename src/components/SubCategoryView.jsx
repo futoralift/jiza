@@ -80,12 +80,14 @@ export default function SubCategoryView({
 
   const list = (category.subCategoryObjects && category.subCategoryObjects.length > 0)
     ? category.subCategoryObjects.map(sub => ({
+        id: sub.id,
         name: sub.name,
         img: sub.img || category.img
       }))
     : (category.subcategories || []).map(sub => ({
+        id: typeof sub === 'object' ? sub.id : `${category.id}-${String(sub).toLowerCase().replace(/[^a-z0-9]/g, '-')}`,
         name: typeof sub === 'string' ? sub : sub.name,
-        img: category.img
+        img: (typeof sub === 'object' && sub.img) ? sub.img : category.img
       }));
 
   return (
@@ -95,7 +97,7 @@ export default function SubCategoryView({
       <header className="bg-surface/95 backdrop-blur-md w-full px-margin-mobile py-4 flex items-center justify-between sticky top-0 z-40 border-b border-outline-variant/40">
         <button 
           onClick={onBack}
-          className="flex items-center gap-2 text-on-surface-variant hover:text-heritage-gold transition-colors"
+          className="flex items-center gap-2 text-on-surface-variant hover:text-heritage-gold transition-colors cursor-pointer"
         >
           <span className="material-symbols-outlined">arrow_back</span>
         </button>
@@ -109,13 +111,13 @@ export default function SubCategoryView({
       <nav aria-label="Breadcrumb" className="px-margin-mobile py-3">
         <ol className="flex items-center space-x-2 font-label-sm text-xs text-on-surface-variant">
           <li>
-            <button onClick={() => setActiveView('home')} className="hover:text-heritage-gold transition-colors">
+            <button onClick={() => setActiveView('home')} className="hover:text-heritage-gold transition-colors cursor-pointer">
               Home
             </button>
           </li>
           <li><span>&gt;</span></li>
           <li>
-            <button onClick={() => setActiveView('categories')} className="hover:text-heritage-gold transition-colors">
+            <button onClick={() => setActiveView('categories')} className="hover:text-heritage-gold transition-colors cursor-pointer">
               Categories
             </button>
           </li>
@@ -150,9 +152,9 @@ export default function SubCategoryView({
         <div className={`grid gap-4 md:gap-6 mb-6 ${list.length <= 2 ? 'grid-cols-2 max-w-sm mx-auto md:max-w-none md:flex md:justify-center' : 'grid-cols-2 md:grid-cols-6'}`}>
           {list.map((sub, idx) => (
             <button 
-              key={idx}
-              onClick={() => onSelectSubCategory(sub.name)}
-              className={`group flex flex-col aspect-[4/5] rounded-2xl overflow-hidden border border-black/15 border-b-4 border-b-black/25 hover:border-black/35 hover:border-b-black/45 transition-all duration-300 shadow-[0_8px_16px_rgba(0,0,0,0.06)] hover:shadow-[0_20px_30px_rgba(0,0,0,0.12)] hover:-translate-y-1.5 bg-surface-container-lowest focus:outline-none active:scale-95 animate-fadeIn ${list.length <= 2 ? 'w-full md:w-40' : 'w-full'}`}
+              key={sub.id || idx}
+              onClick={() => onSelectSubCategory(sub.name, category.id, sub.id)}
+              className={`group flex flex-col aspect-[4/5] rounded-2xl overflow-hidden border border-black/15 border-b-4 border-b-black/25 hover:border-black/35 hover:border-b-black/45 transition-all duration-300 shadow-[0_8px_16px_rgba(0,0,0,0.06)] hover:shadow-[0_20px_30px_rgba(0,0,0,0.12)] hover:-translate-y-1.5 bg-surface-container-lowest focus:outline-none active:scale-95 animate-fadeIn cursor-pointer ${list.length <= 2 ? 'w-full md:w-40' : 'w-full'}`}
               style={{ animationDelay: `${idx * 40}ms` }}
             >
               {/* 1:1 Image Container */}

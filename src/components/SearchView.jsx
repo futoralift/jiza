@@ -2,11 +2,13 @@ import React, { useState, useMemo } from 'react';
 import { PRODUCTS, CATEGORIES } from '../data/products';
 
 export default function SearchView({ 
-  initialQuery = "Kundan", 
+  initialQuery = "", 
   initialCategory = "",
+  initialSubCategory = "",
+  initialSubCategoryId = "",
   onSelectProduct, 
   onToggleWishlist, 
-  wishlistIds, 
+  wishlistIds = [], 
   onAddToCart,
   onBuyNow,
   setActiveView,
@@ -15,17 +17,60 @@ export default function SearchView({
 }) {
   const [searchQuery, setSearchQuery] = useState(initialQuery);
   const [selectedCategory, setSelectedCategory] = useState(initialCategory);
+  const [selectedSubCategory, setSelectedSubCategory] = useState(initialSubCategory);
+  const [selectedSubCategoryId, setSelectedSubCategoryId] = useState(initialSubCategoryId);
   const [priceFilter, setPriceFilter] = useState('all'); // 'all', 'under5k', '5kto15k', 'above15k'
   const [sortBy, setSortBy] = useState('featured'); // 'featured', 'low-high', 'high-low', 'rating'
+
+  // Update states when initial props change
+  useEffect(() => {
+    if (initialQuery !== undefined) setSearchQuery(initialQuery);
+  }, [initialQuery]);
+
+  useEffect(() => {
+    if (initialCategory !== undefined) setSelectedCategory(initialCategory);
+  }, [initialCategory]);
+
+  useEffect(() => {
+    if (initialSubCategory !== undefined) setSelectedSubCategory(initialSubCategory);
+    if (initialSubCategoryId !== undefined) setSelectedSubCategoryId(initialSubCategoryId);
+  }, [initialSubCategory, initialSubCategoryId]);
 
   const activeCategories = useMemo(() => {
     const baseCats = categoriesList && categoriesList.length > 0 ? categoriesList : CATEGORIES;
     const allProds = productsList || PRODUCTS;
     return baseCats.map(c => {
-      const count = allProds.filter(p => p.category === c.id || p.category_id === c.id || p.categoryLabel === c.name).length;
+      const count = allProds.filter(p => {
+        const prodCat = String(p.category || p.category_id || '').toLowerCase();
+        const prodCatName = String(p.categoryLabel || '').toLowerCase();
+        const catId = String(c.id).toLowerCase();
+        const catName = String(c.name).toLowerCase();
+        return prodCat === catId || prodCatName === catName || prodCat === catName;
+      }).length;
       return { ...c, count };
     });
   }, [categoriesList, productsList]);
+
+  // Find subcategories belonging ONLY to the currently selected parent category
+  const activeSubcategories = useMemo(() => {
+    if (!selectedCategory) return [];
+    const catSel = selectedCategory.trim().toLowerCase();
+    const currentCat = activeCategories.find(c => 
+      String(c.id).toLowerCase() === catSel || String(c.name).toLowerCase() === catSel
+    );
+    if (!currentCat) return [];
+
+    if (currentCat.subCategoryObjects && currentCat.subCategoryObjects.length > 0) {
+      return currentCat.subCategoryObjects;
+    }
+    if (Array.isArray(currentCat.subcategories)) {
+      return currentCat.subcategories.map(s => ({
+        id: typeof s === 'object' ? s.id : `${currentCat.id}-${String(s).toLowerCase().replace(/[^a-z0-9]/g, '-')}`,
+        name: typeof s === 'object' ? s.name : s
+      }));
+    }
+    return [];
+  }, [selectedCategory, activeCategories]);
 
   const filteredProducts = useMemo(() => {
     const list = (productsList && productsList.length > 0) ? productsList : PRODUCTS;
@@ -33,27 +78,33 @@ export default function SearchView({
     // Typo-tolerant normalization for brand & jewellery misspellings
     q = q.replace(/jewellary|jewllary|jewelery/g, 'jewellery')
          .replace(/jijaa|jija|jizaa/g, 'jiza');
+    const qClean = q.replace(/[\s\-_]/g, '');
+
     const catSel = (selectedCategory || '').trim().toLowerCase();
+    const subCatSel = (selectedSubCategory || '').trim().toLowerCase();
+    const subCatIdSel = (selectedSubCategoryId || '').trim().toLowerCase();
 
     return list.filter((product) => {
       if (!product) return false;
 
-      const title = (product.title || product.name || '').toLowerCase();
-      const desc = (product.description || '').toLowerCase();
-      const catLabel = (product.categoryLabel || product.category || '').toLowerCase();
-      const subcatLabel = (product.subcategory || product.subcategoryLabel || product.subCategory || product.subcategory_label || product.subcategory_id || '').toLowerCase();
-      const material = (product.material || '').toLowerCase();
-      const colour = (product.colour || '').toLowerCase();
+      const title = String(product.title || product.name || '').toLowerCase();
+      const desc = String(product.description || '').toLowerCase();
+      const rawCode = String(product.product_code || product.productCode || '').trim();
+      const code = rawCode.toLowerCase();
+      const codeClean = code.replace(/[\s\-_]/g, '');
+
+      const prodCatId = String(product.category || product.category_id || '').toLowerCase();
+      const prodCatName = String(product.categoryLabel || '').toLowerCase();
+      const prodSubCatId = String(product.subcategory_id || '').toLowerCase();
+      const prodSubCatName = String(product.subcategory || product.subcategoryLabel || product.subCategory || product.subcategory_label || '').toLowerCase();
+
+      const material = String(product.material || '').toLowerCase();
+      const colour = String(product.colour || '').toLowerCase();
       const tags = Array.isArray(product.tags) ? product.tags : [];
       const price = Number(product.price || product.sellingPrice || 0);
 
-      const prodCatId = (product.category || product.category_id || '').toLowerCase();
-      const prodCatName = (product.categoryLabel || '').toLowerCase();
-      const prodSubCatId = (product.subcategory_id || '').toLowerCase();
-      const prodSubCatName = subcatLabel;
-
-      // Text match query across all fields + Sale/Clearance discount & special section matching
-      const prodSpecialSec = (product.specialSection || product.special_section || '').toLowerCase();
+      // Text match query across product title, product code, description, tags, materials, etc.
+      const prodSpecialSec = String(product.specialSection || product.special_section || '').toLowerCase();
       const isSaleSearch = q === 'sale' || q === 'clearance' || q === 'discount' || q === 'offer' || q === 'stock clearance sale';
       const hasDiscountOrSaleBadge = (product.discount && Number(product.discount) > 0) ||
         prodSpecialSec.includes('clearance') ||
@@ -62,26 +113,44 @@ export default function SearchView({
         (product.mrp && Number(product.mrp) > price) ||
         (product.originalPrice && Number(product.originalPrice) > price);
 
+      // PRODUCT CODE MATCHING (Full, substring, and delimiter-insensitive)
+      const matchesProductCode = Boolean(
+        code && (
+          code === q ||
+          code.includes(q) ||
+          (qClean.length >= 2 && codeClean.includes(qClean))
+        )
+      );
+
       const matchesQuery = q === '' || 
+        matchesProductCode ||
         (isSaleSearch && hasDiscountOrSaleBadge) ||
         prodSpecialSec.includes(q) ||
         title.includes(q) ||
         desc.includes(q) ||
-        catLabel.includes(q) ||
-        subcatLabel.includes(q) ||
         material.includes(q) ||
         colour.includes(q) ||
         (product.badge && product.badge.toLowerCase().includes(q)) ||
         tags.some(t => typeof t === 'string' && t.toLowerCase().includes(q));
 
-      // Category match
-      const matchesCategory = !catSel ||
-        prodCatId === catSel ||
-        prodCatName === catSel ||
-        prodSubCatId === catSel ||
-        prodSubCatName === catSel ||
-        prodCatName.includes(catSel) ||
-        prodSubCatName.includes(catSel);
+      // STRICT RELATIONAL CATEGORY MATCHING (Parent Category Isolation)
+      let matchesCategory = true;
+      if (catSel) {
+        matchesCategory = (
+          prodCatId === catSel ||
+          prodCatName === catSel ||
+          prodCatName.includes(catSel)
+        );
+      }
+
+      // STRICT RELATIONAL SUBCATEGORY MATCHING (Under the parent category)
+      let matchesSubCategory = true;
+      if (subCatSel || subCatIdSel) {
+        matchesSubCategory = (
+          (subCatIdSel && prodSubCatId === subCatIdSel) ||
+          (subCatSel && (prodSubCatName === subCatSel || prodSubCatId === subCatSel))
+        );
+      }
 
       // Price match
       let matchesPrice = true;
@@ -93,7 +162,7 @@ export default function SearchView({
         matchesPrice = price > 15000;
       }
 
-      return matchesQuery && matchesCategory && matchesPrice;
+      return matchesQuery && matchesCategory && matchesSubCategory && matchesPrice;
     }).sort((a, b) => {
       const priceA = Number(a?.price || a?.sellingPrice || 0);
       const priceB = Number(b?.price || b?.sellingPrice || 0);
@@ -105,7 +174,29 @@ export default function SearchView({
       if (sortBy === 'rating') return ratingB - ratingA;
       return 0;
     });
-  }, [searchQuery, selectedCategory, priceFilter, sortBy, productsList]);
+  }, [searchQuery, selectedCategory, selectedSubCategory, selectedSubCategoryId, priceFilter, sortBy, productsList]);
+
+  const handleCategoryDropdownChange = (catId) => {
+    setSelectedCategory(catId);
+    setSelectedSubCategory('');
+    setSelectedSubCategoryId('');
+  };
+
+  const handleSubCategoryDropdownChange = (subIdentifier) => {
+    if (!subIdentifier) {
+      setSelectedSubCategory('');
+      setSelectedSubCategoryId('');
+      return;
+    }
+    const foundSub = activeSubcategories.find(s => s.id === subIdentifier || s.name === subIdentifier);
+    if (foundSub) {
+      setSelectedSubCategory(foundSub.name);
+      setSelectedSubCategoryId(foundSub.id || '');
+    } else {
+      setSelectedSubCategory(subIdentifier);
+      setSelectedSubCategoryId('');
+    }
+  };
 
   return (
     <main className="flex-grow pt-6 pb-24 px-margin-mobile md:px-margin-desktop max-w-container-max mx-auto w-full">
@@ -120,13 +211,14 @@ export default function SearchView({
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search Kundan, Solitaires, Jhumkas, Necklaces, Bangles..."
+            placeholder="Search by Product Code (e.g. JZ-LS-1045), Name, Kundan, Jhumkas..."
             className="w-full bg-surface-container-low border border-outline-variant rounded-full py-3.5 pl-12 pr-12 font-body-lg text-body-lg text-on-surface focus:outline-none focus:border-heritage-gold transition-colors shadow-sm"
           />
           {searchQuery && (
             <button 
               onClick={() => setSearchQuery('')}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-primary hover:text-heritage-gold transition-colors p-1"
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-primary hover:text-heritage-gold transition-colors p-1 cursor-pointer"
+              title="Clear search"
             >
               <span className="material-symbols-outlined text-[20px]">close</span>
             </button>
@@ -142,7 +234,7 @@ export default function SearchView({
           {/* Category Dropdown Pill */}
           <select 
             value={selectedCategory}
-            onChange={(e) => setSelectedCategory(e.target.value)}
+            onChange={(e) => handleCategoryDropdownChange(e.target.value)}
             className="px-4 py-2 border border-outline-variant rounded-full font-label-md text-xs text-on-surface hover:border-heritage-gold bg-surface-container-lowest focus:outline-none cursor-pointer font-semibold"
           >
             <option value="">All Categories ({productsList ? productsList.length : PRODUCTS.length})</option>
@@ -150,6 +242,22 @@ export default function SearchView({
               <option key={c.id} value={c.id}>{c.name} ({c.count})</option>
             ))}
           </select>
+
+          {/* Subcategory Dropdown Pill (Shows only when parent category is selected) */}
+          {selectedCategory && activeSubcategories.length > 0 && (
+            <select 
+              value={selectedSubCategoryId || selectedSubCategory || ''}
+              onChange={(e) => handleSubCategoryDropdownChange(e.target.value)}
+              className="px-4 py-2 border border-black bg-[#FCDAD7] text-black rounded-full font-label-md text-xs focus:outline-none cursor-pointer font-bold shadow-xs"
+            >
+              <option value="">All Subcategories</option>
+              {activeSubcategories.map((sub) => (
+                <option key={sub.id || sub.name} value={sub.id || sub.name}>
+                  {sub.name}
+                </option>
+              ))}
+            </select>
+          )}
 
           {/* Price Filter Pill */}
           <select 
@@ -179,25 +287,63 @@ export default function SearchView({
             <option value="rating">Highest Rated</option>
           </select>
 
-          {(selectedCategory || priceFilter !== 'all' || searchQuery) && (
+          {(selectedCategory || selectedSubCategory || priceFilter !== 'all' || searchQuery) && (
             <button 
               onClick={() => {
                 setSelectedCategory('');
+                setSelectedSubCategory('');
+                setSelectedSubCategoryId('');
                 setPriceFilter('all');
                 setSearchQuery('');
               }}
-              className="px-3 py-2 text-xs text-secondary hover:underline flex items-center gap-1 font-semibold"
+              className="px-3 py-2 text-xs text-secondary hover:underline flex items-center gap-1 font-semibold cursor-pointer"
             >
               Reset Filters
             </button>
           )}
         </div>
 
+        {/* Active Breadcrumb / Filter Badges */}
+        {(selectedCategory || selectedSubCategory) && (
+          <div className="mt-3 flex flex-wrap gap-2 items-center justify-center">
+            {selectedCategory && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-white border border-black/20 rounded-full text-xs font-bold text-black shadow-xs">
+                <span>Category: {activeCategories.find(c => String(c.id).toLowerCase() === selectedCategory.toLowerCase() || String(c.name).toLowerCase() === selectedCategory.toLowerCase())?.name || selectedCategory}</span>
+                <button
+                  onClick={() => handleCategoryDropdownChange('')}
+                  className="text-stone-500 hover:text-black font-bold ml-1 cursor-pointer"
+                  title="Remove category filter"
+                >
+                  ✕
+                </button>
+              </span>
+            )}
+
+            {selectedSubCategory && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#FCDAD7] border border-black/30 rounded-full text-xs font-bold text-black shadow-xs">
+                <span>Subcategory: {selectedSubCategory}</span>
+                <button
+                  onClick={() => {
+                    setSelectedSubCategory('');
+                    setSelectedSubCategoryId('');
+                  }}
+                  className="text-stone-500 hover:text-black font-bold ml-1 cursor-pointer"
+                  title="Remove subcategory filter"
+                >
+                  ✕
+                </button>
+              </span>
+            )}
+          </div>
+        )}
+
         {/* Results Info Bar */}
         <div className="mt-6 text-center">
           <p className="font-body-md text-sm text-on-surface-variant">
             Showing <strong className="text-on-surface font-semibold">{filteredProducts.length}</strong> results 
             {searchQuery && <> for "<strong>{searchQuery}</strong>"</>}
+            {selectedCategory && !searchQuery && <> in <strong className="text-black">{activeCategories.find(c => String(c.id).toLowerCase() === selectedCategory.toLowerCase())?.name || selectedCategory}</strong></>}
+            {selectedSubCategory && <> &gt; <strong className="text-black">{selectedSubCategory}</strong></>}
           </p>
         </div>
       </section>

@@ -17,6 +17,7 @@ import AnalyticsTab from './admin/tabs/AnalyticsTab';
 import RentalGalleryTab from './admin/tabs/RentalGalleryTab';
 import PremiumFeaturesTab from './admin/tabs/PremiumFeaturesTab';
 import StoreSettingsTab from './admin/tabs/StoreSettingsTab';
+import ShippingTab from './admin/tabs/ShippingTab';
 
 import AddProductModal from './admin/modals/AddProductModal';
 import EditProductModal from './admin/modals/EditProductModal';
@@ -1783,6 +1784,15 @@ export default function AdminPanel({
               onUpdateOrderStatus={onUpdateOrderStatus}
               setSelectedOrderDetails={setSelectedOrderDetails}
               isReadOnly={isReadOnly}
+            />
+          )}
+
+          {/* TAB: SHIPPING & DELIVERY MANAGEMENT */}
+          {activeTab === 'shipping' && (
+            <ShippingTab
+              showToast={showAdminToast}
+              onRefreshOrders={fetchDbOrders}
+              ordersList={ordersList}
             />
           )}
 

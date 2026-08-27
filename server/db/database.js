@@ -93,6 +93,61 @@ export async function getDb() {
       CREATE INDEX IF NOT EXISTS idx_orders_fulfillment_type ON orders(fulfillment_type);
     `);
 
+    // Shipping system columns migration
+    await client.query(`
+      ALTER TABLE orders ADD COLUMN IF NOT EXISTS shipping_method VARCHAR(50) DEFAULT 'standard';
+      ALTER TABLE orders ADD COLUMN IF NOT EXISTS shipping_charge NUMERIC(12,2) DEFAULT 0;
+      ALTER TABLE orders ADD COLUMN IF NOT EXISTS shipping_charge_status VARCHAR(50) DEFAULT 'calculated';
+      ALTER TABLE orders ADD COLUMN IF NOT EXISTS shipping_subtotal NUMERIC(12,2) DEFAULT 0;
+      ALTER TABLE orders ADD COLUMN IF NOT EXISTS international_shipping_confirmed_charge NUMERIC(12,2);
+      ALTER TABLE orders ADD COLUMN IF NOT EXISTS international_shipping_confirmed_at TIMESTAMP WITH TIME ZONE;
+      ALTER TABLE orders ADD COLUMN IF NOT EXISTS international_shipping_confirmed_by TEXT;
+      ALTER TABLE orders ADD COLUMN IF NOT EXISTS shipping_customer_contact_status VARCHAR(50) DEFAULT 'not_required';
+      ALTER TABLE orders ADD COLUMN IF NOT EXISTS shipping_policy_version VARCHAR(20) DEFAULT 'v1';
+      ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_estimate VARCHAR(100);
+      ALTER TABLE orders ADD COLUMN IF NOT EXISTS courier_name VARCHAR(100);
+      ALTER TABLE orders ADD COLUMN IF NOT EXISTS tracking_number VARCHAR(100);
+    `);
+
+    // Safely create indexes (ignore if already exist)
+    for (const idxSql of [
+      'CREATE INDEX IF NOT EXISTS idx_orders_shipping_charge_status ON orders(shipping_charge_status)',
+      'CREATE INDEX IF NOT EXISTS idx_orders_shipping_country ON orders(shipping_country)'
+    ]) {
+      try { await client.query(idxSql); } catch (_) {}
+    }
+
+    // Shipping investigations table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS shipping_investigations (
+        id VARCHAR(255) PRIMARY KEY,
+        order_id VARCHAR(255) NOT NULL,
+        customer_name VARCHAR(255),
+        customer_email VARCHAR(255),
+        customer_phone VARCHAR(50),
+        tracking_number VARCHAR(100),
+        courier VARCHAR(100),
+        complaint_description TEXT,
+        delivery_proof TEXT,
+        investigation_notes TEXT,
+        investigation_status VARCHAR(50) DEFAULT 'open',
+        final_outcome VARCHAR(50),
+        outcome_notes TEXT,
+        resolution VARCHAR(50),
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    for (const idxSql of [
+      'CREATE INDEX IF NOT EXISTS idx_shipping_investigations_order ON shipping_investigations(order_id)',
+      'CREATE INDEX IF NOT EXISTS idx_shipping_investigations_status ON shipping_investigations(investigation_status)'
+    ]) {
+      try { await client.query(idxSql); } catch (_) {}
+    }
+
+    console.log('✅ Shipping system migration applied successfully.');
+
     // Seed default pickup settings in store_settings if not present
     const pickupSetting = await client.query("SELECT key FROM store_settings WHERE key = 'pickup_settings'");
     if (!pickupSetting.rows || pickupSetting.rows.length === 0) {
@@ -104,7 +159,7 @@ export async function getDb() {
         pincode: "411051",
         phone: "+91 82088 22696",
         email: "jizajewellery@gmail.com",
-        timings: "Mon - Sat: 10:30 AM – 8:30 PM (Ready for pickup in 2-4 hours)",
+        timings: "Mon - Sat: 10:30 AM – 8:00 PM (Ready for pickup in approximately 12 hours)",
         instructions: "Please present your Order ID and valid Government Photo ID at the studio counter upon pickup.",
         enabled: true
       };
@@ -113,6 +168,36 @@ export async function getDb() {
         ['pickup_settings', JSON.stringify(defaultPickupSettings)]
       );
       console.log('✅ Default Store Pickup settings seeded successfully.');
+    }
+
+    // Seed default shipping settings if not present
+    const shippingSetting = await client.query("SELECT key FROM store_settings WHERE key = 'shipping_settings'");
+    if (!shippingSetting.rows || shippingSetting.rows.length === 0) {
+      const defaultShippingSettings = {
+        domestic: {
+          standardFee: 99,
+          freeThreshold: 5000,
+          deliveryEstimate: "4–10 business days",
+          enabled: true
+        },
+        pickup: {
+          enabled: true,
+          prepTime: "approximately 12 hours",
+          hours: "10:30 AM – 8:00 PM",
+          collectionDeadlineDays: 15
+        },
+        international: {
+          enabled: true,
+          deliveryEstimate: "7–12 business days",
+          ddu: true,
+          note: "Final shipping charge confirmed after packing. Customer contacted by phone or WhatsApp."
+        }
+      };
+      await client.query(
+        "INSERT INTO store_settings (key, value_json) VALUES ($1, $2)",
+        ['shipping_settings', JSON.stringify(defaultShippingSettings)]
+      );
+      console.log('✅ Default Shipping settings seeded successfully.');
     }
 
     // Backfill product_code for existing products if missing

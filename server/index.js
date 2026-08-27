@@ -13,6 +13,7 @@ import { fileURLToPath } from 'url';
 import * as Sentry from '@sentry/node';
 import { sendWelcomeEmail, sendOrderConfirmationEmail } from './services/emailService.js';
 import { createRazorpayOrder, verifyRazorpaySignature, verifyRazorpayWebhookSignature } from './services/razorpayService.js';
+import { calculateShipping, getShippingConfig, saveShippingConfig, isIndia } from './services/shippingService.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -2119,6 +2120,12 @@ app.delete('/api/admin/rental-gallery/:id', requireAdminAuth, async (req, res) =
 
 // ======================================================
 // Helper to extract and validate delivery address snapshot for orders
+function isIndia(country) {
+  if (typeof country !== 'string') return false;
+  const c = country.toLowerCase().trim();
+  return c === 'india' || c === 'in' || c === 'ind';
+}
+
 function extractAndValidateAddressSnapshot(reqBody, fulfillmentType = 'ship', storePickupSettings = null) {
   const sd = reqBody.shippingData || reqBody.customerInfo || reqBody;
   const isPickup = fulfillmentType === 'pickup' || reqBody.fulfillmentType === 'pickup' || reqBody.fulfillment_type === 'pickup';
@@ -2146,6 +2153,7 @@ function extractAndValidateAddressSnapshot(reqBody, fulfillmentType = 'ship', st
       country: 'India',
       fullFormattedAddress: formattedPickupAddress,
       isPickup: true,
+      isInternational: false,
       pickupPersonName,
       pickupPersonPhone,
       notes
@@ -2155,26 +2163,37 @@ function extractAndValidateAddressSnapshot(reqBody, fulfillmentType = 'ship', st
   let line1 = sd.addressLine1 || sd.address || reqBody.address || reqBody.shipping_address || '';
   let line2 = sd.addressLine2 || sd.area || sd.locality || reqBody.shipping_address_line2 || '';
   let city = sd.city || reqBody.city || reqBody.shipping_city || '';
-  let state = sd.state || reqBody.state || reqBody.shipping_state || 'Maharashtra';
-  let pincode = sd.pincode || reqBody.pincode || reqBody.shipping_pincode || '';
+  let state = sd.state || reqBody.state || reqBody.shipping_state || '';
+  let pincode = sd.pincode || sd.postalCode || sd.zipCode || reqBody.pincode || reqBody.shipping_pincode || '';
   let country = sd.country || reqBody.country || reqBody.shipping_country || 'India';
 
   line1 = typeof line1 === 'string' ? line1.trim() : '';
   line2 = typeof line2 === 'string' ? line2.trim() : '';
   city = typeof city === 'string' ? city.trim() : '';
-  state = typeof state === 'string' ? state.trim() : 'Maharashtra';
+  state = typeof state === 'string' ? state.trim() : '';
   pincode = typeof pincode === 'string' || typeof pincode === 'number' ? String(pincode).trim() : '';
-  country = typeof country === 'string' ? country.trim() : 'India';
+  country = typeof country === 'string' && country.trim() ? country.trim() : 'India';
 
-  if (line1 && !pincode) {
+  const international = !isIndia(country);
+
+  // Try to extract pincode from address line for domestic
+  if (line1 && !pincode && !international) {
     const pinMatch = line1.match(/\b\d{6}\b/);
     if (pinMatch) pincode = pinMatch[0];
   }
 
   if (!line1) throw new Error('Flat / House No / Street Address is required.');
   if (!city) throw new Error('City is required.');
-  if (!pincode) throw new Error('Pincode is required.');
-  if (!/^\d{6}$/.test(pincode)) throw new Error('Please enter a valid 6-digit pincode.');
+
+  // Domestic India: require 6-digit pincode
+  if (!international) {
+    if (!pincode) throw new Error('Pincode is required.');
+    if (!/^\d{6}$/.test(pincode)) throw new Error('Please enter a valid 6-digit postal pincode.');
+    if (!state) state = 'Maharashtra'; // fallback for domestic
+  } else {
+    // International: postal code optional but accept any format
+    state = state || '';
+  }
 
   const parts = [];
   if (line1) parts.push(line1);
@@ -2193,7 +2212,8 @@ function extractAndValidateAddressSnapshot(reqBody, fulfillmentType = 'ship', st
     pincode,
     country,
     fullFormattedAddress,
-    isPickup: false
+    isPickup: false,
+    isInternational: international
   };
 }
 
@@ -2429,13 +2449,13 @@ app.get('/api/config/razorpay-key', (req, res) => {
 app.post('/api/payment/create-razorpay-order', async (req, res) => {
   try {
     const db = await getDb();
-    const { cartItems, customerInfo, fulfillmentType } = req.body;
+    const { cartItems, customerInfo, fulfillmentType, country } = req.body;
 
     if (!cartItems || !Array.isArray(cartItems) || cartItems.length === 0) {
       return res.status(400).json({ error: 'Cart is empty.' });
     }
 
-    let calculatedTotal = 0;
+    let calculatedSubtotal = 0;
 
     // Validate stock and calculate amount strictly from database selling_price
     for (const item of cartItems) {
@@ -2456,32 +2476,53 @@ app.post('/api/payment/create-razorpay-order', async (req, res) => {
         return res.status(400).json({ error: `Only ${product.stock_quantity} units of "${product.title}" are available.` });
       }
 
-      calculatedTotal += Number(product.selling_price) * item.quantity;
+      calculatedSubtotal += Number(product.selling_price) * item.quantity;
     }
 
-    // Automatic Shipping Charges: Orders ₹1,000+ = FREE, Below ₹1,000 = ₹100 (Pickup = FREE)
-    const shippingCharge = (fulfillmentType === 'pickup') ? 0 : (calculatedTotal >= 1000 ? 0 : 100);
-    const finalOrderAmount = calculatedTotal + shippingCharge;
+    // Determine shipping using centralized shipping service
+    // NEVER trust frontend amounts — always calculate server-side
+    const shippingConfig = await getShippingConfig(db);
+    const destinationCountry = country || customerInfo?.country || 'India';
+    const actualFulfillmentType = fulfillmentType === 'pickup' ? 'pickup' : 'ship';
+
+    const shippingResult = calculateShipping({
+      country: destinationCountry,
+      subtotal: calculatedSubtotal,
+      fulfillmentType: actualFulfillmentType,
+      config: shippingConfig
+    });
+
+    // For international orders: Razorpay amount = product subtotal only.
+    // Shipping charge is NOT collected at checkout — pending confirmation after packing.
+    const razorpayAmount = calculatedSubtotal + shippingResult.shippingCharge;
 
     const receipt = `rcpt_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
     const razorpayOrder = await createRazorpayOrder({
-      amountInRupees: finalOrderAmount,
+      amountInRupees: razorpayAmount,
       receipt,
       notes: {
         customerEmail: customerInfo?.email || '',
         customerName: customerInfo?.fullName || '',
-        fulfillmentType: fulfillmentType || 'ship',
-        subtotal: calculatedTotal,
-        shippingCharge
+        fulfillmentType: actualFulfillmentType,
+        destinationCountry,
+        subtotal: calculatedSubtotal,
+        shippingCharge: shippingResult.shippingCharge,
+        shippingChargeStatus: shippingResult.shippingChargeStatus,
+        isInternational: shippingResult.isInternational
       }
     });
 
     res.json({
       success: true,
       razorpayOrderId: razorpayOrder.id,
-      amount: finalOrderAmount,
-      subtotal: calculatedTotal,
-      shippingCharge,
+      amount: razorpayAmount,
+      subtotal: calculatedSubtotal,
+      shippingCharge: shippingResult.shippingCharge,
+      shippingChargeStatus: shippingResult.shippingChargeStatus,
+      isInternational: shippingResult.isInternational,
+      isFreeShipping: shippingResult.isFreeShipping,
+      deliveryEstimate: shippingResult.deliveryEstimate,
+      shippingDisplayLabel: shippingResult.displayLabel,
       currency: razorpayOrder.currency,
       keyId: process.env.RAZORPAY_KEY_ID
     });
@@ -2546,11 +2587,12 @@ app.post('/api/payment/verify-payment', async (req, res) => {
     );
 
     // 3. PostgreSQL Transaction: Stock Deduction & Order Creation
-    let calculatedTotal = 0;
+    let calculatedSubtotal = 0;
     const generatedId = existingOrder ? existingOrder.id : ('JIZA-' + Math.floor(100000 + Math.random() * 900000));
     const customerName = shippingData?.fullName || shippingData?.customerName || 'Customer';
     const customerEmail = shippingData?.email || shippingData?.customerEmail || '';
     const customerPhone = shippingData?.phone || shippingData?.customerPhone || '';
+    const destinationCountry = addrSnap.country || shippingData?.country || 'India';
     const addressStr = addrSnap.fullFormattedAddress;
 
     let uId = null;
@@ -2558,6 +2600,9 @@ app.post('/api/payment/verify-payment', async (req, res) => {
       const userExists = await db.get('SELECT id FROM users WHERE id = ?', [shippingData.userId]);
       if (userExists) uId = userExists.id;
     }
+
+    // Load shipping config from DB
+    const shippingConfig = await getShippingConfig(db);
 
     const result = await db.transaction(async (tx) => {
       const itemsToUpdate = [];
@@ -2582,9 +2627,9 @@ app.post('/api/payment/verify-payment', async (req, res) => {
           throw new Error(`Only ${currentStock} units of "${product.title}" are available.`);
         }
 
-        // Price calculated strictly from database
+        // Price calculated strictly from database — never trust frontend
         const dbPrice = Number(product.selling_price);
-        calculatedTotal += dbPrice * item.quantity;
+        calculatedSubtotal += dbPrice * item.quantity;
         const pCode = product.product_code || item.productCode || item.product_code || 'N/A';
 
         itemsToUpdate.push({
@@ -2621,9 +2666,17 @@ app.post('/api/payment/verify-payment', async (req, res) => {
         );
       }
 
-      // Automatic Shipping Charges: Orders ₹1,000+ = FREE, Below ₹1,000 = ₹100 (Pickup = FREE)
-      const shippingCharge = (actualFulfillment === 'pickup') ? 0 : (calculatedTotal >= 1000 ? 0 : 100);
-      const finalOrderAmount = calculatedTotal + shippingCharge;
+      // Calculate shipping using centralized service — NEVER trust frontend amounts
+      const shippingResult = calculateShipping({
+        country: destinationCountry,
+        subtotal: calculatedSubtotal,
+        fulfillmentType: actualFulfillment,
+        config: shippingConfig
+      });
+
+      // For international: shipping charge = 0 at checkout (pending_confirmation)
+      // For domestic: proper ₹99 / free calculation
+      const finalOrderAmount = calculatedSubtotal + shippingResult.shippingCharge;
 
       const pickupDataJson = actualFulfillment === 'pickup'
         ? JSON.stringify({
@@ -2641,17 +2694,30 @@ app.post('/api/payment/verify-payment', async (req, res) => {
           shipping_city, shipping_state, shipping_pincode, shipping_country,
           total_amount, status, payment_method, payment_status,
           razorpay_order_id, razorpay_payment_id, razorpay_signature,
-          fulfillment_type, pickup_details_json, modification_history_json, items_json
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Paid', 'Razorpay', 'paid', ?, ?, ?, ?, ?, '[]', ?)`,
+          fulfillment_type, pickup_details_json, modification_history_json, items_json,
+          shipping_method, shipping_charge, shipping_charge_status, shipping_subtotal,
+          shipping_customer_contact_status, delivery_estimate, shipping_policy_version
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Paid', 'Razorpay', 'paid', ?, ?, ?, ?, ?, '[]', ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           generatedId, generatedId, uId, customerName, customerEmail, customerPhone,
-          addressStr, addrSnap.line1, addrSnap.line2, addrSnap.city, addrSnap.state, addrSnap.pincode, addrSnap.country,
+          addressStr, addrSnap.line1, addrSnap.line2, addrSnap.city, addrSnap.state, addrSnap.pincode, destinationCountry,
           finalOrderAmount, razorpay_order_id, razorpay_payment_id,
-          razorpay_signature, actualFulfillment, pickupDataJson, JSON.stringify(snapshotItems)
+          razorpay_signature, actualFulfillment, pickupDataJson, JSON.stringify(snapshotItems),
+          shippingResult.method, shippingResult.shippingCharge, shippingResult.shippingChargeStatus, calculatedSubtotal,
+          shippingResult.isInternational ? 'pending' : 'not_required',
+          shippingResult.deliveryEstimate || '', 'v1'
         ]
       );
 
-      return { orderId: generatedId, total: finalOrderAmount, subtotal: calculatedTotal, shippingCharge };
+      return {
+        orderId: generatedId,
+        total: finalOrderAmount,
+        subtotal: calculatedSubtotal,
+        shippingCharge: shippingResult.shippingCharge,
+        shippingChargeStatus: shippingResult.shippingChargeStatus,
+        isInternational: shippingResult.isInternational,
+        deliveryEstimate: shippingResult.deliveryEstimate
+      };
     });
 
     invalidateApiCache();
@@ -2679,9 +2745,16 @@ app.post('/api/payment/verify-payment', async (req, res) => {
 
     res.json({
       success: true,
-      message: 'Payment verified and order finalized successfully!',
+      message: result.isInternational
+        ? 'Payment verified! Your order is confirmed. We will contact you to confirm the final international shipping charge after packing.'
+        : 'Payment verified and order finalized successfully!',
       orderId: result.orderId,
-      amount: result.total
+      amount: result.total,
+      subtotal: result.subtotal,
+      shippingCharge: result.shippingCharge,
+      shippingChargeStatus: result.shippingChargeStatus,
+      isInternational: result.isInternational,
+      deliveryEstimate: result.deliveryEstimate
     });
 
   } catch (err) {
@@ -2756,6 +2829,263 @@ app.post('/api/payment/razorpay-webhook', async (req, res) => {
   } catch (err) {
     console.error('Webhook processing error:', err.message);
     res.status(500).json({ error: 'Webhook processing failed' });
+  }
+});
+
+// GET Customer My-Orders (Public / Customer Authenticated)
+
+// ======================================================
+// SHIPPING SYSTEM API ROUTES
+// ======================================================
+
+// GET Public Shipping Configuration
+app.get('/api/config/shipping', async (req, res) => {
+  try {
+    const db = await getDb();
+    const config = await getShippingConfig(db);
+    // Return config without sensitive internal notes
+    res.json({
+      domestic: {
+        standardFee: config.domestic.standardFee,
+        freeThreshold: config.domestic.freeThreshold,
+        deliveryEstimate: config.domestic.deliveryEstimate,
+        enabled: config.domestic.enabled
+      },
+      pickup: {
+        enabled: config.pickup.enabled,
+        prepTime: config.pickup.prepTime,
+        hours: config.pickup.hours,
+        collectionDeadlineDays: config.pickup.collectionDeadlineDays
+      },
+      international: {
+        enabled: config.international.enabled,
+        deliveryEstimate: config.international.deliveryEstimate,
+        ddu: true,
+        chargeStatus: 'pending_confirmation'
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET Admin Shipping Settings (Protected)
+app.get('/api/admin/shipping/settings', requireAdminAuth, async (req, res) => {
+  try {
+    const db = await getDb();
+    const config = await getShippingConfig(db);
+    res.json(config);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PUT Admin Update Shipping Settings (Protected)
+app.put('/api/admin/shipping/settings', requireAdminAuth, async (req, res) => {
+  try {
+    const db = await getDb();
+    const updated = await saveShippingConfig(db, req.body);
+    res.json({ success: true, message: 'Shipping settings updated successfully.', settings: updated });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PATCH Admin Confirm International Shipping Charge (Protected)
+app.patch('/api/admin/orders/:id/shipping/confirm', requireAdminAuth, async (req, res) => {
+  try {
+    const db = await getDb();
+    const { id } = req.params;
+    const { confirmedCharge, confirmedBy, notes } = req.body;
+
+    if (confirmedCharge === undefined || confirmedCharge === null || isNaN(Number(confirmedCharge))) {
+      return res.status(400).json({ error: 'Confirmed shipping charge is required.' });
+    }
+
+    const charge = Math.max(0, Number(confirmedCharge));
+    const order = await db.get('SELECT * FROM orders WHERE id = ? OR order_code = ?', [id, id]);
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found.' });
+    }
+
+    if (!isIndia(order.shipping_country || 'India') === false) {
+      return res.status(400).json({ error: 'This is not an international order.' });
+    }
+
+    // Calculate new total (add confirmed shipping charge to existing subtotal)
+    const subtotal = Number(order.shipping_subtotal || order.total_amount);
+    const newTotal = subtotal + charge;
+
+    let history = [];
+    try { history = order.modification_history_json ? JSON.parse(order.modification_history_json) : []; } catch (_) { }
+    history.push({
+      action: 'INTERNATIONAL_SHIPPING_CONFIRMED',
+      timestamp: new Date().toISOString(),
+      actor: confirmedBy || 'admin',
+      confirmedCharge: charge,
+      previousTotal: order.total_amount,
+      newTotal,
+      notes: notes || ''
+    });
+
+    await db.run(
+      `UPDATE orders SET
+        international_shipping_confirmed_charge = ?,
+        international_shipping_confirmed_at = CURRENT_TIMESTAMP,
+        international_shipping_confirmed_by = ?,
+        shipping_charge = ?,
+        shipping_charge_status = 'confirmed',
+        total_amount = ?,
+        shipping_customer_contact_status = 'contacted',
+        modification_history_json = ?
+       WHERE id = ?`,
+      [charge, confirmedBy || 'admin', charge, newTotal, JSON.stringify(history), order.id]
+    );
+
+    res.json({
+      success: true,
+      message: `International shipping confirmed at ₹${charge}. New order total: ₹${newTotal}.`,
+      orderId: order.id,
+      confirmedCharge: charge,
+      newTotal
+    });
+  } catch (err) {
+    console.error('Error confirming international shipping:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET Admin Pending International Orders (needs shipping confirmation)
+app.get('/api/admin/shipping/pending-international', requireAdminAuth, async (req, res) => {
+  try {
+    const db = await getDb();
+    const orders = await db.all(
+      `SELECT * FROM orders WHERE shipping_charge_status = 'pending_confirmation' ORDER BY created_at DESC`
+    );
+    res.json(orders);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET Admin Shipping Investigations (Protected)
+app.get('/api/admin/shipping/investigations', requireAdminAuth, async (req, res) => {
+  try {
+    const db = await getDb();
+    const { status } = req.query;
+    let sql = 'SELECT * FROM shipping_investigations WHERE 1=1';
+    const params = [];
+    if (status && status !== 'all') {
+      params.push(status);
+      sql += ` AND investigation_status = $${params.length}`;
+    }
+    sql += ' ORDER BY created_at DESC';
+    const investigations = await db.all(sql, params);
+    res.json(investigations);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST Admin Create Shipping Investigation (Protected)
+app.post('/api/admin/shipping/investigations', requireAdminAuth, async (req, res) => {
+  try {
+    const db = await getDb();
+    const {
+      orderId, customerName, customerEmail, customerPhone,
+      trackingNumber, courier, complaintDescription, deliveryProof
+    } = req.body;
+
+    if (!orderId) {
+      return res.status(400).json({ error: 'Order ID is required.' });
+    }
+
+    const id = `SINV-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`;
+    await db.run(
+      `INSERT INTO shipping_investigations (
+        id, order_id, customer_name, customer_email, customer_phone,
+        tracking_number, courier, complaint_description, delivery_proof,
+        investigation_status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'open')`,
+      [id, orderId, customerName || '', customerEmail || '', customerPhone || '',
+       trackingNumber || '', courier || '', complaintDescription || '', deliveryProof || '']
+    );
+
+    // Link investigation to order
+    await db.run(
+      `UPDATE orders SET shipping_customer_contact_status = 'investigation_opened' WHERE id = ? OR order_code = ?`,
+      [orderId, orderId]
+    );
+
+    res.status(201).json({ success: true, message: 'Investigation created.', id });
+  } catch (err) {
+    console.error('Error creating shipping investigation:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PATCH Admin Update Shipping Investigation (Protected)
+app.patch('/api/admin/shipping/investigations/:id', requireAdminAuth, async (req, res) => {
+  try {
+    const db = await getDb();
+    const { id } = req.params;
+    const {
+      investigationNotes, investigationStatus, finalOutcome,
+      outcomeNotes, resolution, courierName, trackingNumber
+    } = req.body;
+
+    const inv = await db.get('SELECT * FROM shipping_investigations WHERE id = ?', [id]);
+    if (!inv) {
+      return res.status(404).json({ error: 'Investigation not found.' });
+    }
+
+    await db.run(
+      `UPDATE shipping_investigations SET
+        investigation_notes = COALESCE(?, investigation_notes),
+        investigation_status = COALESCE(?, investigation_status),
+        final_outcome = COALESCE(?, final_outcome),
+        outcome_notes = COALESCE(?, outcome_notes),
+        resolution = COALESCE(?, resolution),
+        tracking_number = COALESCE(?, tracking_number),
+        courier = COALESCE(?, courier),
+        updated_at = CURRENT_TIMESTAMP
+       WHERE id = ?`,
+      [investigationNotes, investigationStatus, finalOutcome,
+       outcomeNotes, resolution, trackingNumber, courierName, id]
+    );
+
+    res.json({ success: true, message: 'Investigation updated.', id });
+  } catch (err) {
+    console.error('Error updating shipping investigation:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PATCH Admin Update Order Tracking Info (Protected)
+app.patch('/api/admin/orders/:id/tracking', requireAdminAuth, async (req, res) => {
+  try {
+    const db = await getDb();
+    const { id } = req.params;
+    const { trackingNumber, courierName, deliveryEstimate } = req.body;
+
+    const order = await db.get('SELECT id FROM orders WHERE id = ? OR order_code = ?', [id, id]);
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found.' });
+    }
+
+    await db.run(
+      `UPDATE orders SET
+        tracking_number = COALESCE(?, tracking_number),
+        courier_name = COALESCE(?, courier_name),
+        delivery_estimate = COALESCE(?, delivery_estimate)
+       WHERE id = ?`,
+      [trackingNumber || null, courierName || null, deliveryEstimate || null, order.id]
+    );
+
+    res.json({ success: true, message: 'Tracking info updated.', orderId: order.id });
+  } catch (err) {
+    console.error('Error updating tracking info:', err);
+    res.status(500).json({ error: err.message });
   }
 });
 

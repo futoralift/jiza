@@ -182,9 +182,40 @@ export default function OrderDetailsModal({
               )}
             </div>
 
-            <div className="pt-2 border-t border-outline-variant/20 flex items-center justify-between">
-              <p><strong className="text-on-surface-variant">Total Amount:</strong> <span className="text-black font-bold text-sm">{selectedOrderDetails.amount}</span></p>
-              <p><strong className="text-on-surface-variant">Status:</strong> <span className="text-on-surface font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">{selectedOrderDetails.status}</span></p>
+            {/* Shipping & Payment Breakdown */}
+            <div className="pt-2 border-t border-outline-variant/20 space-y-1.5 text-[11px]">
+              <div className="flex justify-between">
+                <span className="text-on-surface-variant font-semibold">Shipping Charge:</span>
+                <span className="font-bold text-black">
+                  {selectedOrderDetails.shipping_charge_status === 'pending_confirmation' ? (
+                    <span className="text-amber-800 bg-amber-100 px-2 py-0.2 rounded font-bold">
+                      Pending Confirmation
+                    </span>
+                  ) : Number(selectedOrderDetails.shipping_charge || 0) === 0 ? (
+                    <span className="text-emerald-700 font-bold">FREE</span>
+                  ) : (
+                    <span className="font-mono font-bold">₹{Number(selectedOrderDetails.shipping_charge || selectedOrderDetails.shippingCharge || 0).toLocaleString('en-IN')}</span>
+                  )}
+                </span>
+              </div>
+
+              {(selectedOrderDetails.courier_name || selectedOrderDetails.tracking_number) && (
+                <div className="flex justify-between bg-stone-50 p-2 rounded-lg border border-stone-200">
+                  <div>
+                    <span className="text-stone-500 font-bold block text-[10px] uppercase">Courier Partner</span>
+                    <span className="font-semibold text-black">{selectedOrderDetails.courier_name || 'Assigned'}</span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-stone-500 font-bold block text-[10px] uppercase">Tracking AWB</span>
+                    <span className="font-mono font-bold text-black">{selectedOrderDetails.tracking_number || 'N/A'}</span>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex items-center justify-between pt-1 border-t border-black/5">
+                <p><strong className="text-on-surface-variant">Total Amount:</strong> <span className="text-black font-bold text-sm">{selectedOrderDetails.amount || `₹${Number(selectedOrderDetails.total_amount || 0).toLocaleString('en-IN')}`}</span></p>
+                <p><strong className="text-on-surface-variant">Status:</strong> <span className="text-on-surface font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">{selectedOrderDetails.status}</span></p>
+              </div>
             </div>
           </div>
 
