@@ -195,12 +195,12 @@ export default function CartDrawer({
               <div className="flex justify-between text-stone-800 font-medium">
                 <span className="flex items-center gap-1">
                   <span>Shipping Fee</span>
-                  <span className="text-[10px] text-stone-500">({cartSubtotal >= 1000 ? 'Free on ₹1,000+' : '₹100 below ₹1,000'})</span>
+                  <span className="text-[10px] text-stone-500">({cartSubtotal >= 5000 ? 'Free on ₹5,000+' : '₹99 below ₹5,000'})</span>
                 </span>
                 {shippingFee === 0 ? (
                   <span className="text-emerald-700 font-bold">FREE</span>
                 ) : (
-                  <span className="font-mono font-bold text-black">₹100</span>
+                  <span className="font-mono font-bold text-black">₹99</span>
                 )}
               </div>
               <div className="flex justify-between text-black text-base font-bold pt-2 border-t border-black/15">

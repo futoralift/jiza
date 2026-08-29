@@ -366,7 +366,7 @@ export default function HomeView({
                 <span className="material-symbols-outlined text-[18px] sm:text-2xl shrink-0 text-black">local_shipping</span>
                 <div>
                   <p className="font-bold text-[9px] sm:text-[11px] md:text-xs leading-tight text-black">Free Shipping</p>
-                  <p className="text-[8px] sm:text-[10px] md:text-[11px] text-black/80 font-medium">Over INR 1000</p>
+                  <p className="text-[8px] sm:text-[10px] md:text-[11px] text-black/80 font-medium">Above ₹5,000</p>
                 </div>
               </div>
 
