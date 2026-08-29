@@ -251,7 +251,7 @@ export default function HomeView({
   }, [allProducts]);
 
   return (
-    <main className="w-full max-w-container-max mx-auto pb-16 relative" style={{ perspective: '1000px' }}>
+    <main className="w-full max-w-container-max mx-auto pb-6 md:pb-8 relative" style={{ perspective: '1000px' }}>
 
       {/* ===== DELIVERY ANNOUNCEMENT BAR (Above Hero Section - 1-Line Marquee Loop) ===== */}
       <div className="w-full bg-[#111111] text-white py-2.5 overflow-hidden border-b border-white/10 relative z-20 shadow-md">
@@ -853,6 +853,21 @@ export default function HomeView({
           © 2026 Jiza Jewellery Studio, Pune
         </div>
       </footer>
+
+      {/* Discreet Developer Credit Below Footer */}
+      <div className="mt-2.5 pb-2 text-center text-[10px] text-stone-400 font-body-md tracking-wider flex items-center justify-center gap-1 opacity-70 hover:opacity-100 transition-opacity">
+        <span>Designed &amp; Developed by</span>
+        <a
+          href={`https://wa.me/918446653644?text=${encodeURIComponent("Hi, I’m interested in getting a premium, fully customized website designed and developed for my business according to my specific requirements.")}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="font-medium text-blue-600 hover:text-blue-700 hover:underline transition-colors inline-flex items-center gap-0.5"
+          title="Contact FutoraLift on WhatsApp"
+        >
+          <span>FutoraLift</span>
+          <span className="text-[8px] opacity-70">↗</span>
+        </a>
+      </div>
       </div>
 
       {/* Exchange & Return Policy Detail Modal */}
