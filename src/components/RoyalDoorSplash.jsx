@@ -72,8 +72,14 @@ export default function RoyalDoorSplash({ onComplete }) {
           {/* Ornate Gold Ring Border */}
           <div className="relative p-1 rounded-full bg-gradient-to-tr from-[#D4AF37] via-[#FFF3B0] to-[#AA771C] shadow-[0_20px_60px_rgba(0,0,0,0.7),0_0_50px_rgba(212,175,55,0.6)]">
             <img 
-              src="/jiza-door-logo.png" 
+              src="/jiza-door-logo.webp" 
               alt="Jiza Jewellery Studio - Unique As U" 
+              width="400"
+              height="400"
+              loading="eager"
+              decoding="sync"
+              fetchpriority="high"
+              onError={(e) => { e.target.onerror = null; e.target.src = '/jiza-door-logo.png'; }}
               className="w-64 h-64 sm:w-80 sm:h-80 md:w-96 md:h-96 lg:w-[400px] lg:h-[400px] rounded-full object-contain bg-black shadow-inner"
             />
           </div>

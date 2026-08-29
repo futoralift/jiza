@@ -47,8 +47,13 @@ export default function Header({
             >
               <div className="w-8 h-8 md:w-9 md:h-9 rounded-full overflow-hidden border border-black/20 shadow-sm bg-black flex items-center justify-center transition-transform group-hover:scale-105">
                 <img 
-                  src="/jiza-door-logo.png" 
+                  src="/jiza-door-logo.webp" 
                   alt="Jiza Jewellery Studio Logo" 
+                  width="36"
+                  height="36"
+                  loading="eager"
+                  decoding="async"
+                  onError={(e) => { e.target.onerror = null; e.target.src = '/jiza-door-logo.png'; }}
                   className="w-full h-full object-cover"
                 />
               </div>

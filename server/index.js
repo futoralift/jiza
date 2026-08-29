@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import compression from 'compression';
 import { getDb } from './db/database.js';
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
@@ -31,6 +32,9 @@ if (SENTRY_DSN) {
 
 const app = express();
 app.disable('x-powered-by');
+
+// Enable Gzip/Deflate Response Compression
+app.use(compression());
 
 const PORT = process.env.PORT || 5000;
 const JWT_SECRET = process.env.ADMIN_JWT_SECRET;

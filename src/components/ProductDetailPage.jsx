@@ -50,7 +50,7 @@ export default function ProductDetailPage({
       items.push({ type: 'image', url: getMediaUrl(img) });
     });
     if (items.length === 0) {
-      items.push({ type: 'image', url: '/logo-j.png' });
+      items.push({ type: 'image', url: '/logo-j.webp' });
     }
     return items;
   }, [videoUrl, rawImages]);
@@ -61,7 +61,7 @@ export default function ProductDetailPage({
   const productImages = useMemo(() => {
     const imagesOnly = mediaItems.filter(item => item.type === 'image');
     if (imagesOnly.length > 0) return imagesOnly;
-    return [{ type: 'image', url: product?.img ? getMediaUrl(product.img) : '/logo-j.png' }];
+    return [{ type: 'image', url: product?.img ? getMediaUrl(product.img) : '/logo-j.webp' }];
   }, [mediaItems, product?.img]);
 
   // Fullscreen Lightbox State
@@ -353,7 +353,7 @@ export default function ProductDetailPage({
       top: rect.top,
       width: rect.width,
       height: rect.height,
-      img: mediaItems[0]?.url || product.img || '/logo-j.png'
+      img: mediaItems[0]?.url || product.img || '/logo-j.webp'
     });
     setIsAdded(true);
     setTimeout(() => setIsAdded(false), 2000);
@@ -369,7 +369,7 @@ export default function ProductDetailPage({
     onBuyNow(product, validatedQty, selectedSize, selectedColor);
   };
 
-  const currentMedia = mediaItems[activeMedia] || mediaItems[0] || { type: 'image', url: '/logo-j.png' };
+  const currentMedia = mediaItems[activeMedia] || mediaItems[0] || { type: 'image', url: '/logo-j.webp' };
 
   // Related products from the same category
   const relatedProducts = useMemo(() => {
@@ -454,14 +454,17 @@ export default function ProductDetailPage({
                 </div>
               ) : (
                 <img 
-                  src={currentMedia.url || '/logo-j.png'} 
+                  src={currentMedia.url || '/logo-j.webp'} 
                   alt={product.title} 
+                  width="600"
+                  height="600"
                   onError={(e) => {
                     e.target.onerror = null;
-                    e.target.src = '/logo-j.png';
+                    e.target.src = '/logo-j.webp';
                   }}
                   className="w-full h-full object-contain p-2 sm:p-3 transition-transform duration-500 hover:scale-105"
                   loading="eager"
+                  decoding="async"
                 />
               )}
 
@@ -1261,10 +1264,14 @@ export default function ProductDetailPage({
                 >
                   <div className="relative aspect-square rounded-xl overflow-hidden mb-3 bg-stone-50">
                     <img
-                      src={relProd.images?.[0] || relProd.img || '/logo-j.png'}
+                      src={relProd.images?.[0] || relProd.img || '/logo-j.webp'}
                       alt={relProd.title}
+                      width="200"
+                      height="200"
                       className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                       loading="lazy"
+                      decoding="async"
+                      onError={(e) => { e.target.onerror = null; e.target.src = '/logo-j.webp'; }}
                     />
                   </div>
                   <h3 className="font-bold text-xs text-black line-clamp-1 group-hover:text-amber-800 transition-colors">

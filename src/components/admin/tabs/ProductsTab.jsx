@@ -82,11 +82,13 @@ export default function ProductsTab({
                   <td className="p-3">
                     <div className="flex items-center gap-3">
                       <img 
-                        src={p.img || '/logo-j.png'} 
+                        src={p.img || '/logo-j.webp'} 
                         alt={p.title} 
+                        width="48"
+                        height="48"
                         onError={(e) => {
                           e.target.onerror = null;
-                          e.target.src = '/logo-j.png';
+                          e.target.src = '/logo-j.webp';
                         }}
                         className="w-12 h-12 object-cover rounded-lg bg-[#FFF0F2] border border-[#F7C5C0]" 
                       />

@@ -242,7 +242,7 @@ export default function CheckoutView({ cartItems, totalAmount, onOrderSuccess, o
         currency: currency || 'INR',
         name: 'Jiza Jewellery Studio',
         description: fulfillmentType === 'pickup' ? 'Store Pickup Order Payment' : 'Heritage Jewellery Delivery Payment',
-        image: '/jiza-logo.png',
+        image: '/jiza-door-logo.webp',
         order_id: razorpayOrderId,
         prefill: {
           name: effectiveCustomerInfo.fullName,

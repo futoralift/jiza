@@ -168,8 +168,13 @@ export default function MobileNavDrawer({
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-full overflow-hidden border border-[#F8B3AC] shadow-sm bg-[#FCDAD7] flex items-center justify-center shrink-0">
               <img 
-                src="/jiza-door-logo.png" 
+                src="/jiza-door-logo.webp" 
                 alt="Jiza Jewellery Studio Logo" 
+                width="36"
+                height="36"
+                loading="lazy"
+                decoding="async"
+                onError={(e) => { e.target.onerror = null; e.target.src = '/jiza-door-logo.png'; }}
                 className="w-full h-full object-cover"
               />
             </div>

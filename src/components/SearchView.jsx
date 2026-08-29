@@ -438,11 +438,15 @@ export default function SearchView({
                   className="relative w-full aspect-[4/5] bg-surface-container-low rounded-lg overflow-hidden mb-3"
                 >
                   <img 
-                    src={product.img || '/logo-j.png'} 
+                    src={product.img || '/logo-j.webp'} 
                     alt={product.title} 
+                    width="300"
+                    height="375"
+                    loading="lazy"
+                    decoding="async"
                     onError={(e) => {
                       e.target.onerror = null;
-                      e.target.src = '/logo-j.png';
+                      e.target.src = '/logo-j.webp';
                     }}
                     className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                   />

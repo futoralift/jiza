@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, Suspense, lazy } from 'react';
 import { 
   API_BASE, 
   getAdminToken, 
@@ -10,25 +10,27 @@ import {
 import Header from './components/Header';
 import BottomNav from './components/BottomNav';
 import HomeView from './components/HomeView';
-import SearchView from './components/SearchView';
-import CategoriesView from './components/CategoriesView';
-import SubCategoryView from './components/SubCategoryView';
-import ProfileView from './components/ProfileView';
-import CheckoutView from './components/CheckoutView';
-import ProductDetailPage from './components/ProductDetailPage';
-import CartDrawer from './components/CartDrawer';
-import WishlistDrawer from './components/WishlistDrawer';
 import RoyalDoorSplash from './components/RoyalDoorSplash';
-import AuthModal from './components/AuthModal';
-import AdminPanel from './components/AdminPanel';
-import FaqView from './components/FaqView';
-import NotFoundView from './components/NotFoundView';
-import AdminLoginModal from './components/AdminLoginModal';
-import LegalPagesView from './components/LegalPagesView';
-import RentalGalleryView from './components/RentalGalleryView';
-import CancellationPolicyView from './components/CancellationPolicyView';
-import ShippingPolicyView from './components/ShippingPolicyView';
 import { PRODUCTS, CATEGORIES } from './data/products';
+
+// Lazy-load non-initial views and heavy admin/checkout modules
+const SearchView = lazy(() => import('./components/SearchView'));
+const CategoriesView = lazy(() => import('./components/CategoriesView'));
+const SubCategoryView = lazy(() => import('./components/SubCategoryView'));
+const ProfileView = lazy(() => import('./components/ProfileView'));
+const CheckoutView = lazy(() => import('./components/CheckoutView'));
+const ProductDetailPage = lazy(() => import('./components/ProductDetailPage'));
+const CartDrawer = lazy(() => import('./components/CartDrawer'));
+const WishlistDrawer = lazy(() => import('./components/WishlistDrawer'));
+const AuthModal = lazy(() => import('./components/AuthModal'));
+const AdminPanel = lazy(() => import('./components/AdminPanel'));
+const FaqView = lazy(() => import('./components/FaqView'));
+const NotFoundView = lazy(() => import('./components/NotFoundView'));
+const AdminLoginModal = lazy(() => import('./components/AdminLoginModal'));
+const LegalPagesView = lazy(() => import('./components/LegalPagesView'));
+const RentalGalleryView = lazy(() => import('./components/RentalGalleryView'));
+const CancellationPolicyView = lazy(() => import('./components/CancellationPolicyView'));
+const ShippingPolicyView = lazy(() => import('./components/ShippingPolicyView'));
 
 function hasArrayChanged(prev, next, checkKeys = ['id', 'stockQuantity', 'sellingPrice', 'status', 'totalSpent', 'totalOrders']) {
   if (!prev || !next) return prev !== next;
@@ -831,7 +833,7 @@ export default function App() {
     }
 
     // Play Central Fly-to-Cart animation
-    const imgUrl = clickMeta?.img || (product.images ? product.images[0] : product.img) || '/hero-banner-v2.jpg';
+    const imgUrl = clickMeta?.img || (product.images ? product.images[0] : product.img) || '/logo-j.webp';
     
     // Start coordinates
     const startX = clickMeta ? clickMeta.left : (window.innerWidth / 2 - 25);
@@ -1341,36 +1343,37 @@ export default function App() {
       )}
 
       {/* RENDER ADMIN PANEL OR STOREFRONT */}
-      {activeView === 'admin' ? (
-        isAdminSecretRoute && adminToken ? (
-          <AdminPanel
-            productsList={productsList}
-            ordersList={ordersList}
-            customersList={registeredCustomers}
-            categoriesList={categoriesList}
-            onRefreshCategories={fetchDbCategories}
-            onRefreshProducts={fetchDbProducts}
-            onRefreshOrders={fetchDbOrders}
-            onAddProduct={handleAddProduct}
-            onUpdateProduct={handleFullUpdateProduct}
-            onDeleteProduct={handleDeleteProduct}
-            onUpdateProductStock={handleUpdateProductStock}
-            onUpdateProductPrice={handleUpdateProductPrice}
-            onUpdateSpecialSection={handleUpdateSpecialSection}
-            onUpdateOrderStatus={handleUpdateOrderStatus}
-            onExitAdmin={handleExitAdmin}
-          />
-        ) : (
+      <Suspense fallback={<div className="min-h-screen bg-background" />}>
+        {activeView === 'admin' ? (
+          isAdminSecretRoute && adminToken ? (
+            <AdminPanel
+              productsList={productsList}
+              ordersList={ordersList}
+              customersList={registeredCustomers}
+              categoriesList={categoriesList}
+              onRefreshCategories={fetchDbCategories}
+              onRefreshProducts={fetchDbProducts}
+              onRefreshOrders={fetchDbOrders}
+              onAddProduct={handleAddProduct}
+              onUpdateProduct={handleFullUpdateProduct}
+              onDeleteProduct={handleDeleteProduct}
+              onUpdateProductStock={handleUpdateProductStock}
+              onUpdateProductPrice={handleUpdateProductPrice}
+              onUpdateSpecialSection={handleUpdateSpecialSection}
+              onUpdateOrderStatus={handleUpdateOrderStatus}
+              onExitAdmin={handleExitAdmin}
+            />
+          ) : (
+            <NotFoundView onGoHome={() => setActiveView('home')} />
+          )
+        ) : activeView === '404' ? (
           <NotFoundView onGoHome={() => setActiveView('home')} />
-        )
-      ) : activeView === '404' ? (
-        <NotFoundView onGoHome={() => setActiveView('home')} />
-      ) : (
-        <>
-          {/* Sticky Brand Header */}
-          <Header 
-            setIsCartOpen={setIsCartOpen}
-            setIsWishlistOpen={setIsWishlistOpen}
+        ) : (
+          <>
+            {/* Sticky Brand Header */}
+            <Header 
+              setIsCartOpen={setIsCartOpen}
+              setIsWishlistOpen={setIsWishlistOpen}
             cartCount={cartCount}
             wishlistCount={wishlistIds.length}
             activeView={activeView}
@@ -1583,79 +1586,90 @@ export default function App() {
           />
         </>
       )}
+      </Suspense>
 
-      {/* 4FA Enterprise Admin Login Modal */}
-      <AdminLoginModal
-        isOpen={isAdminLoginOpen}
-        onClose={() => {
-          setIsAdminLoginOpen(false);
-          setIsAdminSecretRoute(false);
-          try {
-            if (window.history && window.history.replaceState) {
-              const cleanUrl = window.location.pathname || '/';
-              window.history.replaceState({}, document.title, cleanUrl);
-            }
-          } catch (e) {}
-          if (!getAdminToken()) setActiveView('home');
-        }}
-        onLoginSuccess={(token, role, email) => {
-          setAdminTokenStorage(token, role, email);
-          setAdminToken(token);
-          setIsAdminLoginOpen(false);
-          setIsAdminSecretRoute(true);
-          setActiveView('admin');
-          if (role === 'SUPER_READONLY_ADMIN') {
-            showToast('🛡️ Welcome Agency Admin! Read + Export Mode Active.');
-          } else {
-            showToast('👑 Welcome Owner Admin! Full Management Access Active.');
-          }
-          fetchDbProducts();
-          fetchDbCategories();
-          fetchDbOrders();
-          fetchDbCustomers();
-        }}
-      />
+      <Suspense fallback={null}>
+        {/* 4FA Enterprise Admin Login Modal */}
+        {isAdminLoginOpen && (
+          <AdminLoginModal
+            isOpen={isAdminLoginOpen}
+            onClose={() => {
+              setIsAdminLoginOpen(false);
+              setIsAdminSecretRoute(false);
+              try {
+                if (window.history && window.history.replaceState) {
+                  const cleanUrl = window.location.pathname || '/';
+                  window.history.replaceState({}, document.title, cleanUrl);
+                }
+              } catch (e) {}
+              if (!getAdminToken()) setActiveView('home');
+            }}
+            onLoginSuccess={(token, role, email) => {
+              setAdminTokenStorage(token, role, email);
+              setAdminToken(token);
+              setIsAdminLoginOpen(false);
+              setIsAdminSecretRoute(true);
+              setActiveView('admin');
+              if (role === 'SUPER_READONLY_ADMIN') {
+                showToast('🛡️ Welcome Agency Admin! Read + Export Mode Active.');
+              } else {
+                showToast('👑 Welcome Owner Admin! Full Management Access Active.');
+              }
+              fetchDbProducts();
+              fetchDbCategories();
+              fetchDbOrders();
+              fetchDbCustomers();
+            }}
+          />
+        )}
 
-      {/* Auth / Account Creation Modal */}
-      <AuthModal
-        isOpen={isAuthModalOpen}
-        onClose={() => {
-          setIsAuthModalOpen(false);
-          setPendingAuthAction(null);
-        }}
-        onLoginSuccess={handleLoginSuccess}
-        pendingActionMessage={authModalMessage}
-        registeredCustomers={registeredCustomers}
-      />
+        {/* Auth / Account Creation Modal */}
+        {isAuthModalOpen && (
+          <AuthModal
+            isOpen={isAuthModalOpen}
+            onClose={() => {
+              setIsAuthModalOpen(false);
+              setPendingAuthAction(null);
+            }}
+            onLoginSuccess={handleLoginSuccess}
+            pendingActionMessage={authModalMessage}
+            registeredCustomers={registeredCustomers}
+          />
+        )}
 
-      {/* Cart & Wishlist Drawers */}
-      <CartDrawer 
-        isOpen={isCartOpen}
-        onClose={() => setIsCartOpen(false)}
-        cartItems={cartItems}
-        onUpdateQuantity={handleUpdateQuantity}
-        onRemoveItem={handleRemoveFromCart}
-        onCheckout={handleProceedToCheckout}
-        onSelectProduct={(p) => {
-          setIsCartOpen(false);
-          handleSelectProduct(p);
-        }}
-        productsList={productsList}
-      />
+        {/* Cart & Wishlist Drawers */}
+        {isCartOpen && (
+          <CartDrawer 
+            isOpen={isCartOpen}
+            onClose={() => setIsCartOpen(false)}
+            cartItems={cartItems}
+            onUpdateQuantity={handleUpdateQuantity}
+            onRemoveItem={handleRemoveFromCart}
+            onCheckout={handleProceedToCheckout}
+            onSelectProduct={(p) => {
+              setIsCartOpen(false);
+              handleSelectProduct(p);
+            }}
+            productsList={productsList}
+          />
+        )}
 
-      <WishlistDrawer 
-        isOpen={isWishlistOpen}
-        onClose={() => setIsWishlistOpen(false)}
-        wishlistIds={wishlistIds}
-        onToggleWishlist={handleToggleWishlist}
-        onAddToCart={handleAddToCart}
-        onBuyNow={handleBuyNow}
-        onSelectProduct={(p) => {
-          setIsWishlistOpen(false);
-          handleSelectProduct(p);
-        }}
-        productsList={productsList}
-      />
+        {isWishlistOpen && (
+          <WishlistDrawer 
+            isOpen={isWishlistOpen}
+            onClose={() => setIsWishlistOpen(false)}
+            wishlistIds={wishlistIds}
+            onToggleWishlist={handleToggleWishlist}
+            onAddToCart={handleAddToCart}
+            onBuyNow={handleBuyNow}
+            onSelectProduct={(p) => {
+              setIsWishlistOpen(false);
+              handleSelectProduct(p);
+            }}
+            productsList={productsList}
+          />
+        )}
+      </Suspense>
 
       {/* Category square zoom animation overlay */}
       {categoryTransition && categoryTransition.isActive && (

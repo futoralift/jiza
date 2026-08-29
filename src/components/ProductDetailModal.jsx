@@ -20,7 +20,7 @@ export default function ProductDetailModal({
     if (videoUrl && typeof videoUrl === 'string' && videoUrl.trim()) {
       list.push({ type: 'video', url: getMediaUrl(videoUrl.trim()) });
     }
-    return list.length > 0 ? list : [{ type: 'image', url: '/logo-j.png' }];
+    return list.length > 0 ? list : [{ type: 'image', url: '/logo-j.webp' }];
   }, [rawImages, videoUrl]);
 
   const [activeMedia, setActiveMedia] = useState(0);
@@ -197,14 +197,17 @@ export default function ProductDetailModal({
               </div>
             ) : (
               <img 
-                src={currentMedia.url || '/logo-j.png'} 
+                src={currentMedia.url || '/logo-j.webp'} 
                 alt={product.title || product.name} 
+                width="400"
+                height="400"
                 onError={(e) => {
                   e.target.onerror = null;
-                  e.target.src = '/logo-j.png';
+                  e.target.src = '/logo-j.webp';
                 }}
                 className="w-full h-full object-contain transition-all duration-300"
                 loading="eager"
+                decoding="async"
               />
             )}
 

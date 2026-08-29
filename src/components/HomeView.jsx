@@ -24,7 +24,7 @@ const TESTIMONIALS = [
     rating: 5,
     text: 'Amazing collection, awesome hosts, and best prices! The purchasing process was so easy and hassle-free. Loved buying high-end jewellery pieces at affordable prices to complement my outfit. Thank you so much ❤️',
     product: 'Jewellery Purchase & Personal Styling',
-    avatar: '/reviewer-avatar.png'
+    avatar: '/reviewer-avatar.webp'
   }
 ];
 
@@ -41,14 +41,17 @@ const ProductCard = React.memo(function ProductCard({ product, onSelect, onAddTo
         className={`relative w-full aspect-[4/5] rounded-lg overflow-hidden mb-3 bg-surface-container-low ${isSoldOut ? 'cursor-not-allowed' : 'cursor-pointer'}`}
       >
         <img
-          src={product.images?.[0] || product.img || '/logo-j.png'}
+          src={product.images?.[0] || product.img || '/logo-j.webp'}
           alt={product.title || product.name}
+          width="320"
+          height="400"
           onError={(e) => {
             e.target.onerror = null;
-            e.target.src = '/logo-j.png';
+            e.target.src = '/logo-j.webp';
           }}
           className={`w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 ${isSoldOut ? 'grayscale opacity-60' : ''}`}
           loading="lazy"
+          decoding="async"
         />
         {/* Sold Out overlay */}
         {isSoldOut && (
@@ -309,6 +312,11 @@ export default function HomeView({
                   key={src}
                   src={src}
                   alt={`Jiza Jewellery banner ${i + 1}`}
+                  width="1280"
+                  height="720"
+                  fetchpriority={i === 0 ? "high" : "auto"}
+                  loading={i === 0 ? "eager" : "lazy"}
+                  decoding={i === 0 ? "sync" : "async"}
                   className="absolute inset-0 w-full h-full object-cover object-top"
                   style={{
                     transform: `translateX(${translateX})`,
@@ -428,9 +436,12 @@ export default function HomeView({
               <div className="w-full aspect-square overflow-hidden bg-surface-container-low relative">
                 <img
                   alt={cat.name}
+                  width="300"
+                  height="300"
                   className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                   src={cat.img}
                   loading="lazy"
+                  decoding="async"
                 />
               </div>
               
@@ -626,7 +637,7 @@ export default function HomeView({
               <p className="font-body-md text-sm text-on-surface-variant leading-relaxed mb-4 italic">"{t.text}"</p>
               <div className="border-t border-outline-variant/30 pt-3 flex items-center gap-3">
                 {t.avatar ? (
-                  <img src={t.avatar} alt={t.name} className="w-9 h-9 rounded-full object-cover border border-heritage-gold/50 shadow-sm shrink-0" />
+                  <img src={t.avatar} alt={t.name} width="36" height="36" loading="lazy" decoding="async" className="w-9 h-9 rounded-full object-cover border border-heritage-gold/50 shadow-sm shrink-0" />
                 ) : (
                   <div className="w-9 h-9 rounded-full bg-antique-cream border border-heritage-gold/30 flex items-center justify-center text-heritage-gold shrink-0">
                     <span className="material-symbols-outlined text-base">person</span>
@@ -709,8 +720,13 @@ export default function HomeView({
           {/* Our Story image — Jiza Jewellery Studio storefront */}
           <div className="flex items-center justify-center w-full h-full">
             <img
-              src="/jiza-store.jpg"
+              src="/jiza-store.webp"
               alt="Jiza Jewellery Studio — our store in Pune"
+              width="600"
+              height="450"
+              loading="lazy"
+              decoding="async"
+              onError={(e) => { e.target.onerror = null; e.target.src = '/jiza-store.jpg'; }}
               className="w-full h-auto max-h-[520px] object-contain rounded-2xl shadow-2xl"
             />
           </div>
@@ -756,8 +772,13 @@ export default function HomeView({
         <div className="flex items-center gap-4 pb-6 mb-8 border-b border-black/15">
           <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full overflow-hidden border-2 border-black/20 shadow-md bg-black shrink-0">
             <img 
-              src="/jiza-door-logo.png" 
+              src="/jiza-door-logo.webp" 
               alt="Jiza Jewellery Studio Logo" 
+              width="64"
+              height="64"
+              loading="lazy"
+              decoding="async"
+              onError={(e) => { e.target.onerror = null; e.target.src = '/jiza-door-logo.png'; }}
               className="w-full h-full object-cover"
             />
           </div>

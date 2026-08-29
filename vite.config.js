@@ -18,19 +18,21 @@ export default defineConfig({
     }
   },
   build: {
-    chunkSizeWarningLimit: 1000,
+    target: 'es2020',
+    chunkSizeWarningLimit: 600,
+    cssCodeSplit: true,
     rollupOptions: {
       output: {
         manualChunks(id) {
           if (id.includes('node_modules')) {
             if (id.includes('react') || id.includes('react-dom')) {
-              return 'vendor-core';
+              return 'vendor-react';
             }
             if (id.includes('xlsx')) {
               return 'vendor-xlsx';
             }
-            if (id.includes('canvas-confetti')) {
-              return 'vendor-confetti';
+            if (id.includes('@sentry')) {
+              return 'vendor-sentry';
             }
             return 'vendor-libs';
           }

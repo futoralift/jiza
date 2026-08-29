@@ -55,8 +55,11 @@ export default function CategoriesView({ onSelectCategory, setActiveView, catego
               <img 
                 src={cat.img} 
                 alt={cat.name}
+                width="300"
+                height="300"
                 className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
                 loading="lazy"
+                decoding="async"
               />
             </div>
 
