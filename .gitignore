@@ -8,6 +8,10 @@ dist
 scratch/
 *.tar.gz
 *.zip
+VPS_CREDENTIALS.md
+Docs/VPS_CREDENTIALS.md
+*vps_credentials*
+*VPS_CREDENTIALS*
 
 
 

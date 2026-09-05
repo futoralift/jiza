@@ -153,11 +153,17 @@ export default function HomeView({
   onBuyNow,
   setActiveView,
   productsList,
+  categoriesList = [],
   onClearanceSale
 }) {
   const allProducts = React.useMemo(() => {
     return (productsList && productsList.length > 0) ? productsList : PRODUCTS;
   }, [productsList]);
+
+  const activeCategories = React.useMemo(() => {
+    const list = (categoriesList && categoriesList.length > 0) ? categoriesList : CATEGORIES;
+    return list.filter(cat => cat.active !== undefined ? Boolean(cat.active) : true);
+  }, [categoriesList]);
 
   // Scroll Tracking for 3D Hero Animation
   const [scrollY, setScrollY] = React.useState(0);
@@ -414,7 +420,7 @@ export default function HomeView({
 
         {/* Category Grid: 2 columns on mobile, 6 columns on desktop (12 items = 2 rows of 6), 4:5 aspect ratio cards */}
         <div className="grid grid-cols-2 md:grid-cols-6 gap-5 md:gap-8 mb-10">
-          {CATEGORIES.slice(0, 12).map((cat, idx) => (
+          {activeCategories.slice(0, 12).map((cat, idx) => (
             <button
               key={cat.id}
               onClick={(e) => {
@@ -439,7 +445,11 @@ export default function HomeView({
                   width="300"
                   height="300"
                   className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                  src={cat.img}
+                  src={cat.img || '/logo-j.webp'}
+                  onError={(e) => {
+                    e.target.onerror = null;
+                    e.target.src = '/logo-j.webp';
+                  }}
                   loading="lazy"
                   decoding="async"
                 />
@@ -470,7 +480,7 @@ export default function HomeView({
             </div>
 
             {/* Label */}
-            <span className="relative z-10 font-semibold text-xs tracking-widest uppercase">Explore All 15 Categories</span>
+            <span className="relative z-10 font-semibold text-xs tracking-widest uppercase">Explore All {activeCategories.length > 0 ? activeCategories.length : 15} Categories</span>
 
             {/* Arrow */}
             <span className="material-symbols-outlined text-sm text-black group-hover:translate-x-1 transition-transform duration-300">

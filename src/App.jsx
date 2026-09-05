@@ -182,7 +182,7 @@ export default function App() {
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data)) {
-          setCategoriesList(prev => hasArrayChanged(prev, data, ['id', 'name', 'active', 'display_order', 'productsCount']) ? data : prev);
+          setCategoriesList(prev => hasArrayChanged(prev, data, ['id', 'name', 'img', 'active', 'display_order', 'productsCount', 'subcategoriesCount']) ? data : prev);
         }
       }
     } catch (err) {
@@ -677,8 +677,8 @@ export default function App() {
       const targetSize = Math.min(window.innerWidth * 0.75, 340);
       const scale = targetSize / clickMeta.width;
 
-      // Fallback name resolution from imported CATEGORIES static data
-      const categoryName = clickMeta.name || CATEGORIES.find(c => c.id === catId)?.name || 'Collection';
+      // Fallback name resolution from imported CATEGORIES static data or live categoriesList
+      const categoryName = clickMeta.name || categoriesList.find(c => c.id === catId || c.name === catId)?.name || CATEGORIES.find(c => c.id === catId)?.name || 'Collection';
 
       setCategoryTransition({
         left: clickMeta.left,
@@ -1422,6 +1422,7 @@ export default function App() {
                 onBuyNow={handleBuyNow}
                 setActiveView={setActiveView}
                 productsList={productsList}
+                categoriesList={categoriesList}
                 onClearanceSale={() => {
                   setSearchQuery('Stock Clearance Sale');
                   setSelectedCategory('');
