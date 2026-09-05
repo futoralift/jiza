@@ -84,11 +84,11 @@ PORT=5000
 PGHOST=localhost
 PGPORT=5432
 PGDATABASE=jiza_store
-PGUSER=jiza_user
-PGPASSWORD=jiza_secure_password_2026
-ADMIN_JWT_SECRET=your_secure_jwt_secret_here
-RAZORPAY_KEY_ID=your_razorpay_key_id
-RAZORPAY_KEY_SECRET=your_razorpay_key_secret
+PGUSER=your_postgres_user_here
+PGPASSWORD=your_postgres_password_here
+ADMIN_JWT_SECRET=your_random_jwt_secret_key_minimum_64_characters_here
+RAZORPAY_KEY_ID=your_razorpay_key_id_here
+RAZORPAY_KEY_SECRET=your_razorpay_secret_key_here
 ```
 
 ### 3. Installation & Bootstrapping

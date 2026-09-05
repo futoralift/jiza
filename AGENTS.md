@@ -4,14 +4,14 @@
 - **Frontend**: React 18, Vite 5, Tailwind CSS, Material Symbols Outlined.
 - **Backend API**: Node.js (ES Modules), Express 5, Helmet, CORS, Compression, BcryptJS, JWT, Nodemailer, Razorpay SDK.
 - **Database**: PostgreSQL 14+ (`jiza_store`) with connection pooling (`pg.Pool`), row-level locks (`FOR UPDATE`) for atomic stock transactions.
-- **Production Infrastructure**: Hostinger KVM VPS (`200.141.13.61`), Ubuntu 22.04 LTS, Nginx reverse proxy with SSL (Let's Encrypt), PM2 cluster mode process (`jiza-backend`).
+- **Production Infrastructure**: Hostinger KVM VPS (Configured via Docs/VPS_CREDENTIALS.md or VPS_HOST env var), Ubuntu 22.04 LTS, Nginx reverse proxy with SSL (Let's Encrypt), PM2 cluster mode process (`jiza-backend`).
 
 ---
 
 ## 2. 🚀 Automated VPS Deployment Protocol
 When requested to deploy updates or verify live production:
 1. **Never ask the user for VPS credentials.**
-2. Read `Docs/VPS_CREDENTIALS.md` directly for the Hostinger KVM VPS host (`200.141.13.61`), root user, and SSH password.
+2. Read `Docs/VPS_CREDENTIALS.md` directly for the Hostinger KVM VPS host IP, root user, and SSH password.
 3. **Standard Deployment Pipeline**:
    ```bash
    # 1. Compile production frontend

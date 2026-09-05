@@ -131,7 +131,7 @@ function isAuthedAdmin(req) {
       return false;
     }
     let decoded;
-    if (token === 'demo-admin-token-2026' && process.env.NODE_ENV !== 'production') {
+    if (process.env.DEV_ADMIN_TOKEN && token === process.env.DEV_ADMIN_TOKEN && process.env.NODE_ENV !== 'production') {
       decoded = { email: 'jizajewellery@gmail.com', role: 'SUPER_ADMIN', authorizedAt: Date.now() };
     } else {
       decoded = jwt.verify(token, JWT_SECRET);
@@ -529,7 +529,7 @@ async function requireAdminAuth(req, res, next) {
     }
 
     let decoded;
-    if (token === 'demo-admin-token-2026' && process.env.NODE_ENV !== 'production') {
+    if (process.env.DEV_ADMIN_TOKEN && token === process.env.DEV_ADMIN_TOKEN && process.env.NODE_ENV !== 'production') {
       decoded = { email: 'jizajewellery@gmail.com', role: 'SUPER_ADMIN', authorizedAt: Date.now() };
     } else {
       try {
@@ -623,8 +623,8 @@ app.post('/api/admin/auth/verify-credentials', async (req, res) => {
       return res.status(400).json({ error: 'Invalid credentials' });
     }
 
-    // All 3 factors valid! Set OTP code to static 123456 as requested
-    const otpCode = '123456';
+    // All 3 factors valid! Set default OTP code to 123456 (or custom env override)
+    const otpCode = process.env.ADMIN_STATIC_OTP || '123456';
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString(); // 15 mins TTL
 
     await db.run(
@@ -636,7 +636,7 @@ app.post('/api/admin/auth/verify-credentials', async (req, res) => {
 
     res.json({
       success: true,
-      message: `Step 1 verified. A 6-digit OTP code has been sent to ${admin.email}.`,
+      message: `Step 1 verified. Enter OTP code ${otpCode} to complete Admin login.`,
       expiresInSeconds: 300
     });
 

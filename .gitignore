@@ -1,22 +1,65 @@
-node_modules
-dist
+# ======================================================
+# JIZA JEWELLERY STUDIO — GITIGNORE CONFIGURATION
+# Zero-Leak Strict Protection Protocol
+# ======================================================
+
+# Dependencies & Build Artifacts
+node_modules/
+dist/
+build/
+.npm/
+
+# Environment Files & Local Overrides (Permanent Leak Prevention)
 .env
 .env.local
 .env.*.local
-.DS_Store
-*.log
-scratch/
-*.tar.gz
-*.zip
-VPS_CREDENTIALS.md
-Docs/VPS_CREDENTIALS.md
+.env.*
+!.env.example
+
+# Credential Files, Keys & Secrets (Case-Insensitive Wildcard Match)
+*credentials*
+*CREDENTIALS*
+*credential*
+*Credential*
+*secret*
+*SECRET*
 *vps_credentials*
 *VPS_CREDENTIALS*
-ADMIN_CREDENTIALS*
-Docs/ADMIN_CREDENTIALS*
 *admin_credentials*
+*ADMIN_CREDENTIALS*
+VPS_CREDENTIALS.md
+ADMIN_CREDENTIALS*
+*.pem
+*.key
+*.cert
+*.crt
+id_rsa*
+
+# All Documentation Folders (Protected Internal Docs)
 Docs/
 docs/
+DOCUMENTATION/
+documentation/
 
+# Scratch Scripts & Temporary Automation
+scratch/
+temp/
+tmp/
 
+# Temporary Archives & Bundles
+*.tar.gz
+*.tar
+*.gz
+*.zip
+*.7z
+*.rar
 
+# Logs & Diagnostics
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# System Files
+.DS_Store
+Thumbs.db
