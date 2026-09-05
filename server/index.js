@@ -396,36 +396,36 @@ async function initAdminAccount() {
     const db = await getDb();
 
     // 1. Primary Owner Admin Account (Full Write + Read Access)
-    const primaryEmail = 'jizajewellery@gmail.com';
-    const primaryPhone = '8208822696';
-    const primaryPass = 'JizaAdmin@2026';
+    const primaryEmail = process.env.ADMIN_EMAIL || 'jizajewellery@gmail.com';
+    const primaryPhone = process.env.ADMIN_PHONE || '8208822696';
+    const primaryPass = process.env.ADMIN_INITIAL_PASSWORD;
 
     const existingPrimary = await db.get('SELECT * FROM admin_accounts WHERE email = ?', [primaryEmail]);
-    if (!existingPrimary) {
+    if (!existingPrimary && primaryPass) {
       const passHash = await bcrypt.hash(primaryPass, 12);
       await db.run(
         'INSERT INTO admin_accounts (id, email, phone, password_hash, role) VALUES (?, ?, ?, ?, ?)',
         ['admin-' + Date.now(), primaryEmail, primaryPhone, passHash, 'SUPER_ADMIN']
       );
       console.log(`🔐 Primary Admin Account seeded: ${primaryEmail} (Role: SUPER_ADMIN)`);
-    } else {
+    } else if (existingPrimary) {
       await db.run('UPDATE admin_accounts SET role = ? WHERE email = ?', ['SUPER_ADMIN', primaryEmail]);
     }
 
     // 2. Secondary Agency Admin Account (SUPER_READONLY_ADMIN - Read & Export Only)
-    const secondaryEmail = 'futoralift@gmail.com';
-    const secondaryPhone = '8446653644';
-    const secondaryPass = 'Msd@7821';
+    const secondaryEmail = process.env.AGENCY_EMAIL || 'futoralift@gmail.com';
+    const secondaryPhone = process.env.AGENCY_PHONE || '8446653644';
+    const secondaryPass = process.env.AGENCY_INITIAL_PASSWORD;
 
     const existingSecondary = await db.get('SELECT * FROM admin_accounts WHERE email = ?', [secondaryEmail]);
-    if (!existingSecondary) {
+    if (!existingSecondary && secondaryPass) {
       const passHash = await bcrypt.hash(secondaryPass, 12);
       await db.run(
         'INSERT INTO admin_accounts (id, email, phone, password_hash, role) VALUES (?, ?, ?, ?, ?)',
         ['admin-agency-' + Date.now(), secondaryEmail, secondaryPhone, passHash, 'SUPER_READONLY_ADMIN']
       );
       console.log(`🔐 Secondary Read-Only Admin Account seeded: ${secondaryEmail} (Role: SUPER_READONLY_ADMIN)`);
-    } else {
+    } else if (existingSecondary) {
       await db.run('UPDATE admin_accounts SET role = ? WHERE email = ?', ['SUPER_READONLY_ADMIN', secondaryEmail]);
     }
   } catch (err) {
