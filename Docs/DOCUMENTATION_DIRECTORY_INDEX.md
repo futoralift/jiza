@@ -3,7 +3,6 @@
 
 | File Path & Link | Category | Summary Description |
 | :--- | :--- | :--- |
-| **[`Docs/ADMIN_CREDENTIALS_AND_ROLES.md`](file:///c:/Users/madhu/Documents/Jiza%20Demo/Docs/ADMIN_CREDENTIALS_AND_ROLES.md)** | Admin Credentials & RBAC | Primary Owner (`jizajewellery@gmail.com`) & Secondary Agency (`futoralift@gmail.com`) credentials, RBAC matrix, and 4FA login workflow. |
 | **[`Docs/WEBSITE_TECHNICAL_DOCUMENTATION.md`](file:///c:/Users/madhu/Documents/Jiza%20Demo/Docs/WEBSITE_TECHNICAL_DOCUMENTATION.md)** | Storefront Architecture | Complete React 18 SPA architecture, state routing, REST API endpoints, PostgreSQL schema, & customer user flows. |
 | **[`Docs/ADMIN_PANEL_TECHNICAL_DOCUMENTATION.md`](file:///c:/Users/madhu/Documents/Jiza%20Demo/Docs/ADMIN_PANEL_TECHNICAL_DOCUMENTATION.md)** | Admin Suite | Decomposed modular Admin Panel specification (`src/components/admin/`) with tabs, modals, & 1-click CSV/XLSX exports. |
 | **[`Docs/SECURITY_AUDIT_REPORT.md`](file:///c:/Users/madhu/Documents/Jiza%20Demo/Docs/SECURITY_AUDIT_REPORT.md)** | Security Audit | 4FA Admin authentication, Bcrypt password hashing (12 rounds), signed JWT tokens, rate limiter admin exemption, & OWASP defenses. |
