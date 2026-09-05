@@ -112,3 +112,27 @@ This document provides a comprehensive technical breakdown of the storefront and
 - `DELETE /api/admin/reviews/:id` - Delete review
 - `GET /api/admin/problems` - Customer support tickets
 - `PATCH /api/admin/problems/:id` - Update ticket status and notes
+
+---
+
+## 4. Real-Time Category Propagation Architecture
+
+### Frontend-to-Backend Sync Workflow
+1. **Centralized Store (`src/App.jsx`)**: Category catalog state is maintained in `categoriesList` and refreshed every 15 seconds or upon Admin CMS changes.
+2. **Deep Image Change Detection**: The state diff helper `hasArrayChanged` compares `['id', 'name', 'img', 'active', 'display_order', 'productsCount', 'subcategoriesCount']`, guaranteeing that changes to category images immediately trigger re-renders across all storefront views.
+3. **Prop Ingestion Across Storefront Views**:
+   - `<HomeView categoriesList={categoriesList} />` — Renders live updated category card images in the "Shop by Category" section with graceful image fallback (`onError`).
+   - `<CategoriesView categoriesList={categoriesList} />` — Displays full catalog collections.
+   - `<SubCategoryView categoriesList={categoriesList} />` — Dynamic banner and subcategory routing.
+   - `<SearchView categoriesList={categoriesList} />` — Dynamic category and subcategory filtering options.
+
+---
+
+## 5. Deployment Protocol & Automated Pipeline
+
+### Architecture
+- **Production Host**: Hostinger KVM VPS (`200.141.13.61`), Ubuntu 22.04 LTS.
+- **Reverse Proxy**: Nginx 1.18+ with HTTP/2, Let's Encrypt SSL, Gzip compression, and 1-year immutable caching on versioned assets.
+- **Application Node**: PM2 managing `jiza-backend` running on port 5000.
+- **Deployment Tool**: `scratch/deploy_to_vps.js` connects via `ssh2`, uploads `dist/` and `src/` bundle, extracts into `/var/www/jiza/`, reloads Nginx, restarts PM2, and runs live HTTPS health checks.
+- **Security Policy**: VPS credentials are kept strictly local in `Docs/VPS_CREDENTIALS.md` (protected by `.gitignore`) and are never committed to remote repositories.
