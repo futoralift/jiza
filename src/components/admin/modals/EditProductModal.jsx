@@ -13,11 +13,15 @@ export default function EditProductModal({
   handleEditMakePrimary,
   handleEditRemoveSlot,
   handleEditSingleSlotUpload,
+  editImageUploadProgress = {},
   editUploadedVideo = '',
   setEditUploadedVideo,
   handleEditVideoUpload,
   handleEditRemoveVideo,
-  videoUploadLoading = false
+  videoUploadLoading = false,
+  videoUploadProgress = 0,
+  videoUploadStats = { loaded: '0 MB', total: '0 MB', percent: 0 },
+  handleCancelVideoUpload
 }) {
   if (!editingProduct) return null;
 
@@ -411,11 +415,27 @@ export default function EditProductModal({
               <div className="grid grid-cols-2 gap-2">
                 {[0, 1, 2, 3].map((idx) => {
                   const imgUrl = editUploadedImages[idx];
+                  const isSlotUploading = !!editImageUploadProgress[idx];
+                  const slotPercent = editImageUploadProgress[idx] || 0;
                   return (
                     <div 
                       key={idx}
                       className="relative aspect-square rounded-xl border border-[#F7C5C0] bg-[#FFF0F2]/20 overflow-hidden flex flex-col items-center justify-center group shadow-sm"
                     >
+                      {/* Slot Uploading Live Progress Bar Overlay */}
+                      {isSlotUploading && (
+                        <div className="absolute inset-0 bg-[#FFF0F2]/95 backdrop-blur-xs flex flex-col items-center justify-center p-2 z-30 text-center animate-fadeIn">
+                          <span className="material-symbols-outlined text-base text-[#B78946] animate-spin">progress_activity</span>
+                          <span className="text-[10px] font-black text-black mt-1 font-mono">{slotPercent}%</span>
+                          <div className="w-4/5 bg-black/10 rounded-full h-1.5 overflow-hidden mt-1 border border-[#F7C5C0]">
+                            <div 
+                              className="bg-gradient-to-r from-[#B78946] to-[#E6A055] h-full rounded-full transition-all duration-150"
+                              style={{ width: `${Math.max(8, slotPercent)}%` }}
+                            ></div>
+                          </div>
+                          <span className="text-[8px] font-bold text-gray-500 mt-1 uppercase tracking-wider">Uploading...</span>
+                        </div>
+                      )}
                       {/* Slot Badge */}
                       <div className="absolute top-1 left-1 z-10 pointer-events-none">
                         {idx === 0 ? (
@@ -493,7 +513,41 @@ export default function EditProductModal({
                   </span>
                 </div>
 
-                {editUploadedVideo ? (
+                {videoUploadLoading ? (
+                  <div className="rounded-xl border-2 border-dashed border-[#B78946] bg-[#FFF9F9] p-4 text-center space-y-3 shadow-sm animate-fadeIn">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="flex items-center gap-1.5 font-bold text-black">
+                        <span className="material-symbols-outlined text-base animate-spin text-[#B78946]">progress_activity</span>
+                        <span>Uploading Showcase Video...</span>
+                      </span>
+                      <span className="font-mono text-xs bg-[#B78946]/20 text-[#8C6228] px-2.5 py-0.5 rounded-full font-black border border-[#B78946]/40 shadow-xs">
+                        {videoUploadProgress}%
+                      </span>
+                    </div>
+
+                    {/* Real-Time Progress Bar Track & Glow Fill */}
+                    <div className="w-full bg-black/10 rounded-full h-3 overflow-hidden p-0.5 border border-[#F7C5C0]">
+                      <div 
+                        className="bg-gradient-to-r from-[#B78946] via-[#E5A856] to-[#B78946] h-full rounded-full transition-all duration-200 shadow-sm"
+                        style={{ width: `${Math.max(5, videoUploadProgress)}%` }}
+                      ></div>
+                    </div>
+
+                    <div className="flex items-center justify-between text-[10px] text-gray-600 px-1 pt-0.5">
+                      <span>Transferred: <strong className="text-black font-semibold">{videoUploadStats?.loaded || '0 MB'}</strong> of {videoUploadStats?.total || '...'}</span>
+                      {typeof handleCancelVideoUpload === 'function' && (
+                        <button
+                          type="button"
+                          onClick={handleCancelVideoUpload}
+                          className="text-red-600 hover:text-red-800 font-bold hover:underline cursor-pointer flex items-center gap-0.5 transition-colors"
+                        >
+                          <span className="material-symbols-outlined text-xs">cancel</span>
+                          <span>Cancel Upload</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ) : editUploadedVideo ? (
                   <div className="relative rounded-xl border border-[#F7C5C0] bg-black/5 p-2 overflow-hidden space-y-2">
                     <div className="relative rounded-lg overflow-hidden bg-black aspect-video max-h-36 flex items-center justify-center">
                       <video 
@@ -543,12 +597,10 @@ export default function EditProductModal({
                     />
                     <label htmlFor="edit-video-upload-input" className="cursor-pointer block space-y-1">
                       <div className="w-8 h-8 bg-white border border-[#F7C5C0] rounded-full flex items-center justify-center text-black mx-auto shadow-sm">
-                        <span className="material-symbols-outlined text-lg">
-                          {videoUploadLoading ? 'hourglass_top' : 'video_call'}
-                        </span>
+                        <span className="material-symbols-outlined text-lg">video_call</span>
                       </div>
                       <p className="text-[11px] font-bold text-on-surface">
-                        {videoUploadLoading ? 'Loading Video...' : '+ Upload Showcase Video'}
+                        + Upload Showcase Video
                       </p>
                       <p className="text-[9px] text-on-surface-variant">
                         Included in the storefront product slider
@@ -578,10 +630,30 @@ export default function EditProductModal({
 
             <button
               type="submit"
-              className="px-5 py-2 bg-[#FCDAD7] hover:bg-[#F9C5C0] text-black font-bold text-[11px] uppercase tracking-wider rounded-lg shadow-md border border-black/20 flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer"
+              disabled={videoUploadLoading || Object.keys(editImageUploadProgress).length > 0}
+              className={`px-5 py-2.5 rounded-lg shadow-md border border-black/20 flex items-center gap-1.5 font-bold text-[11px] uppercase tracking-wider transition-all cursor-pointer ${
+                (videoUploadLoading || Object.keys(editImageUploadProgress).length > 0)
+                  ? 'bg-black/10 text-black/50 cursor-not-allowed border-black/10 shadow-none'
+                  : 'bg-[#FCDAD7] hover:bg-[#F9C5C0] text-black active:scale-95'
+              }`}
+              title={
+                videoUploadLoading 
+                  ? `Please wait: Video is uploading (${videoUploadProgress}%)` 
+                  : Object.keys(editImageUploadProgress).length > 0 
+                  ? 'Please wait: Photos are uploading...' 
+                  : 'Save Changes'
+              }
             >
-              <span className="material-symbols-outlined text-sm">save</span>
-              <span>Save Changes</span>
+              <span className={`material-symbols-outlined text-sm ${(videoUploadLoading || Object.keys(editImageUploadProgress).length > 0) ? 'animate-spin text-[#B78946]' : ''}`}>
+                {(videoUploadLoading || Object.keys(editImageUploadProgress).length > 0) ? 'progress_activity' : 'save'}
+              </span>
+              <span>
+                {videoUploadLoading 
+                  ? `Uploading Video (${videoUploadProgress}%)...` 
+                  : Object.keys(editImageUploadProgress).length > 0 
+                  ? 'Uploading Photos...' 
+                  : 'Save Changes'}
+              </span>
             </button>
           </div>
 

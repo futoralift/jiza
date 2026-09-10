@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { API_BASE, getAdminToken, adminFetch, isReadOnlyAdmin } from '../config';
 import * as XLSX from 'xlsx';
 import { CATEGORIES } from '../data/products';
@@ -535,10 +535,79 @@ export default function AdminPanel({
     }
   }, [activeTab]);
 
-  // Product Video Upload States
+  // Product Video Upload States & Real-Time Upload Tracking
   const [uploadedVideo, setUploadedVideo] = useState('');
   const [editUploadedVideo, setEditUploadedVideo] = useState('');
   const [videoUploadLoading, setVideoUploadLoading] = useState(false);
+  const [videoUploadProgress, setVideoUploadProgress] = useState(0);
+  const [videoUploadStats, setVideoUploadStats] = useState({ loaded: '0 MB', total: '0 MB', percent: 0 });
+  const [videoUploadError, setVideoUploadError] = useState('');
+  const videoUploadXhrRef = useRef(null);
+
+  const [editVideoUploadLoading, setEditVideoUploadLoading] = useState(false);
+  const [editVideoUploadProgress, setEditVideoUploadProgress] = useState(0);
+  const [editVideoUploadStats, setEditVideoUploadStats] = useState({ loaded: '0 MB', total: '0 MB', percent: 0 });
+  const [editVideoUploadError, setEditVideoUploadError] = useState('');
+  const editVideoUploadXhrRef = useRef(null);
+
+  // Clean up any active video upload XHR on unmount to prevent leaks
+  useEffect(() => {
+    return () => {
+      if (videoUploadXhrRef.current) videoUploadXhrRef.current.abort();
+      if (editVideoUploadXhrRef.current) editVideoUploadXhrRef.current.abort();
+    };
+  }, []);
+
+  // Real-Time Image Upload Progress State
+  const [imageUploadProgress, setImageUploadProgress] = useState({}); // { [slotIdx]: percent }
+  const [editImageUploadProgress, setEditImageUploadProgress] = useState({});
+
+  // Direct Image Streaming Upload with Real-Time Progress Tracking
+  const uploadImageToServer = (file, onProgress) => {
+    return new Promise((resolve) => {
+      if (!file) return resolve('');
+
+      const token = getAdminToken();
+      const xhr = new XMLHttpRequest();
+      const uploadUrl = API_BASE ? `${API_BASE}/api/admin/upload-image` : '/api/admin/upload-image';
+      xhr.open('POST', uploadUrl, true);
+      xhr.timeout = 60000; // 60 second timeout — prevents stuck at 99%
+
+      if (token) {
+        xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+      }
+      xhr.setRequestHeader('Content-Type', file.type || 'image/jpeg');
+      xhr.setRequestHeader('X-File-Name', encodeURIComponent(file.name));
+      xhr.setRequestHeader('X-File-Size', String(file.size));
+
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable && onProgress) {
+          const percent = Math.min(99, Math.round((e.loaded / e.total) * 100));
+          onProgress(percent);
+        }
+      };
+
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            const data = JSON.parse(xhr.responseText);
+            if (data.success && data.url) {
+              if (onProgress) onProgress(100);
+              resolve(data.url);
+              return;
+            }
+          } catch (_) {}
+        }
+        resolve('');
+      };
+
+      xhr.onerror = () => resolve('');
+      xhr.onabort = () => resolve('');
+      xhr.ontimeout = () => resolve('');
+
+      xhr.send(file);
+    });
+  };
 
   // Automatic Client-Side Image Compression (Max 10MB input -> WebP 1200px max, ~150KB output)
   const processFileToDataUrl = (file) => {
@@ -590,62 +659,164 @@ export default function AdminPanel({
     });
   };
 
-  // Video Upload Handler (Max 10MB limit)
-  const processVideoFile = (file) => {
+  // Dedicated Video Streaming Upload with Real-Time Progress Tracking (Max 30MB limit)
+  const uploadVideoToServer = (file, isEdit = false) => {
     return new Promise((resolve) => {
       if (!file) return resolve('');
 
-      const MAX_VIDEO_SIZE_MB = 10;
+      const MAX_VIDEO_SIZE_MB = 30;
       if (file.size > MAX_VIDEO_SIZE_MB * 1024 * 1024) {
-        alert(`❌ Video Size Limit Exceeded: ${(file.size / (1024 * 1024)).toFixed(2)} MB.\n\nMaximum allowed video file size is 10 MB. Please compress or trim your video before uploading.`);
+        alert(`❌ Video Size Limit Exceeded: ${(file.size / (1024 * 1024)).toFixed(2)} MB.\n\nMaximum allowed video file size is 30 MB. Please compress or trim your video before uploading.`);
         return resolve('');
       }
 
-      if (!file.type.startsWith('video/')) {
+      const validTypes = ['video/mp4', 'video/webm', 'video/quicktime', 'video/mov', 'video/mkv', 'video/x-matroska', 'video/avi'];
+      if (!file.type.startsWith('video/') && !validTypes.includes(file.type.toLowerCase())) {
         alert('❌ Invalid Format: Please upload a valid video file (MP4, WebM, or MOV).');
         return resolve('');
       }
 
-      setVideoUploadLoading(true);
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setVideoUploadLoading(false);
-        resolve(e.target.result);
+      const setLoading = isEdit ? setEditVideoUploadLoading : setVideoUploadLoading;
+      const setProgress = isEdit ? setEditVideoUploadProgress : setVideoUploadProgress;
+      const setStats = isEdit ? setEditVideoUploadStats : setVideoUploadStats;
+      const setError = isEdit ? setEditVideoUploadError : setVideoUploadError;
+      const xhrRef = isEdit ? editVideoUploadXhrRef : videoUploadXhrRef;
+
+      setLoading(true);
+      setProgress(0);
+      setStats({
+        loaded: '0.0 MB',
+        total: (file.size / (1024 * 1024)).toFixed(1) + ' MB',
+        percent: 0
+      });
+      setError('');
+
+      const token = getAdminToken();
+      const xhr = new XMLHttpRequest();
+      xhrRef.current = xhr;
+
+      const uploadUrl = API_BASE ? `${API_BASE}/api/admin/upload-video` : '/api/admin/upload-video';
+      xhr.open('POST', uploadUrl, true);
+      xhr.timeout = 180000; // 3 minute timeout — prevents stuck at 99%
+
+      if (token) {
+        xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+      }
+      xhr.setRequestHeader('Content-Type', file.type || 'video/mp4');
+      xhr.setRequestHeader('X-File-Name', encodeURIComponent(file.name));
+      xhr.setRequestHeader('X-File-Size', String(file.size));
+
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) {
+          const percent = Math.min(99, Math.round((e.loaded / e.total) * 100));
+          setProgress(percent);
+          setStats({
+            loaded: (e.loaded / (1024 * 1024)).toFixed(1) + ' MB',
+            total: (e.total / (1024 * 1024)).toFixed(1) + ' MB',
+            percent
+          });
+        }
       };
-      reader.onerror = () => {
-        setVideoUploadLoading(false);
-        alert('❌ Failed to read video file.');
+
+      xhr.onload = () => {
+        setLoading(false);
+        xhrRef.current = null;
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            const data = JSON.parse(xhr.responseText);
+            if (data.success && data.url) {
+              setProgress(100);
+              showAdminToast('🎥 Showcase video uploaded & ready!');
+              resolve(data.url);
+              return;
+            }
+          } catch (_) {}
+        }
+        let errMsg = 'Failed to upload video to server.';
+        try {
+          const errData = JSON.parse(xhr.responseText);
+          if (errData.error) errMsg = errData.error;
+        } catch (_) {}
+        setError(errMsg);
+        alert(`❌ Video Upload Error:\n\n${errMsg}`);
         resolve('');
       };
-      reader.readAsDataURL(file);
+
+      xhr.onerror = () => {
+        setLoading(false);
+        setProgress(0);
+        xhrRef.current = null;
+        const msg = 'Network error during video upload. Please check your internet connection.';
+        setError(msg);
+        alert(`❌ ${msg}`);
+        resolve('');
+      };
+
+      xhr.onabort = () => {
+        setLoading(false);
+        xhrRef.current = null;
+        setProgress(0);
+        showAdminToast('Video upload cancelled.');
+        resolve('');
+      };
+
+      xhr.ontimeout = () => {
+        setLoading(false);
+        xhrRef.current = null;
+        setProgress(0);
+        const msg = 'Video upload timed out. Please try again with a smaller file.';
+        setError(msg);
+        alert(`❌ ${msg}`);
+        resolve('');
+      };
+
+      xhr.send(file);
     });
   };
 
   const handleVideoUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const videoData = await processVideoFile(file);
-    if (videoData) {
-      setUploadedVideo(videoData);
+    const videoUrl = await uploadVideoToServer(file, false);
+    if (videoUrl) {
+      setUploadedVideo(videoUrl);
     }
     e.target.value = '';
   };
 
+  const handleCancelVideoUpload = () => {
+    if (videoUploadXhrRef.current) {
+      videoUploadXhrRef.current.abort();
+    }
+    setVideoUploadLoading(false);
+    setVideoUploadProgress(0);
+  };
+
   const handleRemoveVideo = () => {
+    handleCancelVideoUpload();
     setUploadedVideo('');
   };
 
   const handleEditVideoUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const videoData = await processVideoFile(file);
-    if (videoData) {
-      setEditUploadedVideo(videoData);
+    const videoUrl = await uploadVideoToServer(file, true);
+    if (videoUrl) {
+      setEditUploadedVideo(videoUrl);
     }
     e.target.value = '';
   };
 
+  const handleCancelEditVideoUpload = () => {
+    if (editVideoUploadXhrRef.current) {
+      editVideoUploadXhrRef.current.abort();
+    }
+    setEditVideoUploadLoading(false);
+    setEditVideoUploadProgress(0);
+  };
+
   const handleEditRemoveVideo = () => {
+    handleCancelEditVideoUpload();
     setEditUploadedVideo('');
   };
 
@@ -863,6 +1034,18 @@ export default function AdminPanel({
 
   const handleCreateProductSubmit = async (e) => {
     e.preventDefault();
+
+    if (videoUploadLoading) {
+      alert(`⏳ Please wait: The showcase video is currently uploading (${videoUploadProgress}% complete).\n\nPlease wait for the upload to complete before publishing to store.`);
+      return;
+    }
+
+    const anyImgUploading = Object.keys(imageUploadProgress).length > 0;
+    if (anyImgUploading) {
+      alert('⏳ Please wait: Product photos are currently uploading. Please wait for them to finish before publishing.');
+      return;
+    }
+
     if (!newProd.productCode || !newProd.productCode.trim()) {
       alert('⚠️ Validation Warning: Product Code is required!\n\nPlease enter a valid Product Code (e.g. 101, JIZA-PRL-001) before publishing.');
       return;
@@ -1000,6 +1183,19 @@ export default function AdminPanel({
 
   const handleUpdateProductSubmit = async (e) => {
     e.preventDefault();
+
+    if (editVideoUploadLoading || videoUploadLoading) {
+      const prog = editVideoUploadLoading ? editVideoUploadProgress : videoUploadProgress;
+      alert(`⏳ Please wait: The showcase video is currently uploading (${prog}% complete).\n\nPlease wait for the upload to complete before saving.`);
+      return;
+    }
+
+    const anyEditImgUploading = Object.keys(editImageUploadProgress).length > 0;
+    if (anyEditImgUploading) {
+      alert('⏳ Please wait: Product photos are currently uploading. Please wait for them to finish before saving.');
+      return;
+    }
+
     if (!editProdForm.productCode || !editProdForm.productCode.trim()) {
       alert('⚠️ Validation Warning: Product Code is required!\n\nPlease enter a valid Product Code (e.g. 101, JIZA-PRL-001) before saving.');
       return;
@@ -1090,36 +1286,70 @@ export default function AdminPanel({
     });
   };
 
-  // Image Upload Handler Functions
+  // Image Upload Handler Functions with Live Real-Time Progress & Safe Finally Cleanup
   const handleSingleSlotUpload = async (e, slotIdx) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const dataUrl = await processFileToDataUrl(file);
-    if (dataUrl) {
-      setUploadedImages(prev => {
-        const copy = [...prev];
-        copy[slotIdx] = dataUrl;
+
+    setImageUploadProgress(prev => ({ ...prev, [slotIdx]: 5 }));
+    try {
+      let uploadedUrl = await uploadImageToServer(file, (p) => {
+        setImageUploadProgress(prev => ({ ...prev, [slotIdx]: p }));
+      });
+
+      if (!uploadedUrl) {
+        uploadedUrl = await processFileToDataUrl(file);
+      }
+
+      if (uploadedUrl) {
+        setUploadedImages(prev => {
+          const copy = [...prev];
+          copy[slotIdx] = uploadedUrl;
+          return copy;
+        });
+      }
+    } catch (err) {
+      console.error('Slot upload error:', err);
+    } finally {
+      setImageUploadProgress(prev => {
+        const copy = { ...prev };
+        delete copy[slotIdx];
         return copy;
       });
+      e.target.value = '';
     }
-    e.target.value = '';
   };
 
   const handleMultipleFilesUpload = async (e) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
 
+    let currentImages = [...uploadedImages];
     for (let i = 0; i < Math.min(files.length, 4); i++) {
-      const dataUrl = await processFileToDataUrl(files[i]);
-      if (dataUrl) {
-        setUploadedImages(prev => {
-          const copy = [...prev];
-          const emptyIdx = copy.findIndex(img => !img);
-          if (emptyIdx !== -1) {
-            copy[emptyIdx] = dataUrl;
-          } else {
-            copy[i] = dataUrl;
-          }
+      const file = files[i];
+      let targetSlot = currentImages.findIndex((img, idx) => !img && !imageUploadProgress[idx]);
+      if (targetSlot === -1) targetSlot = i;
+
+      setImageUploadProgress(prev => ({ ...prev, [targetSlot]: 5 }));
+      try {
+        let uploadedUrl = await uploadImageToServer(file, (p) => {
+          setImageUploadProgress(prev => ({ ...prev, [targetSlot]: p }));
+        });
+
+        if (!uploadedUrl) {
+          uploadedUrl = await processFileToDataUrl(file);
+        }
+
+        if (uploadedUrl) {
+          currentImages[targetSlot] = uploadedUrl;
+          setUploadedImages([...currentImages]);
+        }
+      } catch (err) {
+        console.error('Multiple files upload error on slot', targetSlot, err);
+      } finally {
+        setImageUploadProgress(prev => {
+          const copy = { ...prev };
+          delete copy[targetSlot];
           return copy;
         });
       }
@@ -1133,17 +1363,32 @@ export default function AdminPanel({
     const files = Array.from(e.dataTransfer.files || []).filter(f => f.type.startsWith('image/'));
     if (files.length === 0) return;
 
+    let currentImages = [...uploadedImages];
     for (let i = 0; i < Math.min(files.length, 4); i++) {
-      const dataUrl = await processFileToDataUrl(files[i]);
-      if (dataUrl) {
-        setUploadedImages(prev => {
-          const copy = [...prev];
-          const emptyIdx = copy.findIndex(img => !img);
-          if (emptyIdx !== -1) {
-            copy[emptyIdx] = dataUrl;
-          } else {
-            copy[i] = dataUrl;
-          }
+      const file = files[i];
+      let targetSlot = currentImages.findIndex((img, idx) => !img && !imageUploadProgress[idx]);
+      if (targetSlot === -1) targetSlot = i;
+
+      setImageUploadProgress(prev => ({ ...prev, [targetSlot]: 5 }));
+      try {
+        let uploadedUrl = await uploadImageToServer(file, (p) => {
+          setImageUploadProgress(prev => ({ ...prev, [targetSlot]: p }));
+        });
+
+        if (!uploadedUrl) {
+          uploadedUrl = await processFileToDataUrl(file);
+        }
+
+        if (uploadedUrl) {
+          currentImages[targetSlot] = uploadedUrl;
+          setUploadedImages([...currentImages]);
+        }
+      } catch (err) {
+        console.error('Global drop upload error on slot', targetSlot, err);
+      } finally {
+        setImageUploadProgress(prev => {
+          const copy = { ...prev };
+          delete copy[targetSlot];
           return copy;
         });
       }
@@ -1183,32 +1428,66 @@ export default function AdminPanel({
   const handleEditSingleSlotUpload = async (e, slotIdx) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const dataUrl = await processFileToDataUrl(file);
-    if (dataUrl) {
-      setEditUploadedImages(prev => {
-        const copy = [...prev];
-        copy[slotIdx] = dataUrl;
+
+    setEditImageUploadProgress(prev => ({ ...prev, [slotIdx]: 5 }));
+    try {
+      let uploadedUrl = await uploadImageToServer(file, (p) => {
+        setEditImageUploadProgress(prev => ({ ...prev, [slotIdx]: p }));
+      });
+
+      if (!uploadedUrl) {
+        uploadedUrl = await processFileToDataUrl(file);
+      }
+
+      if (uploadedUrl) {
+        setEditUploadedImages(prev => {
+          const copy = [...prev];
+          copy[slotIdx] = uploadedUrl;
+          return copy;
+        });
+      }
+    } catch (err) {
+      console.error('Edit single slot upload error:', err);
+    } finally {
+      setEditImageUploadProgress(prev => {
+        const copy = { ...prev };
+        delete copy[slotIdx];
         return copy;
       });
+      e.target.value = '';
     }
-    e.target.value = '';
   };
 
   const handleEditMultipleFilesUpload = async (e) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
 
+    let currentImages = [...editUploadedImages];
     for (let i = 0; i < Math.min(files.length, 4); i++) {
-      const dataUrl = await processFileToDataUrl(files[i]);
-      if (dataUrl) {
-        setEditUploadedImages(prev => {
-          const copy = [...prev];
-          const emptyIdx = copy.findIndex(img => !img);
-          if (emptyIdx !== -1) {
-            copy[emptyIdx] = dataUrl;
-          } else {
-            copy[i] = dataUrl;
-          }
+      const file = files[i];
+      let targetSlot = currentImages.findIndex((img, idx) => !img && !editImageUploadProgress[idx]);
+      if (targetSlot === -1) targetSlot = i;
+
+      setEditImageUploadProgress(prev => ({ ...prev, [targetSlot]: 5 }));
+      try {
+        let uploadedUrl = await uploadImageToServer(file, (p) => {
+          setEditImageUploadProgress(prev => ({ ...prev, [targetSlot]: p }));
+        });
+
+        if (!uploadedUrl) {
+          uploadedUrl = await processFileToDataUrl(file);
+        }
+
+        if (uploadedUrl) {
+          currentImages[targetSlot] = uploadedUrl;
+          setEditUploadedImages([...currentImages]);
+        }
+      } catch (err) {
+        console.error('Edit multiple files upload error on slot', targetSlot, err);
+      } finally {
+        setEditImageUploadProgress(prev => {
+          const copy = { ...prev };
+          delete copy[targetSlot];
           return copy;
         });
       }
@@ -1942,11 +2221,15 @@ export default function AdminPanel({
         handleSwapSlots={handleSwapSlots}
         handleRemoveSlot={handleRemoveSlot}
         handleSingleSlotUpload={handleSingleSlotUpload}
+        imageUploadProgress={imageUploadProgress}
         uploadedVideo={uploadedVideo}
         setUploadedVideo={setUploadedVideo}
         handleVideoUpload={handleVideoUpload}
         handleRemoveVideo={handleRemoveVideo}
         videoUploadLoading={videoUploadLoading}
+        videoUploadProgress={videoUploadProgress}
+        videoUploadStats={videoUploadStats}
+        handleCancelVideoUpload={handleCancelVideoUpload}
       />
 
       {/* MODAL 1B: EDIT PRODUCT MODAL */}
@@ -1962,11 +2245,15 @@ export default function AdminPanel({
         handleEditMakePrimary={handleEditMakePrimary}
         handleEditRemoveSlot={handleEditRemoveSlot}
         handleEditSingleSlotUpload={handleEditSingleSlotUpload}
+        editImageUploadProgress={editImageUploadProgress}
         editUploadedVideo={editUploadedVideo}
         setEditUploadedVideo={setEditUploadedVideo}
         handleEditVideoUpload={handleEditVideoUpload}
         handleEditRemoveVideo={handleEditRemoveVideo}
-        videoUploadLoading={videoUploadLoading}
+        videoUploadLoading={editVideoUploadLoading}
+        videoUploadProgress={editVideoUploadProgress}
+        videoUploadStats={editVideoUploadStats}
+        handleCancelVideoUpload={handleCancelEditVideoUpload}
       />
 
       {/* MODAL 2: ORDER DETAILS */}

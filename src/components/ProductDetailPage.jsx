@@ -37,23 +37,23 @@ export default function ProductDetailPage({
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
   }, [product?.id]);
 
-  // Build unified media items list (images + optional video)
+  // Build unified media items list (images first, then optional video)
   const rawImages = product?.images?.filter(Boolean) || (product?.img ? [product.img] : []);
   const videoUrl = product?.videoUrl || product?.video_url || product?.video || '';
 
   const mediaItems = useMemo(() => {
     const items = [];
-    if (videoUrl) {
-      items.push({ type: 'video', url: getMediaUrl(videoUrl) });
-    }
     rawImages.forEach((img) => {
       items.push({ type: 'image', url: getMediaUrl(img) });
     });
+    if (videoUrl && typeof videoUrl === 'string' && videoUrl.trim()) {
+      items.push({ type: 'video', url: getMediaUrl(videoUrl.trim()) });
+    }
     if (items.length === 0) {
       items.push({ type: 'image', url: '/logo-j.webp' });
     }
     return items;
-  }, [videoUrl, rawImages]);
+  }, [rawImages, videoUrl]);
 
   const [activeMedia, setActiveMedia] = useState(0);
 

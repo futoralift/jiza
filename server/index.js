@@ -2122,6 +2122,180 @@ app.delete('/api/admin/rental-gallery/:id', requireAdminAuth, async (req, res) =
   }
 });
 
+// POST Dedicated Admin Image Upload (Protected — Supports Direct Stream & Base64 Fallback)
+app.post(['/api/admin/upload-image', '/api/upload-image'], requireAdminAuth, (req, res) => {
+  try {
+    const targetFolder = path.join(__dirname, '../public/uploads/products');
+    if (!fs.existsSync(targetFolder)) {
+      fs.mkdirSync(targetFolder, { recursive: true });
+    }
+
+    const contentType = (req.headers['content-type'] || '').toLowerCase();
+
+    // Case 1: Base64 JSON payload (Fallback — body already parsed by express.json)
+    if (contentType.includes('application/json') && req.body && req.body.image) {
+      const savedUrl = saveBase64MediaToDisk(req.body.image, 'products');
+      if (!savedUrl) {
+        return res.status(400).json({ error: 'Failed to process base64 image.' });
+      }
+      return res.json({ success: true, url: savedUrl });
+    }
+
+    // Case 2: Binary stream — collect all chunks first, then write once (avoids pipe+data conflict)
+    const rawFileName = req.headers['x-file-name'] ? decodeURIComponent(req.headers['x-file-name']) : 'photo.webp';
+    let ext = path.extname(rawFileName).replace('.', '').toLowerCase();
+    if (!ext || !['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg'].includes(ext)) {
+      if (contentType.includes('png')) ext = 'png';
+      else if (contentType.includes('webp')) ext = 'webp';
+      else if (contentType.includes('gif')) ext = 'gif';
+      else ext = 'jpg';
+    }
+
+    const MAX_SIZE = 20 * 1024 * 1024; // 20MB
+    const chunks = [];
+    let totalBytes = 0;
+    let aborted = false;
+
+    req.on('data', (chunk) => {
+      if (aborted) return;
+      totalBytes += chunk.length;
+      if (totalBytes > MAX_SIZE) {
+        aborted = true;
+        req.resume(); // drain remaining data
+        if (!res.headersSent) {
+          res.status(400).json({ error: 'Image file size exceeds maximum 20MB limit.' });
+        }
+        return;
+      }
+      chunks.push(chunk);
+    });
+
+    req.on('end', () => {
+      if (aborted) return;
+      if (totalBytes === 0) {
+        return res.status(400).json({ error: 'Uploaded image file is empty.' });
+      }
+      const filename = `products-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}.${ext}`;
+      const filePath = path.join(targetFolder, filename);
+      const buffer = Buffer.concat(chunks);
+      fs.writeFile(filePath, buffer, (writeErr) => {
+        if (writeErr) {
+          console.error('Error writing image to disk:', writeErr);
+          if (!res.headersSent) {
+            res.status(500).json({ error: 'Failed to write image to disk.' });
+          }
+          return;
+        }
+        const finalUrl = `/uploads/products/${filename}`;
+        console.log(`📸 Image uploaded: ${finalUrl} (${(totalBytes / 1024).toFixed(1)} KB)`);
+        if (!res.headersSent) {
+          res.status(200).json({ success: true, url: finalUrl, filename, size: totalBytes });
+        }
+      });
+    });
+
+    req.on('error', (err) => {
+      console.error('Image request stream error:', err);
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Image upload stream interrupted.' });
+      }
+    });
+
+  } catch (err) {
+    console.error('Image upload controller error:', err);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Server error while processing image upload.' });
+    }
+  }
+});
+
+// POST Dedicated Admin Video Upload (Protected — Chunk-buffered, reliable write)
+app.post(['/api/admin/upload-video', '/api/upload-video'], requireAdminAuth, (req, res) => {
+  try {
+    const targetFolder = path.join(__dirname, '../public/uploads/products');
+    if (!fs.existsSync(targetFolder)) {
+      fs.mkdirSync(targetFolder, { recursive: true });
+    }
+
+    const contentType = (req.headers['content-type'] || '').toLowerCase();
+
+    // Case 1: Base64 JSON payload (Fallback — body already parsed by express.json)
+    if (contentType.includes('application/json') && req.body && req.body.video) {
+      const savedUrl = saveBase64MediaToDisk(req.body.video, 'products');
+      if (!savedUrl) {
+        return res.status(400).json({ error: 'Failed to process base64 video payload.' });
+      }
+      return res.json({ success: true, url: savedUrl });
+    }
+
+    // Case 2: Binary stream — collect all chunks first, then write once (avoids pipe+data conflict)
+    const rawFileName = req.headers['x-file-name'] ? decodeURIComponent(req.headers['x-file-name']) : 'showcase-video.mp4';
+    let ext = path.extname(rawFileName).replace('.', '').toLowerCase();
+    if (!ext || !['mp4', 'webm', 'mov', 'mkv', 'avi'].includes(ext)) {
+      if (contentType.includes('webm')) ext = 'webm';
+      else if (contentType.includes('quicktime') || contentType.includes('mov')) ext = 'mov';
+      else ext = 'mp4';
+    }
+    if (ext === 'quicktime') ext = 'mov';
+
+    const MAX_SIZE = 50 * 1024 * 1024; // 50MB
+    const chunks = [];
+    let totalBytes = 0;
+    let aborted = false;
+
+    req.on('data', (chunk) => {
+      if (aborted) return;
+      totalBytes += chunk.length;
+      if (totalBytes > MAX_SIZE) {
+        aborted = true;
+        req.resume(); // drain remaining data without storing
+        if (!res.headersSent) {
+          res.status(400).json({ error: 'Video file size exceeds maximum 50MB limit.' });
+        }
+        return;
+      }
+      chunks.push(chunk);
+    });
+
+    req.on('end', () => {
+      if (aborted) return;
+      if (totalBytes === 0) {
+        return res.status(400).json({ error: 'Uploaded video file is empty.' });
+      }
+      const filename = `products-vid-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}.${ext}`;
+      const filePath = path.join(targetFolder, filename);
+      const buffer = Buffer.concat(chunks);
+      fs.writeFile(filePath, buffer, (writeErr) => {
+        if (writeErr) {
+          console.error('Error writing video to disk:', writeErr);
+          if (!res.headersSent) {
+            res.status(500).json({ error: 'Failed to write video file to storage.' });
+          }
+          return;
+        }
+        const finalUrl = `/uploads/products/${filename}`;
+        console.log(`🎥 Video uploaded: ${finalUrl} (${(totalBytes / (1024 * 1024)).toFixed(2)} MB)`);
+        if (!res.headersSent) {
+          res.status(200).json({ success: true, url: finalUrl, filename, size: totalBytes });
+        }
+      });
+    });
+
+    req.on('error', (err) => {
+      console.error('Video request stream error:', err);
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Video upload stream interrupted.' });
+      }
+    });
+
+  } catch (err) {
+    console.error('Video upload controller error:', err);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Server error while processing video upload.' });
+    }
+  }
+});
+
 // ======================================================
 // Helper to extract and validate delivery address snapshot for orders
 
