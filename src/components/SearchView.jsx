@@ -122,21 +122,15 @@ export default function SearchView({
       const isBestSellerSearch = q === 'best seller' || q === 'bestseller' || q === 'best sellers';
 
       const matchesClearance = Boolean(
-        prodSpecialSec === 'stock clearance sale' ||
-        prodSpecialSec.includes('clearance') ||
-        (product.badge && product.badge.toLowerCase().includes('clearance'))
+        prodSpecialSec !== 'none' && (prodSpecialSec === 'stock clearance sale' || prodSpecialSec.includes('clearance'))
       );
 
       const matchesNewArrival = Boolean(
-        prodSpecialSec === 'new arrival' ||
-        prodSpecialSec.includes('new arrival') ||
-        (product.badge && product.badge.toLowerCase().includes('new arrival'))
+        prodSpecialSec !== 'none' && (prodSpecialSec === 'new arrival' || prodSpecialSec.includes('new arrival'))
       );
 
       const matchesBestSeller = Boolean(
-        prodSpecialSec === 'best seller' ||
-        prodSpecialSec.includes('best seller') ||
-        (product.badge && (product.badge.toLowerCase().includes('bestseller') || product.badge.toLowerCase().includes('best seller')))
+        prodSpecialSec !== 'none' && (prodSpecialSec === 'best seller' || prodSpecialSec.includes('best seller'))
       );
 
       let matchesQuery = false;
@@ -469,7 +463,7 @@ export default function SearchView({
                     </span>
                   </button>
 
-                  {product.badge && (
+                  {product.badge && product.badge !== 'Sold Out' && product.badge !== 'Standard' && product.badge !== 'None' && (product.specialSection || product.special_section) !== 'None' && (
                     <div className="absolute bottom-2.5 left-2.5 bg-antique-cream/90 backdrop-blur px-2.5 py-0.5 rounded-full border border-heritage-gold/30">
                       <span className="font-label-sm text-[10px] text-primary uppercase font-bold tracking-wider">
                         {product.badge}

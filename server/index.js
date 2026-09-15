@@ -1688,26 +1688,35 @@ app.get(['/api/products', '/api/admin/products'], async (req, res) => {
     const db = await getDb();
     const products = await db.all('SELECT * FROM products ORDER BY sold_out ASC, created_at DESC');
 
-    const formatted = products.map(p => ({
-      ...p,
-      productCode: p.product_code || 'N/A',
-      product_code: p.product_code || 'N/A',
-      category: p.category_id,
-      categoryLabel: p.category_label,
-      subcategory: p.subcategory_label || p.subcategory_id || '',
-      subCategory: p.subcategory_label || p.subcategory_id || '',
-      subcategory_id: p.subcategory_id,
-      subcategory_label: p.subcategory_label,
-      sellingPrice: p.selling_price,
-      stockQuantity: p.stock_quantity,
-      inStock: Boolean(p.in_stock),
-      soldOut: Boolean(p.sold_out),
-      specialSection: p.special_section,
-      images: p.images_json ? JSON.parse(p.images_json) : [p.img],
-      video_url: p.video_url || '',
-      videoUrl: p.video_url || '',
-      video: p.video_url || ''
-    }));
+    const formatted = products.map(p => {
+      const specialSec = p.special_section || 'None';
+      const cleanBadge = (specialSec === 'None')
+        ? (p.badge === 'New Arrival' || p.badge === 'Best Seller' || p.badge === 'Bestseller' || p.badge === 'Stock Clearance Sale' || p.badge === 'Clearance' ? '' : (p.badge || ''))
+        : (p.badge || specialSec);
+
+      return {
+        ...p,
+        badge: cleanBadge,
+        productCode: p.product_code || 'N/A',
+        product_code: p.product_code || 'N/A',
+        category: p.category_id,
+        categoryLabel: p.category_label,
+        subcategory: p.subcategory_label || p.subcategory_id || '',
+        subCategory: p.subcategory_label || p.subcategory_id || '',
+        subcategory_id: p.subcategory_id,
+        subcategory_label: p.subcategory_label,
+        sellingPrice: p.selling_price,
+        stockQuantity: p.stock_quantity !== undefined ? Number(p.stock_quantity) : 1,
+        inStock: Boolean(p.in_stock),
+        soldOut: Boolean(p.sold_out),
+        specialSection: specialSec,
+        special_section: specialSec,
+        images: p.images_json ? JSON.parse(p.images_json) : [p.img],
+        video_url: p.video_url || '',
+        videoUrl: p.video_url || '',
+        video: p.video_url || ''
+      };
+    });
 
     memoryCache.products = { data: formatted, timestamp: now };
     res.setHeader('X-Cache', 'MISS');
@@ -1749,8 +1758,8 @@ app.post(['/api/products', '/api/admin/products'], requireAdminAuth, async (req,
 
     if (sec === 'New Arrival' || sec === 'Best Seller' || sec === 'Stock Clearance Sale') {
       const countRes = await db.get(
-        'SELECT COUNT(*) as count FROM products WHERE special_section = ? OR badge = ?',
-        [sec, sec]
+        'SELECT COUNT(*) as count FROM products WHERE special_section = ?',
+        [sec]
       );
       if (countRes && Number(countRes.count) >= 12) {
         return res.status(400).json({
@@ -1760,7 +1769,7 @@ app.post(['/api/products', '/api/admin/products'], requireAdminAuth, async (req,
     }
 
     const id = 'prod-' + Date.now();
-    const stockQty = stockQuantity !== undefined ? Number(stockQuantity) : 10;
+    const stockQty = stockQuantity !== undefined ? Number(stockQuantity) : 1;
     const isSoldOut = stockQty === 0;
 
     // Process all base64 images & videos into static upload files
@@ -1777,8 +1786,8 @@ app.post(['/api/products', '/api/admin/products'], requireAdminAuth, async (req,
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id, productCode, title, category, categoryLabel || category, subcategory, subcategoryLabel || subcategory, sellingPrice, mrp || 0, discount || 0,
-        description || '', material || '', colour || '', careInstructions || '', deliveryTime || '2-4 Business Days',
-        JSON.stringify(processedImages), primaryImg, isSoldOut ? 'Sold Out' : (sec !== 'None' ? sec : badge || 'Standard'),
+        description || '', material || '', colour || '', careInstructions || 'Store in a dry velvet box. Keep away from water and perfumes.', deliveryTime || '2-4 Business Days',
+        JSON.stringify(processedImages), primaryImg, isSoldOut ? 'Sold Out' : (sec !== 'None' ? sec : (badge && badge !== 'New Arrival' && badge !== 'Best Seller' && badge !== 'Stock Clearance Sale' ? badge : '')),
         sec, stockQty, isSoldOut ? 0 : 1, isSoldOut ? 1 : 0, processedVideo
       ]
     );
@@ -1826,7 +1835,7 @@ app.put(['/api/products/:id', '/api/admin/products/:id'], requireAdminAuth, asyn
       return res.status(400).json({ error: 'Product Code already exists. Please enter a unique Product Code.' });
     }
 
-    const stockQty = stockQuantity !== undefined ? Number(stockQuantity) : 10;
+    const stockQty = stockQuantity !== undefined ? Number(stockQuantity) : 1;
     const isSoldOut = stockQty === 0;
     const sec = specialSection || 'None';
 
@@ -1867,8 +1876,8 @@ app.put(['/api/products/:id', '/api/admin/products/:id'], requireAdminAuth, asyn
       [
         productCode, title, category, categoryLabel || category, subcategory, subcategoryLabel || subcategory,
         sellingPrice, mrp || 0, discount || 0, description || '', material || '', colour || '',
-        careInstructions || '', deliveryTime || '2-4 Business Days', JSON.stringify(processedImages),
-        primaryImg, isSoldOut ? 'Sold Out' : (sec !== 'None' ? sec : badge || 'Standard'),
+        careInstructions || 'Store in a dry velvet box. Keep away from water and perfumes.', deliveryTime || '2-4 Business Days', JSON.stringify(processedImages),
+        primaryImg, isSoldOut ? 'Sold Out' : (sec !== 'None' ? sec : (badge && badge !== 'New Arrival' && badge !== 'Best Seller' && badge !== 'Stock Clearance Sale' ? badge : '')),
         sec, stockQty, isSoldOut ? 0 : 1, isSoldOut ? 1 : 0, processedVideo, id
       ]
     );
@@ -1970,8 +1979,8 @@ app.patch(['/api/products/:id/special-section', '/api/admin/products/:id/special
 
     if (specialSection === 'New Arrival' || specialSection === 'Best Seller' || specialSection === 'Stock Clearance Sale') {
       const countRes = await db.get(
-        'SELECT COUNT(*) as count FROM products WHERE id != ? AND (special_section = ? OR badge = ?)',
-        [productId, specialSection, specialSection]
+        'SELECT COUNT(*) as count FROM products WHERE id != ? AND special_section = ?',
+        [productId, specialSection]
       );
       if (countRes && Number(countRes.count) >= 12) {
         return res.status(400).json({
@@ -1980,9 +1989,12 @@ app.patch(['/api/products/:id/special-section', '/api/admin/products/:id/special
       }
     }
 
+    const sec = specialSection || 'None';
+    const newBadge = sec !== 'None' ? sec : '';
+
     await db.run(
-      'UPDATE products SET special_section = ? WHERE id = ?',
-      [specialSection, productId]
+      'UPDATE products SET special_section = ?, badge = ? WHERE id = ?',
+      [sec, newBadge, productId]
     );
 
     invalidateProductCache();
@@ -1990,7 +2002,8 @@ app.patch(['/api/products/:id/special-section', '/api/admin/products/:id/special
       success: true,
       message: 'Special section updated successfully',
       productId,
-      specialSection,
+      specialSection: sec,
+      badge: newBadge,
       id: productId
     });
   } catch (err) {

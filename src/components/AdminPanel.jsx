@@ -257,6 +257,7 @@ export default function AdminPanel({
   const [contactDevTargetFeature, setContactDevTargetFeature] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
+  const [subcategoryFilter, setSubcategoryFilter] = useState('all');
 
   // Virtual Try-on Sandbox Demo States
   const [demoBookings, setDemoBookings] = useState([
@@ -289,8 +290,9 @@ export default function AdminPanel({
     subcategory: 'Long Sets', subcategoryLabel: 'Long Sets',
     sellingPrice: '', mrp: '', discount: '',
     description: '', material: '', colour: '',
-    careInstructions: '', deliveryTime: '2-4 Business Days',
-    badge: 'New Arrival', specialSection: 'None', inStock: true, stockQuantity: 10
+    careInstructions: 'Store in a dry velvet box. Keep away from water and perfumes.',
+    deliveryTime: '2-4 Business Days',
+    badge: '', specialSection: 'None', inStock: true, stockQuantity: 1
   });
   const [editUploadedImages, setEditUploadedImages] = useState(['', '', '', '']);
 
@@ -1021,12 +1023,12 @@ export default function AdminPanel({
     description: '',
     material: '',
     colour: '',
-    careInstructions: '',
+    careInstructions: 'Store in a dry velvet box. Keep away from water and perfumes.',
     deliveryTime: '2-4 Business Days',
-    badge: 'New Arrival',
+    badge: '',
     specialSection: 'None',
     inStock: true,
-    stockQuantity: 10
+    stockQuantity: 1
   });
 
   const [uploadedImages, setUploadedImages] = useState(['', '', '', '']);
@@ -1057,7 +1059,7 @@ export default function AdminPanel({
     }
 
     if (newProd.specialSection === 'New Arrival' || newProd.specialSection === 'Best Seller' || newProd.specialSection === 'Stock Clearance Sale') {
-      const currentSectionCount = productsList.filter(p => p.specialSection === newProd.specialSection || (newProd.specialSection === 'New Arrival' && p.badge === 'New Arrival') || (newProd.specialSection === 'Best Seller' && (p.badge === 'Bestseller' || p.badge === 'Best Seller')) || (newProd.specialSection === 'Stock Clearance Sale' && (p.badge === 'Stock Clearance Sale' || p.badge === 'Clearance'))).length;
+      const currentSectionCount = productsList.filter(p => p.specialSection === newProd.specialSection).length;
       if (currentSectionCount >= 12) {
         alert(`⚠️ Validation Warning: Section Limit Reached!\n\nMaximum 12 products can be assigned to '${newProd.specialSection}' on the Home Page. Please remove an existing product from '${newProd.specialSection}' first.`);
         return;
@@ -1095,17 +1097,17 @@ export default function AdminPanel({
       description: newProd.description,
       material: newProd.material,
       colour: newProd.colour,
-      careInstructions: newProd.careInstructions,
-      care_instructions: newProd.careInstructions,
+      careInstructions: newProd.careInstructions || 'Store in a dry velvet box. Keep away from water and perfumes.',
+      care_instructions: newProd.careInstructions || 'Store in a dry velvet box. Keep away from water and perfumes.',
       deliveryTime: newProd.deliveryTime,
       delivery_time: newProd.deliveryTime,
-      badge: newProd.specialSection !== 'None' ? newProd.specialSection : newProd.badge,
-      specialSection: newProd.specialSection,
-      special_section: newProd.specialSection,
+      badge: newProd.specialSection !== 'None' ? newProd.specialSection : '',
+      specialSection: newProd.specialSection || 'None',
+      special_section: newProd.specialSection || 'None',
       inStock: newProd.inStock,
       in_stock: newProd.inStock,
-      stockQuantity: Number(newProd.stockQuantity) || 10,
-      stock_quantity: Number(newProd.stockQuantity) || 10,
+      stockQuantity: Number(newProd.stockQuantity) || 1,
+      stock_quantity: Number(newProd.stockQuantity) || 1,
       img: finalImg,
       images: validImages.length > 0 ? validImages : [finalImg],
       video: uploadedVideo,
@@ -1130,12 +1132,12 @@ export default function AdminPanel({
           description: '',
           material: '',
           colour: '',
-          careInstructions: '',
+          careInstructions: 'Store in a dry velvet box. Keep away from water and perfumes.',
           deliveryTime: '2-4 Business Days',
-          badge: 'New Arrival',
+          badge: '',
           specialSection: 'None',
           inStock: true,
-          stockQuantity: 10
+          stockQuantity: 1
         });
         setUploadedImages(['', '', '', '']);
         setUploadedVideo('');
@@ -1172,12 +1174,12 @@ export default function AdminPanel({
       description: p.description || '',
       material: p.material || '',
       colour: p.colour || '',
-      careInstructions: p.careInstructions || p.care_instructions || '',
+      careInstructions: p.careInstructions || p.care_instructions || 'Store in a dry velvet box. Keep away from water and perfumes.',
       deliveryTime: p.deliveryTime || p.delivery_time || '2-4 Business Days',
-      badge: p.badge || 'New Arrival',
+      badge: p.specialSection && p.specialSection !== 'None' ? p.specialSection : (p.badge && p.badge !== 'New Arrival' && p.badge !== 'Best Seller' && p.badge !== 'Stock Clearance Sale' && p.badge !== 'None' ? p.badge : ''),
       specialSection: p.specialSection || p.special_section || 'None',
       inStock: p.inStock !== undefined ? p.inStock : (p.in_stock !== undefined ? p.in_stock : true),
-      stockQuantity: p.stockQuantity || p.stock_quantity || 10
+      stockQuantity: p.stockQuantity || p.stock_quantity || 1
     });
   };
 
@@ -1207,7 +1209,7 @@ export default function AdminPanel({
     }
 
     if (editProdForm.specialSection === 'New Arrival' || editProdForm.specialSection === 'Best Seller' || editProdForm.specialSection === 'Stock Clearance Sale') {
-      const currentSectionCount = productsList.filter(p => p.id !== editProdForm.id && (p.specialSection === editProdForm.specialSection || (editProdForm.specialSection === 'New Arrival' && p.badge === 'New Arrival') || (editProdForm.specialSection === 'Best Seller' && (p.badge === 'Bestseller' || p.badge === 'Best Seller')) || (editProdForm.specialSection === 'Stock Clearance Sale' && (p.badge === 'Stock Clearance Sale' || p.badge === 'Clearance')))).length;
+      const currentSectionCount = productsList.filter(p => p.id !== editProdForm.id && p.specialSection === editProdForm.specialSection).length;
       if (currentSectionCount >= 12) {
         alert(`⚠️ Validation Warning: Section Limit Reached!\n\nMaximum 12 products can be assigned to '${editProdForm.specialSection}' on the Home Page. Please remove an existing product from '${editProdForm.specialSection}' first.`);
         return;
@@ -1246,17 +1248,17 @@ export default function AdminPanel({
       description: editProdForm.description,
       material: editProdForm.material,
       colour: editProdForm.colour,
-      careInstructions: editProdForm.careInstructions,
-      care_instructions: editProdForm.careInstructions,
+      careInstructions: editProdForm.careInstructions || 'Store in a dry velvet box. Keep away from water and perfumes.',
+      care_instructions: editProdForm.careInstructions || 'Store in a dry velvet box. Keep away from water and perfumes.',
       deliveryTime: editProdForm.deliveryTime,
       delivery_time: editProdForm.deliveryTime,
-      badge: editProdForm.specialSection !== 'None' ? editProdForm.specialSection : editProdForm.badge,
-      specialSection: editProdForm.specialSection,
-      special_section: editProdForm.specialSection,
+      badge: editProdForm.specialSection !== 'None' ? editProdForm.specialSection : '',
+      specialSection: editProdForm.specialSection || 'None',
+      special_section: editProdForm.specialSection || 'None',
       inStock: editProdForm.inStock,
       in_stock: editProdForm.inStock,
-      stockQuantity: Number(editProdForm.stockQuantity) || 10,
-      stock_quantity: Number(editProdForm.stockQuantity) || 10,
+      stockQuantity: Number(editProdForm.stockQuantity) || 1,
+      stock_quantity: Number(editProdForm.stockQuantity) || 1,
       img: finalImg,
       images: validImages.length > 0 ? validImages : [finalImg],
       video: editUploadedVideo,
@@ -1519,10 +1521,19 @@ export default function AdminPanel({
     const titleMatch = (p.title || p.name || '').toLowerCase().includes(query);
     const codeMatch = (p.productCode || p.product_code || '').toLowerCase().includes(query);
     const categoryMatch = (p.categoryLabel || p.category || '').toLowerCase().includes(query);
-    const matchesSearch = !query || titleMatch || codeMatch || categoryMatch;
+    const subcategoryMatch = (p.subcategoryLabel || p.subcategory || p.subCategory || '').toLowerCase().includes(query);
+    const matchesSearch = !query || titleMatch || codeMatch || categoryMatch || subcategoryMatch;
 
-    const matchesCatFilter = categoryFilter === 'all' || p.category === categoryFilter;
-    return matchesSearch && matchesCatFilter;
+    const pCat = String(p.category || '').toLowerCase().trim();
+    const pCatLabel = String(p.categoryLabel || '').toLowerCase().trim();
+    const filterCat = String(categoryFilter || 'all').toLowerCase().trim();
+    const matchesCatFilter = filterCat === 'all' || pCat === filterCat || pCatLabel === filterCat;
+
+    const pSub = String(p.subcategory || p.subcategoryLabel || p.subCategory || '').toLowerCase().trim();
+    const filterSub = String(subcategoryFilter || 'all').toLowerCase().trim();
+    const matchesSubFilter = filterSub === 'all' || pSub === filterSub;
+
+    return matchesSearch && matchesCatFilter && matchesSubFilter;
   });
 
   const totalCategoriesCount = activeCategories.length;
@@ -2035,6 +2046,9 @@ export default function AdminPanel({
               setSearchQuery={setSearchQuery}
               categoryFilter={categoryFilter}
               setCategoryFilter={setCategoryFilter}
+              subcategoryFilter={subcategoryFilter}
+              setSubcategoryFilter={setSubcategoryFilter}
+              categoriesList={activeCategories}
               setIsAddProductOpen={setIsAddProductOpen}
               filteredProducts={filteredProducts}
               productsList={productsList}

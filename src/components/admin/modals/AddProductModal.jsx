@@ -1,5 +1,6 @@
 import React from 'react';
 import { getMediaUrl } from '../../../config';
+import { STANDARD_PRODUCT_PRESETS } from '../../../data/products';
 
 export default function AddProductModal({
   isAddProductOpen,
@@ -68,18 +69,76 @@ export default function AddProductModal({
                 </h4>
 
                 {/* Product Name */}
-                <div>
-                  <label className="block text-black font-bold text-[11px] uppercase tracking-wider mb-1">
-                    Product Name *
-                  </label>
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-black font-bold text-[11px] uppercase tracking-wider">
+                      Product Name *
+                    </label>
+                    <span className="text-[10px] text-gray-500 font-medium">Type manually or select standard title:</span>
+                  </div>
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Royal Kundan Bridal Choker Set"
+                    placeholder="e.g. Maharashtrian long set (or enter custom name)"
                     value={newProd.title}
                     onChange={(e) => setNewProd({ ...newProd, title: e.target.value })}
                     className="w-full bg-[#FFF0F2]/40 border border-[#F7C5C0] focus:border-black rounded-xl px-3.5 py-2.5 text-xs text-on-surface font-medium focus:outline-none transition-all shadow-sm"
                   />
+
+                  {/* Standard Title Preset Dropdown */}
+                  <div className="flex items-center gap-2 pt-0.5">
+                    <span className="text-[10px] uppercase font-bold text-[#9E6B2A] tracking-wider flex items-center gap-1 shrink-0">
+                      <span className="material-symbols-outlined text-[13px]">auto_awesome</span>
+                      Standard Preset:
+                    </span>
+                    <select
+                      value={STANDARD_PRODUCT_PRESETS.some(p => p.label === newProd.title) ? newProd.title : ""}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (!val) return;
+                        const preset = STANDARD_PRODUCT_PRESETS.find(p => p.label === val);
+                        if (preset) {
+                          const catObj = activeCategories.find(c => c.id === preset.category);
+                          const catName = catObj?.name || preset.category;
+                          setNewProd({
+                            ...newProd,
+                            title: preset.label,
+                            category: preset.category,
+                            categoryLabel: catName,
+                            subcategory: preset.subcategory,
+                            subcategoryLabel: preset.subcategory
+                          });
+                        }
+                      }}
+                      className="flex-grow bg-white border border-[#F7C5C0] focus:border-black rounded-lg px-2.5 py-1 text-[11px] font-semibold text-black focus:outline-none transition-all shadow-xs cursor-pointer"
+                    >
+                      <option value="">-- Choose Standard Product Title Preset --</option>
+                      <optgroup label="Maharashtrian">
+                        <option value="Maharashtrian long set">Maharashtrian long set</option>
+                        <option value="Maharashtrian short necklace">Maharashtrian short necklace</option>
+                      </optgroup>
+                      <optgroup label="South Indian">
+                        <option value="South Indian long set">South Indian long set</option>
+                        <option value="South Indian short necklace">South Indian short necklace</option>
+                      </optgroup>
+                      <optgroup label="Kundan">
+                        <option value="Kundan long set">Kundan long set</option>
+                        <option value="Kundan short necklace">Kundan short necklace</option>
+                      </optgroup>
+                      <optgroup label="Heritage">
+                        <option value="Heritage long set">Heritage long set</option>
+                        <option value="Heritage short necklace">Heritage short necklace</option>
+                      </optgroup>
+                      <optgroup label="Victorian">
+                        <option value="Victorian long set">Victorian long set</option>
+                        <option value="Victorian short necklace">Victorian short necklace</option>
+                      </optgroup>
+                      <optgroup label="American Diamond">
+                        <option value="American diamond long set">American diamond long set</option>
+                        <option value="American diamond short necklace">American diamond short necklace</option>
+                      </optgroup>
+                    </select>
+                  </div>
                 </div>
 
                 {/* Product Code (Required, Blank by Default) */}
@@ -245,7 +304,7 @@ export default function AddProductModal({
                     <input
                       type="number"
                       min="0"
-                      placeholder="Default: 10"
+                      placeholder="Default: 1"
                       value={newProd.stockQuantity}
                       onChange={(e) => setNewProd({ ...newProd, stockQuantity: e.target.value })}
                       className="w-full bg-[#FFF0F2]/40 border border-[#F7C5C0] focus:border-black rounded-xl px-3.5 py-2.5 text-xs text-on-surface font-bold focus:outline-none transition-all shadow-sm font-mono"
@@ -281,11 +340,50 @@ export default function AddProductModal({
                     </label>
                     <input
                       type="text"
-                      placeholder="22K Gold Plated Brass & Kundan"
+                      placeholder="e.g. Brass Metal, German Silver"
                       value={newProd.material}
                       onChange={(e) => setNewProd({ ...newProd, material: e.target.value })}
                       className="w-full bg-[#FFF0F2]/40 border border-[#F7C5C0] focus:border-black rounded-xl px-3.5 py-2.5 text-xs text-on-surface font-medium focus:outline-none transition-all shadow-sm"
                     />
+
+                    {/* Quick Presets Buttons for Material */}
+                    <div className="mt-2 space-y-1">
+                      <span className="text-[10px] text-gray-400 font-medium block">Quick Presets:</span>
+                      <div className="flex flex-wrap gap-1">
+                        {['Brass Metal', 'German Silver'].map(preset => {
+                          const isSelected = (newProd.material || '').toLowerCase().includes(preset.toLowerCase());
+                          return (
+                            <button
+                              key={preset}
+                              type="button"
+                              onClick={() => {
+                                const current = (newProd.material || '').trim();
+                                if (current.toLowerCase() === preset.toLowerCase()) {
+                                  setNewProd({ ...newProd, material: '' });
+                                } else if (!current || current === 'Brass Metal' || current === 'German Silver') {
+                                  setNewProd({ ...newProd, material: preset });
+                                } else {
+                                  const parts = current.split(',').map(m => m.trim()).filter(Boolean);
+                                  if (parts.some(p => p.toLowerCase() === preset.toLowerCase())) {
+                                    setNewProd({ ...newProd, material: parts.filter(p => p.toLowerCase() !== preset.toLowerCase()).join(', ') });
+                                  } else {
+                                    parts.push(preset);
+                                    setNewProd({ ...newProd, material: parts.join(', ') });
+                                  }
+                                }
+                              }}
+                              className={`text-[9px] font-semibold px-2 py-0.5 rounded transition-all cursor-pointer border ${
+                                isSelected
+                                  ? 'bg-[#B78946] text-white border-[#B78946] shadow-xs font-bold'
+                                  : 'bg-[#FFF0F2]/40 hover:bg-[#FCDAD7]/60 border-[#F7C5C0] text-on-surface'
+                              }`}
+                            >
+                              {isSelected ? `✓ ${preset}` : `+ ${preset}`}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
                   </div>
 
                   <div>

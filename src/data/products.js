@@ -107,3 +107,18 @@ export const CATEGORIES = [
 ];
 
 export const PRODUCTS = [];
+
+export const STANDARD_PRODUCT_PRESETS = [
+  { label: 'Maharashtrian long set', category: 'maharashtrian', subcategory: 'Long Sets' },
+  { label: 'Maharashtrian short necklace', category: 'maharashtrian', subcategory: 'Short Sets' },
+  { label: 'South Indian long set', category: 'south-indian', subcategory: 'Long Sets' },
+  { label: 'South Indian short necklace', category: 'south-indian', subcategory: 'Short Sets' },
+  { label: 'Kundan long set', category: 'kundan', subcategory: 'Long Sets' },
+  { label: 'Kundan short necklace', category: 'kundan', subcategory: 'Short Sets' },
+  { label: 'Heritage long set', category: 'heritage', subcategory: 'Long Sets' },
+  { label: 'Heritage short necklace', category: 'heritage', subcategory: 'Short Sets' },
+  { label: 'Victorian long set', category: 'victorian', subcategory: 'Long Sets' },
+  { label: 'Victorian short necklace', category: 'victorian', subcategory: 'Short Sets' },
+  { label: 'American diamond long set', category: 'american-diamond', subcategory: 'Long Sets' },
+  { label: 'American diamond short necklace', category: 'american-diamond', subcategory: 'Short Sets' },
+];

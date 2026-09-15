@@ -61,7 +61,7 @@ const ProductCard = React.memo(function ProductCard({ product, onSelect, onAddTo
             </span>
           </div>
         )}
-        {!isSoldOut && product.badge && product.badge !== 'Sold Out' && (
+        {!isSoldOut && product.badge && product.badge !== 'Sold Out' && product.badge !== 'Standard' && product.badge !== 'None' && (product.specialSection || product.special_section) !== 'None' && (
           <div className="absolute top-2 left-2 bg-antique-cream/90 backdrop-blur px-2.5 py-0.5 rounded-full border border-heritage-gold/30 shadow-sm">
             <span className="font-label-sm text-[11px] text-primary uppercase font-bold tracking-wider">{product.badge}</span>
           </div>
@@ -234,7 +234,10 @@ export default function HomeView({
   // New Arrivals: Explicitly assigned by admin via Special Section = 'New Arrival' (Max 12 on desktop, 4 on mobile)
   const newArrivals = React.useMemo(() => {
     return allProducts
-      .filter(p => p.specialSection === 'New Arrival' || p.badge === 'New Arrival')
+      .filter(p => {
+        const sec = p.specialSection || p.special_section || 'None';
+        return sec === 'New Arrival';
+      })
       .sort((a, b) => (a.soldOut ? 1 : 0) - (b.soldOut ? 1 : 0))
       .slice(0, 12);
   }, [allProducts]);
@@ -242,7 +245,10 @@ export default function HomeView({
   // Best Sellers: Explicitly assigned by admin via Special Section = 'Best Seller' (Max 12 on desktop, 4 on mobile)
   const bestSellers = React.useMemo(() => {
     return allProducts
-      .filter(p => p.specialSection === 'Best Seller' || p.badge === 'Bestseller' || p.badge === 'Best Seller')
+      .filter(p => {
+        const sec = p.specialSection || p.special_section || 'None';
+        return sec === 'Best Seller';
+      })
       .sort((a, b) => (a.soldOut ? 1 : 0) - (b.soldOut ? 1 : 0))
       .slice(0, 12);
   }, [allProducts]);
@@ -251,9 +257,8 @@ export default function HomeView({
   const stockClearanceProducts = React.useMemo(() => {
     return allProducts
       .filter(p => {
-        const sec = String(p.specialSection || p.special_section || '').toLowerCase();
-        const badge = String(p.badge || '').toLowerCase();
-        return sec === 'stock clearance sale' || sec.includes('clearance') || badge === 'stock clearance sale' || badge.includes('clearance');
+        const sec = p.specialSection || p.special_section || 'None';
+        return sec === 'Stock Clearance Sale' || sec === 'Clearance';
       })
       .sort((a, b) => (a.soldOut ? 1 : 0) - (b.soldOut ? 1 : 0))
       .slice(0, 12);

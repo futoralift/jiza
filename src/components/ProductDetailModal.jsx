@@ -213,7 +213,7 @@ export default function ProductDetailModal({
 
             {/* Badges Overlay */}
             <div className="absolute top-2.5 left-2.5 flex flex-col gap-1 z-10 pointer-events-none">
-              {product.badge && (
+              {product.badge && product.badge !== 'Sold Out' && product.badge !== 'Standard' && product.badge !== 'None' && (product.specialSection || product.special_section) !== 'None' && (
                 <span className="bg-[#FCDAD7] text-stone-900 border border-[#F8B3AC] text-[10px] uppercase font-bold px-2 py-0.5 rounded-full shadow-xs">
                   {product.badge}
                 </span>
@@ -404,7 +404,7 @@ export default function ProductDetailModal({
                 )}
                 {activeTab === 'care' && (
                   <p className="text-[11px]">
-                    {product.careInstructions || 'Store in a dry velvet box. Keep away from direct water, sprays, and perfumes to preserve the lustre.'}
+                    {product.careInstructions || product.care_instructions || 'Store in a dry velvet box. Keep away from water and perfumes.'}
                   </p>
                 )}
                 {activeTab === 'reviews' && (

@@ -77,6 +77,8 @@ export async function getDb() {
       ALTER TABLE products ADD COLUMN IF NOT EXISTS product_code VARCHAR(100);
       ALTER TABLE products ADD COLUMN IF NOT EXISTS video_url TEXT;
       ALTER TABLE products ADD COLUMN IF NOT EXISTS special_section VARCHAR(100) DEFAULT 'None';
+      ALTER TABLE products ALTER COLUMN stock_quantity SET DEFAULT 1;
+      ALTER TABLE products ALTER COLUMN care_instructions SET DEFAULT 'Store in a dry velvet box. Keep away from water and perfumes.';
       ALTER TABLE users ADD COLUMN IF NOT EXISTS country VARCHAR(100) DEFAULT 'India';
       ALTER TABLE admin_accounts ADD COLUMN IF NOT EXISTS role VARCHAR(50) DEFAULT 'SUPER_ADMIN';
       CREATE TABLE IF NOT EXISTS store_settings (
@@ -149,6 +151,19 @@ export async function getDb() {
     }
 
     console.log('✅ Shipping system migration applied successfully.');
+
+    // Special Section and Badge consistency cleanup for products
+    try {
+      await client.query(`
+        UPDATE products SET special_section = 'None' WHERE special_section IS NULL OR special_section = '';
+        UPDATE products SET badge = '' WHERE (special_section = 'None' OR special_section IS NULL OR special_section = '') AND (badge = 'New Arrival' OR badge = 'Best Seller' OR badge = 'Bestseller' OR badge = 'Stock Clearance Sale' OR badge = 'Clearance');
+        UPDATE products SET badge = special_section WHERE special_section IS NOT NULL AND special_section != 'None' AND (badge IS NULL OR badge = '' OR badge = 'Standard');
+        UPDATE products SET care_instructions = 'Store in a dry velvet box. Keep away from water and perfumes.' WHERE care_instructions IS NULL OR care_instructions = '' OR care_instructions = 'Keep away from moisture & perfume' OR care_instructions = 'Store in velvet box...';
+      `);
+      console.log('✅ Special section, badge & care instructions consistency migration applied successfully.');
+    } catch (e) {
+      console.error('Error applying special section migration:', e.message);
+    }
 
     // Seed default pickup settings in store_settings if not present
     const pickupSetting = await client.query("SELECT key FROM store_settings WHERE key = 'pickup_settings'");

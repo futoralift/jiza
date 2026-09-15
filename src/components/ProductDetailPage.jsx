@@ -470,7 +470,7 @@ export default function ProductDetailPage({
 
               {/* Floating Badges */}
               <div className="absolute top-3 left-3 flex flex-col gap-1.5 z-10 pointer-events-none">
-                {product.badge && product.badge !== 'Sold Out' && (
+                {product.badge && product.badge !== 'Sold Out' && product.badge !== 'Standard' && product.badge !== 'None' && (product.specialSection || product.special_section) !== 'None' && (
                   <span className="bg-[#FCDAD7] text-black border border-black/20 text-xs uppercase font-bold px-2.5 py-0.5 rounded-full shadow-xs">
                     {product.badge}
                   </span>
@@ -872,7 +872,7 @@ export default function ProductDetailPage({
                     </div>
                     <div className="flex justify-between py-1 border-b border-black/5">
                       <span className="text-on-surface-variant font-semibold">Care:</span>
-                      <span className="font-bold text-black">{product.careInstructions || 'Keep away from moisture & perfume'}</span>
+                      <span className="font-bold text-black">{product.careInstructions || product.care_instructions || 'Store in a dry velvet box. Keep away from water and perfumes.'}</span>
                     </div>
                     <div className="flex justify-between py-1">
                       <span className="text-on-surface-variant font-semibold">Origin:</span>

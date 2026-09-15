@@ -195,8 +195,22 @@ export default function App() {
       const res = await fetch(`${API_BASE}/api/products`);
       if (res.ok) {
         const data = await res.json();
-        if (Array.isArray(data) && data.length > 0) {
-          setProductsList(data);
+        if (Array.isArray(data)) {
+          const sanitized = data.map(p => {
+            const sec = p.specialSection || p.special_section || 'None';
+            const cleanBadge = (sec === 'None')
+              ? (p.badge === 'New Arrival' || p.badge === 'Best Seller' || p.badge === 'Bestseller' || p.badge === 'Stock Clearance Sale' || p.badge === 'Clearance' ? '' : (p.badge || ''))
+              : (p.badge || sec);
+            return {
+              ...p,
+              specialSection: sec,
+              special_section: sec,
+              badge: cleanBadge,
+              careInstructions: p.careInstructions || p.care_instructions || 'Store in a dry velvet box. Keep away from water and perfumes.',
+              care_instructions: p.careInstructions || p.care_instructions || 'Store in a dry velvet box. Keep away from water and perfumes.'
+            };
+          });
+          setProductsList(sanitized);
         }
       }
     } catch (err) {
