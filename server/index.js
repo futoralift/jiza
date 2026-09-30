@@ -1715,7 +1715,9 @@ app.get(['/api/products', '/api/admin/products'], async (req, res) => {
         images: p.images_json ? JSON.parse(p.images_json) : [p.img],
         video_url: p.video_url || '',
         videoUrl: p.video_url || '',
-        video: p.video_url || ''
+        video: p.video_url || '',
+        video_muted: p.video_muted !== undefined && p.video_muted !== null ? Boolean(p.video_muted) : true,
+        videoMuted: p.video_muted !== undefined && p.video_muted !== null ? Boolean(p.video_muted) : true
       };
     });
 
@@ -1731,7 +1733,8 @@ app.get(['/api/products', '/api/admin/products'], async (req, res) => {
 app.post(['/api/products', '/api/admin/products'], requireAdminAuth, async (req, res) => {
   try {
     const db = await getDb();
-    const { title, category, categoryLabel, subcategory, subcategoryLabel, sellingPrice, mrp, discount, description, material, colour, careInstructions, deliveryTime, images, badge, specialSection, stockQuantity, video, videoUrl, video_url } = req.body;
+    const { title, category, categoryLabel, subcategory, subcategoryLabel, sellingPrice, mrp, discount, description, material, colour, careInstructions, deliveryTime, images, badge, specialSection, stockQuantity, video, videoUrl, video_url, videoMuted, video_muted } = req.body;
+    const isVideoMuted = video_muted !== undefined ? (video_muted === true || video_muted === 1 || video_muted === 'true') : (videoMuted !== undefined ? (videoMuted === true || videoMuted === 1 || videoMuted === 'true') : true);
     const rawCode = req.body.productCode || req.body.product_code || '';
     const productCode = String(rawCode).trim();
 
@@ -1744,6 +1747,44 @@ app.post(['/api/products', '/api/admin/products'], requireAdminAuth, async (req,
     }
     if (!subcategory || !subcategory.trim()) {
       return res.status(400).json({ error: 'Sub-Category selection is required.' });
+    }
+
+    // Server-side robust subcategory resolution against subcategories table
+    let resolvedSubId = String(subcategory).trim();
+    let resolvedSubLabel = subcategoryLabel ? String(subcategoryLabel).trim() : resolvedSubId;
+
+    try {
+      const catSubcategories = await db.all('SELECT id, name FROM subcategories WHERE category_id = ?', [category]);
+      if (catSubcategories && catSubcategories.length > 0) {
+        const exactIdMatch = catSubcategories.find(s => s.id === resolvedSubId);
+        if (exactIdMatch) {
+          resolvedSubId = exactIdMatch.id;
+          resolvedSubLabel = exactIdMatch.name;
+        } else {
+          const nameMatch = catSubcategories.find(s => s.name.toLowerCase() === resolvedSubId.toLowerCase() || s.name.toLowerCase() === resolvedSubLabel.toLowerCase());
+          if (nameMatch) {
+            resolvedSubId = nameMatch.id;
+            resolvedSubLabel = nameMatch.name;
+          } else {
+            const kw = (resolvedSubId + ' ' + resolvedSubLabel).toLowerCase();
+            let kwMatch = null;
+            if (kw.includes('short')) {
+              kwMatch = catSubcategories.find(s => s.name.toLowerCase().includes('short') || s.id.toLowerCase().includes('short'));
+            } else if (kw.includes('long')) {
+              kwMatch = catSubcategories.find(s => s.name.toLowerCase().includes('long') || s.id.toLowerCase().includes('long'));
+            }
+            if (kwMatch) {
+              resolvedSubId = kwMatch.id;
+              resolvedSubLabel = kwMatch.name;
+            } else {
+              resolvedSubId = catSubcategories[0].id;
+              resolvedSubLabel = catSubcategories[0].name;
+            }
+          }
+        }
+      }
+    } catch (subErr) {
+      console.warn('Subcategory resolution warning:', subErr.message);
     }
 
     // Server-side DB uniqueness check
@@ -1783,13 +1824,13 @@ app.post(['/api/products', '/api/admin/products'], requireAdminAuth, async (req,
       `INSERT INTO products (
         id, product_code, title, category_id, category_label, subcategory_id, subcategory_label, selling_price, mrp, discount, 
         description, material, colour, care_instructions, delivery_time, 
-        images_json, img, badge, special_section, stock_quantity, in_stock, sold_out, video_url
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        images_json, img, badge, special_section, stock_quantity, in_stock, sold_out, video_url, video_muted
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        id, productCode, title, category, categoryLabel || category, subcategory, subcategoryLabel || subcategory, sellingPrice, mrp || 0, discount || 0,
+        id, productCode, title, category, categoryLabel || category, resolvedSubId, resolvedSubLabel, sellingPrice, mrp || 0, discount || 0,
         description || '', material || '', colour || '', careInstructions || 'Store in a dry velvet box. Keep away from water and perfumes.', deliveryTime || '2-4 Business Days',
         JSON.stringify(processedImages), primaryImg, isSoldOut ? 'Sold Out' : (sec !== 'None' ? sec : (badge && badge !== 'New Arrival' && badge !== 'Best Seller' && badge !== 'Stock Clearance Sale' ? badge : '')),
-        sec, stockQty, isSoldOut ? 0 : 1, isSoldOut ? 1 : 0, processedVideo
+        sec, stockQty, isSoldOut ? 0 : 1, isSoldOut ? 1 : 0, processedVideo, isVideoMuted
       ]
     );
 
@@ -1812,7 +1853,8 @@ app.put(['/api/products/:id', '/api/admin/products/:id'], requireAdminAuth, asyn
   try {
     const db = await getDb();
     const { id } = req.params;
-    const { title, category, categoryLabel, subcategory, subcategoryLabel, sellingPrice, mrp, discount, description, material, colour, careInstructions, deliveryTime, images, badge, specialSection, stockQuantity, video, videoUrl, video_url } = req.body;
+    const { title, category, categoryLabel, subcategory, subcategoryLabel, sellingPrice, mrp, discount, description, material, colour, careInstructions, deliveryTime, images, badge, specialSection, stockQuantity, video, videoUrl, video_url, videoMuted, video_muted } = req.body;
+    const isVideoMuted = video_muted !== undefined ? (video_muted === true || video_muted === 1 || video_muted === 'true') : (videoMuted !== undefined ? (videoMuted === true || videoMuted === 1 || videoMuted === 'true') : true);
     const rawCode = req.body.productCode || req.body.product_code || '';
     const productCode = String(rawCode).trim();
 
@@ -1825,6 +1867,44 @@ app.put(['/api/products/:id', '/api/admin/products/:id'], requireAdminAuth, asyn
     }
     if (!subcategory || !subcategory.trim()) {
       return res.status(400).json({ error: 'Sub-Category selection is required.' });
+    }
+
+    // Server-side robust subcategory resolution against subcategories table
+    let resolvedSubId = String(subcategory).trim();
+    let resolvedSubLabel = subcategoryLabel ? String(subcategoryLabel).trim() : resolvedSubId;
+
+    try {
+      const catSubcategories = await db.all('SELECT id, name FROM subcategories WHERE category_id = ?', [category]);
+      if (catSubcategories && catSubcategories.length > 0) {
+        const exactIdMatch = catSubcategories.find(s => s.id === resolvedSubId);
+        if (exactIdMatch) {
+          resolvedSubId = exactIdMatch.id;
+          resolvedSubLabel = exactIdMatch.name;
+        } else {
+          const nameMatch = catSubcategories.find(s => s.name.toLowerCase() === resolvedSubId.toLowerCase() || s.name.toLowerCase() === resolvedSubLabel.toLowerCase());
+          if (nameMatch) {
+            resolvedSubId = nameMatch.id;
+            resolvedSubLabel = nameMatch.name;
+          } else {
+            const kw = (resolvedSubId + ' ' + resolvedSubLabel).toLowerCase();
+            let kwMatch = null;
+            if (kw.includes('short')) {
+              kwMatch = catSubcategories.find(s => s.name.toLowerCase().includes('short') || s.id.toLowerCase().includes('short'));
+            } else if (kw.includes('long')) {
+              kwMatch = catSubcategories.find(s => s.name.toLowerCase().includes('long') || s.id.toLowerCase().includes('long'));
+            }
+            if (kwMatch) {
+              resolvedSubId = kwMatch.id;
+              resolvedSubLabel = kwMatch.name;
+            } else {
+              resolvedSubId = catSubcategories[0].id;
+              resolvedSubLabel = catSubcategories[0].name;
+            }
+          }
+        }
+      }
+    } catch (subErr) {
+      console.warn('Subcategory resolution warning:', subErr.message);
     }
 
     // Server-side DB uniqueness check (excluding current product)
@@ -1872,14 +1952,14 @@ app.put(['/api/products/:id', '/api/admin/products/:id'], requireAdminAuth, asyn
         product_code = ?, title = ?, category_id = ?, category_label = ?, subcategory_id = ?, subcategory_label = ?,
         selling_price = ?, mrp = ?, discount = ?, description = ?, material = ?, colour = ?,
         care_instructions = ?, delivery_time = ?, images_json = ?, img = ?, badge = ?,
-        special_section = ?, stock_quantity = ?, in_stock = ?, sold_out = ?, video_url = ?
+        special_section = ?, stock_quantity = ?, in_stock = ?, sold_out = ?, video_url = ?, video_muted = ?
        WHERE id = ?`,
       [
-        productCode, title, category, categoryLabel || category, subcategory, subcategoryLabel || subcategory,
+        productCode, title, category, categoryLabel || category, resolvedSubId, resolvedSubLabel,
         sellingPrice, mrp || 0, discount || 0, description || '', material || '', colour || '',
         careInstructions || 'Store in a dry velvet box. Keep away from water and perfumes.', deliveryTime || '2-4 Business Days', JSON.stringify(processedImages),
         primaryImg, isSoldOut ? 'Sold Out' : (sec !== 'None' ? sec : (badge && badge !== 'New Arrival' && badge !== 'Best Seller' && badge !== 'Stock Clearance Sale' ? badge : '')),
-        sec, stockQty, isSoldOut ? 0 : 1, isSoldOut ? 1 : 0, processedVideo, id
+        sec, stockQty, isSoldOut ? 0 : 1, isSoldOut ? 1 : 0, processedVideo, isVideoMuted, id
       ]
     );
 

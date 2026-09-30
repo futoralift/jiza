@@ -292,7 +292,8 @@ export default function AdminPanel({
     description: '', material: '', colour: '',
     careInstructions: 'Store in a dry velvet box. Keep away from water and perfumes.',
     deliveryTime: '2-4 Business Days',
-    badge: '', specialSection: 'None', inStock: true, stockQuantity: 1
+    badge: '', specialSection: 'None', inStock: true, stockQuantity: 1,
+    videoMuted: true
   });
   const [editUploadedImages, setEditUploadedImages] = useState(['', '', '', '']);
 
@@ -1028,7 +1029,8 @@ export default function AdminPanel({
     badge: '',
     specialSection: 'None',
     inStock: true,
-    stockQuantity: 1
+    stockQuantity: 1,
+    videoMuted: true
   });
 
   const [uploadedImages, setUploadedImages] = useState(['', '', '', '']);
@@ -1112,7 +1114,9 @@ export default function AdminPanel({
       images: validImages.length > 0 ? validImages : [finalImg],
       video: uploadedVideo,
       videoUrl: uploadedVideo,
-      video_url: uploadedVideo
+      video_url: uploadedVideo,
+      videoMuted: newProd.videoMuted !== undefined ? newProd.videoMuted : true,
+      video_muted: newProd.videoMuted !== undefined ? newProd.videoMuted : true
     };
 
     if (onAddProduct) {
@@ -1137,7 +1141,8 @@ export default function AdminPanel({
           badge: '',
           specialSection: 'None',
           inStock: true,
-          stockQuantity: 1
+          stockQuantity: 1,
+          videoMuted: true
         });
         setUploadedImages(['', '', '', '']);
         setUploadedVideo('');
@@ -1179,7 +1184,8 @@ export default function AdminPanel({
       badge: p.specialSection && p.specialSection !== 'None' ? p.specialSection : (p.badge && p.badge !== 'New Arrival' && p.badge !== 'Best Seller' && p.badge !== 'Stock Clearance Sale' && p.badge !== 'None' ? p.badge : ''),
       specialSection: p.specialSection || p.special_section || 'None',
       inStock: p.inStock !== undefined ? p.inStock : (p.in_stock !== undefined ? p.in_stock : true),
-      stockQuantity: p.stockQuantity || p.stock_quantity || 1
+      stockQuantity: p.stockQuantity || p.stock_quantity || 1,
+      videoMuted: p.video_muted !== undefined ? (p.video_muted === true || p.video_muted === 1 || p.video_muted === 'true') : (p.videoMuted !== undefined ? (p.videoMuted === true || p.videoMuted === 1 || p.videoMuted === 'true') : true)
     });
   };
 
@@ -1263,7 +1269,9 @@ export default function AdminPanel({
       images: validImages.length > 0 ? validImages : [finalImg],
       video: editUploadedVideo,
       videoUrl: editUploadedVideo,
-      video_url: editUploadedVideo
+      video_url: editUploadedVideo,
+      videoMuted: editProdForm.videoMuted !== undefined ? editProdForm.videoMuted : true,
+      video_muted: editProdForm.videoMuted !== undefined ? editProdForm.videoMuted : true
     };
 
     if (onUpdateProduct) {

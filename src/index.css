@@ -139,3 +139,16 @@ body {
 .ambient-shadow {
   box-shadow: 0 32px 64px -16px rgba(74, 4, 4, 0.08);
 }
+
+/* Force-mute Video: Completely hide native browser volume and mute controls */
+.force-mute-video::-webkit-media-controls-volume-control-container,
+.force-mute-video::-webkit-media-controls-mute-button,
+.force-mute-video::-webkit-media-controls-volume-slider {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  opacity: 0 !important;
+}
+

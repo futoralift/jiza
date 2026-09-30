@@ -24,6 +24,22 @@ export default function ProductDetailModal({
   }, [rawImages, videoUrl]);
 
   const [activeMedia, setActiveMedia] = useState(0);
+  const isForceMuted = product?.video_muted !== false && product?.videoMuted !== false;
+  const [isVideoUnmuted, setIsVideoUnmuted] = useState(false);
+  const modalVideoRef = useRef(null);
+
+  const handleToggleVideoSound = (e) => {
+    e.stopPropagation();
+    if (isForceMuted) return;
+    if (modalVideoRef.current) {
+      const nextMuted = !modalVideoRef.current.muted;
+      modalVideoRef.current.muted = nextMuted;
+      if (!nextMuted && modalVideoRef.current.volume === 0) {
+        modalVideoRef.current.volume = 1;
+      }
+      setIsVideoUnmuted(!nextMuted);
+    }
+  };
   const [selectedSize, setSelectedSize] = useState(product?.sizes ? product.sizes[0] : '');
   const [quantity, setQuantity] = useState(1);
   const [activeTab, setActiveTab] = useState('description'); // 'description' | 'details' | 'care' | 'reviews'
@@ -183,17 +199,45 @@ export default function ProductDetailModal({
           >
             {/* Active Media Item (Image or Video) */}
             {currentMedia.type === 'video' ? (
-              <div className="w-full h-full bg-black flex items-center justify-center">
+              <div className="w-full h-full bg-black flex items-center justify-center relative">
                 <video 
+                  ref={modalVideoRef}
                   src={currentMedia.url} 
                   controls 
                   autoPlay 
                   playsInline 
                   muted 
                   loop
-                  className="w-full h-full object-contain"
+                  className={`w-full h-full object-contain ${isForceMuted ? 'force-mute-video' : ''}`}
                   preload="metadata"
+                  onVolumeChange={(e) => {
+                    if (isForceMuted) {
+                      if (!e.target.muted) e.target.muted = true;
+                      if (e.target.volume > 0) e.target.volume = 0;
+                    } else {
+                      setIsVideoUnmuted(!e.target.muted && e.target.volume > 0);
+                    }
+                  }}
+                  onPlay={(e) => {
+                    if (isForceMuted) {
+                      e.target.muted = true;
+                      e.target.volume = 0;
+                    }
+                  }}
                 />
+                {!isForceMuted && (
+                  <button
+                    type="button"
+                    onClick={handleToggleVideoSound}
+                    className="absolute bottom-12 right-3 z-20 px-2.5 py-1 rounded-full bg-black/75 hover:bg-black text-white text-xs font-semibold backdrop-blur-sm border border-white/20 flex items-center gap-1.5 transition-all shadow-md active:scale-95 cursor-pointer"
+                    title={isVideoUnmuted ? "Mute video" : "Unmute video"}
+                  >
+                    <span className="material-symbols-outlined text-sm text-[#FCDAD7]">
+                      {isVideoUnmuted ? 'volume_up' : 'volume_off'}
+                    </span>
+                    <span>{isVideoUnmuted ? 'Sound On' : 'Tap for Sound'}</span>
+                  </button>
+                )}
               </div>
             ) : (
               <img 

@@ -100,13 +100,30 @@ export default function AddProductModal({
                         if (preset) {
                           const catObj = activeCategories.find(c => c.id === preset.category);
                           const catName = catObj?.name || preset.category;
+                          const subObjs = catObj ? (catObj.subCategoryObjects || []) : [];
+                          
+                          // Match by id or label or keyword
+                          let matchedSub = subObjs.find(s => s.id === preset.subcategory || s.name === preset.subcategoryLabel);
+                          if (!matchedSub && subObjs.length > 0) {
+                            const hint = (preset.subcategoryLabel || preset.subcategory || preset.label || '').toLowerCase();
+                            if (hint.includes('long')) {
+                              matchedSub = subObjs.find(s => s.name.toLowerCase().includes('long') || s.id.toLowerCase().includes('long'));
+                            } else if (hint.includes('short')) {
+                              matchedSub = subObjs.find(s => s.name.toLowerCase().includes('short') || s.id.toLowerCase().includes('short'));
+                            }
+                            if (!matchedSub) matchedSub = subObjs[0];
+                          }
+
+                          const finalSubId = matchedSub ? matchedSub.id : (preset.subcategory || 'general');
+                          const finalSubName = matchedSub ? matchedSub.name : (preset.subcategoryLabel || 'General');
+
                           setNewProd({
                             ...newProd,
                             title: preset.label,
                             category: preset.category,
                             categoryLabel: catName,
-                            subcategory: preset.subcategory,
-                            subcategoryLabel: preset.subcategory
+                            subcategory: finalSubId,
+                            subcategoryLabel: finalSubName
                           });
                         }
                       }}
@@ -721,6 +738,63 @@ export default function AddProductModal({
                           className="px-2 py-1 bg-red-100 hover:bg-red-200 text-red-700 font-bold text-[9px] rounded-lg border border-red-300 cursor-pointer transition-colors"
                         >
                           Remove
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* VIDEO AUDIO CONTROL OPTION */}
+                    <div className="pt-2 border-t border-black/10 mt-2 space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[11px] font-bold text-black flex items-center gap-1">
+                          <span className="material-symbols-outlined text-xs text-[#B78946]">volume_up</span>
+                          <span>Video Sound / Voice</span>
+                        </label>
+                        <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
+                          (newProd.videoMuted !== false) 
+                            ? 'bg-amber-100 text-amber-900 border border-amber-300' 
+                            : 'bg-emerald-100 text-emerald-900 border border-emerald-300'
+                        }`}>
+                          {(newProd.videoMuted !== false) ? '🔇 Voice Blocked (Muted)' : '🔊 Sound Enabled'}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-1.5">
+                        {/* Option 1: Mute for Entire Website (Default) */}
+                        <button
+                          type="button"
+                          onClick={() => setNewProd(prev => ({ ...prev, videoMuted: true }))}
+                          className={`p-2 rounded-lg border text-left transition-all cursor-pointer flex flex-col gap-0.5 ${
+                            (newProd.videoMuted !== false)
+                              ? 'bg-[#FCDAD7] border-black text-black ring-1 ring-black shadow-xs'
+                              : 'bg-white/80 border-black/15 text-stone-700 hover:bg-stone-50'
+                          }`}
+                        >
+                          <div className="flex items-center gap-1 text-[10.5px] font-bold">
+                            <span className="material-symbols-outlined text-xs text-red-600">volume_off</span>
+                            <span>Mute Video</span>
+                          </div>
+                          <p className="text-[9px] text-stone-600 leading-tight">
+                            Auto-block voice. Customer <strong>cannot unmute</strong> on website.
+                          </p>
+                        </button>
+
+                        {/* Option 2: Keep Unmute */}
+                        <button
+                          type="button"
+                          onClick={() => setNewProd(prev => ({ ...prev, videoMuted: false }))}
+                          className={`p-2 rounded-lg border text-left transition-all cursor-pointer flex flex-col gap-0.5 ${
+                            (newProd.videoMuted === false)
+                              ? 'bg-emerald-50 border-emerald-600 text-emerald-950 ring-1 ring-emerald-600 shadow-xs'
+                              : 'bg-white/80 border-black/15 text-stone-700 hover:bg-stone-50'
+                          }`}
+                        >
+                          <div className="flex items-center gap-1 text-[10.5px] font-bold">
+                            <span className="material-symbols-outlined text-xs text-emerald-700">volume_up</span>
+                            <span>Keep Unmute</span>
+                          </div>
+                          <p className="text-[9px] text-stone-600 leading-tight">
+                            Plays muted. Customer <strong>can unmute</strong> on product page.
+                          </p>
                         </button>
                       </div>
                     </div>

@@ -109,16 +109,16 @@ export const CATEGORIES = [
 export const PRODUCTS = [];
 
 export const STANDARD_PRODUCT_PRESETS = [
-  { label: 'Maharashtrian long set', category: 'maharashtrian', subcategory: 'Long Sets' },
-  { label: 'Maharashtrian short necklace', category: 'maharashtrian', subcategory: 'Short Sets' },
-  { label: 'South Indian long set', category: 'south-indian', subcategory: 'Long Sets' },
-  { label: 'South Indian short necklace', category: 'south-indian', subcategory: 'Short Sets' },
-  { label: 'Kundan long set', category: 'kundan', subcategory: 'Long Sets' },
-  { label: 'Kundan short necklace', category: 'kundan', subcategory: 'Short Sets' },
-  { label: 'Heritage long set', category: 'heritage', subcategory: 'Long Sets' },
-  { label: 'Heritage short necklace', category: 'heritage', subcategory: 'Short Sets' },
-  { label: 'Victorian long set', category: 'victorian', subcategory: 'Long Sets' },
-  { label: 'Victorian short necklace', category: 'victorian', subcategory: 'Short Sets' },
-  { label: 'American diamond long set', category: 'american-diamond', subcategory: 'Long Sets' },
-  { label: 'American diamond short necklace', category: 'american-diamond', subcategory: 'Short Sets' },
+  { label: 'Maharashtrian long set', category: 'maharashtrian', subcategory: 'maharashtrian-long-sets', subcategoryLabel: 'Long Sets' },
+  { label: 'Maharashtrian short necklace', category: 'maharashtrian', subcategory: 'maharashtrian-short-sets', subcategoryLabel: 'Short Sets' },
+  { label: 'South Indian long set', category: 'south-indian', subcategory: 'south-indian-long-sets', subcategoryLabel: 'Long Sets' },
+  { label: 'South Indian short necklace', category: 'south-indian', subcategory: 'south-indian-short-sets', subcategoryLabel: 'Short Sets' },
+  { label: 'Kundan long set', category: 'kundan', subcategory: 'kundan-long-sets', subcategoryLabel: 'Long Sets' },
+  { label: 'Kundan short necklace', category: 'kundan', subcategory: 'kundan-short-sets', subcategoryLabel: 'Short Sets' },
+  { label: 'Heritage long set', category: 'heritage', subcategory: 'heritage-long-sets', subcategoryLabel: 'Long Sets' },
+  { label: 'Heritage short necklace', category: 'heritage', subcategory: 'heritage-short-sets', subcategoryLabel: 'Short Sets' },
+  { label: 'Victorian long set', category: 'victorian', subcategory: 'victorian-long-sets', subcategoryLabel: 'Long Sets' },
+  { label: 'Victorian short necklace', category: 'victorian', subcategory: 'victorian-short-sets', subcategoryLabel: 'Short Sets' },
+  { label: 'American diamond long set', category: 'american-diamond', subcategory: 'american-diamond-long-sets', subcategoryLabel: 'AD Golden Short' },
+  { label: 'American diamond short necklace', category: 'american-diamond', subcategory: 'american-diamond-short-sets', subcategoryLabel: 'AD Silver Short' },
 ];
