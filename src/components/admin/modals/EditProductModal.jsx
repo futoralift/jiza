@@ -165,15 +165,17 @@ export default function EditProductModal({
                         const catId = e.target.value;
                         const catObj = activeCategories.find(c => c.id === catId);
                         const catName = catObj?.name || catId;
-                        const subs = catObj ? (catObj.subcategories || []) : [];
-                        const defaultSub = subs[0] || 'General';
+                        const subObjs = catObj ? (catObj.subCategoryObjects || []) : [];
+                        const defaultSubObj = subObjs[0];
+                        const defaultSubId = defaultSubObj ? defaultSubObj.id : 'general';
+                        const defaultSubName = defaultSubObj ? defaultSubObj.name : 'General';
 
                         setEditProdForm({
                           ...editProdForm,
                           category: catId,
                           categoryLabel: catName,
-                          subcategory: defaultSub,
-                          subcategoryLabel: defaultSub
+                          subcategory: defaultSubId,
+                          subcategoryLabel: defaultSubName
                         });
                       }}
                       className="w-full bg-[#FFF0F2]/40 border border-[#F7C5C0] focus:border-black rounded-xl px-3.5 py-2.5 text-xs text-on-surface font-semibold focus:outline-none transition-all shadow-sm"
@@ -192,10 +194,14 @@ export default function EditProductModal({
                       required
                       value={editProdForm.subcategory}
                       onChange={(e) => {
-                        const subName = e.target.value;
+                        const subId = e.target.value;
+                        const catObj = activeCategories.find(c => c.id === editProdForm.category);
+                        const subObjs = catObj ? (catObj.subCategoryObjects || []) : [];
+                        const subObj = subObjs.find(s => s.id === subId);
+                        const subName = subObj ? subObj.name : subId;
                         setEditProdForm({
                           ...editProdForm,
-                          subcategory: subName,
+                          subcategory: subId,
                           subcategoryLabel: subName
                         });
                       }}
@@ -203,13 +209,13 @@ export default function EditProductModal({
                     >
                       {(() => {
                         const catObj = activeCategories.find(c => c.id === editProdForm.category);
-                        const subs = catObj ? (catObj.subcategories || []) : [];
-                        if (subs.length > 0) {
-                          return subs.map((s, idx) => (
-                            <option key={idx} value={s}>{s}</option>
+                        const subObjs = catObj ? (catObj.subCategoryObjects || []) : [];
+                        if (subObjs.length > 0) {
+                          return subObjs.map((s) => (
+                            <option key={s.id} value={s.id}>{s.name}</option>
                           ));
                         }
-                        return <option value="General">General / All</option>;
+                        return <option value="general">General / All</option>;
                       })()}
                     </select>
                   </div>

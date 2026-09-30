@@ -1614,9 +1614,10 @@ app.put(['/api/subcategories/:id', '/api/admin/subcategories/:id'], requireAdmin
       );
     }
     if (newName !== sub.name) {
+      // Update subcategory_label for products matched by old label OR old subcategory_id (which may be old name or old id)
       await db.run(
-        'UPDATE products SET subcategory_label = ? WHERE subcategory_id = ? OR subcategory_label = ?',
-        [newName, id, sub.name]
+        'UPDATE products SET subcategory_label = ?, subcategory_id = ? WHERE subcategory_id = ? OR subcategory_label = ?',
+        [newName, id, id, sub.name]
       );
     }
 
