@@ -419,8 +419,8 @@ export default function HomeView({
       {/* ===== SHOP BY CATEGORY ===== */}
       <section className="py-14 md:py-16 px-6 md:px-12 w-full animate-fadeIn">
         <div className="text-center mb-10">
-          <h2 className="font-headline-sm text-on-surface mb-2">Shop by Category</h2>
-          <div className="w-16 h-px bg-heritage-gold mx-auto"></div>
+          <h2 className="font-headline-sm text-2xl sm:text-3xl md:text-4xl text-on-surface font-bold tracking-tight mb-2.5">Shop by Category</h2>
+          <div className="w-20 md:w-28 h-0.5 bg-heritage-gold mx-auto rounded-full"></div>
         </div>
 
         {/* Category Grid: 2 columns on mobile, 6 columns on desktop (12 items = 2 rows of 6), 4:5 aspect ratio cards */}
