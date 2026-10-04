@@ -111,7 +111,27 @@ export default function ProductDetailPage({
     setActiveMedia(0);
   }, [product?.id]);
 
-  const [selectedSize, setSelectedSize] = useState(product?.sizes ? product.sizes[0] : 'Standard');
+  const productSizes = Array.isArray(product?.sizes)
+    ? product.sizes
+    : (typeof product?.sizes === 'string'
+        ? (() => { try { return JSON.parse(product.sizes); } catch (_) { return []; } })()
+        : (product?.sizes_json ? (() => { try { return JSON.parse(product.sizes_json); } catch (_) { return []; } })() : []));
+
+  const [selectedSize, setSelectedSize] = useState(productSizes[0] || 'Standard');
+
+  useEffect(() => {
+    const szList = Array.isArray(product?.sizes)
+      ? product.sizes
+      : (typeof product?.sizes === 'string'
+          ? (() => { try { return JSON.parse(product.sizes); } catch (_) { return []; } })()
+          : (product?.sizes_json ? (() => { try { return JSON.parse(product.sizes_json); } catch (_) { return []; } })() : []));
+    if (szList.length > 0) {
+      setSelectedSize(szList[0]);
+    } else {
+      setSelectedSize('Standard');
+    }
+  }, [product?.id, product?.sizes, product?.sizes_json]);
+
   const [quantity, setQuantity] = useState(1);
   const [activeTab, setActiveTab] = useState('description'); // 'description' | 'details' | 'care' | 'reviews' | 'exchange'
   const [isAdded, setIsAdded] = useState(false);
@@ -720,6 +740,32 @@ export default function ProductDetailPage({
                       }`}
                     >
                       {color}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Size / Length Selector (Rendered directly after Colour Selector) */}
+            {productSizes && productSizes.length > 0 && (
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-black mb-2">
+                  Size / Length: <span className="font-normal text-on-surface-variant">({selectedSize || productSizes[0]})</span>
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {productSizes.map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setSelectedSize(s)}
+                      className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer flex items-center gap-1.5 ${
+                        selectedSize === s
+                          ? 'bg-black text-[#FCDAD7] border-black shadow-sm font-bold scale-102'
+                          : 'bg-white text-stone-700 border-black/15 hover:border-black/40'
+                      }`}
+                    >
+                      {selectedSize === s && <span className="text-[10px]">✓</span>}
+                      <span>Size {s}</span>
                     </button>
                   ))}
                 </div>

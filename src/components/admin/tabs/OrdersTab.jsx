@@ -406,12 +406,22 @@ export default function OrdersTab({
                       {/* 4. PURCHASED ITEMS */}
                       <td className="p-3">
                         {parsedItems.length > 0 ? (
-                          <div className="space-y-1">
+                          <div className="space-y-1.5">
                             {parsedItems.map((it, idx) => (
-                              <div key={idx} className="text-xs font-mono font-bold text-on-surface flex items-center gap-1.5">
+                              <div key={idx} className="text-xs font-mono font-bold text-on-surface flex items-center gap-1.5 flex-wrap">
                                 <span className="text-black bg-[#FCDAD7]/60 px-1.5 py-0.5 rounded border border-black/10 text-[11px]">
                                   {it.productCode || it.product_code || 'PRD'}
                                 </span>
+                                {(it.selectedSize || it.size) && (
+                                  <span className="text-black bg-white px-1.5 py-0.5 rounded border border-[#F8B3AC] text-[10px] font-sans font-bold shadow-2xs">
+                                    Size: {it.selectedSize || it.size}
+                                  </span>
+                                )}
+                                {(it.selectedColor || it.colour) && (
+                                  <span className="text-black bg-[#FFF0F2] px-1.5 py-0.5 rounded border border-[#F8B3AC]/50 text-[10px] font-sans font-semibold">
+                                    {it.selectedColor || it.colour}
+                                  </span>
+                                )}
                                 <span className="text-gray-500 font-normal">×</span>
                                 <span className="text-black font-extrabold">{it.quantity || 1}</span>
                               </div>

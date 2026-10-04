@@ -40,7 +40,23 @@ export default function ProductDetailModal({
       setIsVideoUnmuted(!nextMuted);
     }
   };
-  const [selectedSize, setSelectedSize] = useState(product?.sizes ? product.sizes[0] : '');
+  const productSizes = Array.isArray(product?.sizes)
+    ? product.sizes
+    : (typeof product?.sizes === 'string'
+        ? (() => { try { return JSON.parse(product.sizes); } catch (_) { return []; } })()
+        : (product?.sizes_json ? (() => { try { return JSON.parse(product.sizes_json); } catch (_) { return []; } })() : []));
+
+  const [selectedSize, setSelectedSize] = useState(productSizes[0] || '');
+
+  useEffect(() => {
+    const szList = Array.isArray(product?.sizes)
+      ? product.sizes
+      : (typeof product?.sizes === 'string'
+          ? (() => { try { return JSON.parse(product.sizes); } catch (_) { return []; } })()
+          : (product?.sizes_json ? (() => { try { return JSON.parse(product.sizes_json); } catch (_) { return []; } })() : []));
+    setSelectedSize(szList[0] || '');
+  }, [product?.id, product?.sizes, product?.sizes_json]);
+
   const [quantity, setQuantity] = useState(1);
   const [activeTab, setActiveTab] = useState('description'); // 'description' | 'details' | 'care' | 'reviews'
   const [isAdded, setIsAdded] = useState(false);
@@ -515,23 +531,27 @@ export default function ProductDetailModal({
               </div>
             )}
 
-            {/* Size Selector */}
-            {product.sizes && product.sizes.length > 0 && (
+            {/* Size / Length Selector (Rendered directly after Colour Selector) */}
+            {productSizes && productSizes.length > 0 && (
               <div>
-                <label className="text-[10px] uppercase font-bold text-stone-700 block mb-1">Size / Length:</label>
+                <label className="text-[10px] uppercase font-bold text-stone-700 block mb-1.5 flex items-center justify-between">
+                  <span>Size / Length:</span>
+                  <span className="text-stone-900 font-bold normal-case text-xs">{selectedSize || productSizes[0]}</span>
+                </label>
                 <div className="flex flex-wrap gap-1.5">
-                  {product.sizes.map((s) => (
+                  {productSizes.map((s) => (
                     <button 
                       key={s}
                       type="button"
                       onClick={() => setSelectedSize(s)}
-                      className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1 ${
                         selectedSize === s
-                          ? 'bg-[#FCDAD7] text-stone-900 font-bold border border-black/40 shadow-xs'
+                          ? 'bg-[#FCDAD7] text-stone-900 font-bold border border-black/40 shadow-xs ring-1 ring-black/20'
                           : 'bg-white text-stone-700 border border-[#F8B3AC]/60 hover:border-black/30'
                       }`}
                     >
-                      {s}
+                      {selectedSize === s && <span className="text-[10px]">✓</span>}
+                      <span>Size {s}</span>
                     </button>
                   ))}
                 </div>

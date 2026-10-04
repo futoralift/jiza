@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { getMediaUrl } from '../../../config';
 import { STANDARD_PRODUCT_PRESETS } from '../../../data/products';
 
@@ -28,6 +28,26 @@ export default function AddProductModal({
   videoUploadStats = { loaded: '0 MB', total: '0 MB', percent: 0 },
   handleCancelVideoUpload
 }) {
+  const [isAdditionalFeaturesOpen, setIsAdditionalFeaturesOpen] = useState(false);
+  const [isBangleEnabled, setIsBangleEnabled] = useState(false);
+  const [customSize, setCustomSize] = useState('');
+
+  const currentSizes = Array.isArray(newProd.sizes) ? newProd.sizes : [];
+  const hasSizes = currentSizes.length > 0;
+
+  const updateSizes = (nextSizes) => {
+    setNewProd(prev => ({ ...prev, sizes: nextSizes }));
+  };
+
+  const handleAddCustomSize = () => {
+    const trimmed = customSize.trim();
+    if (!trimmed) return;
+    if (!currentSizes.includes(trimmed)) {
+      updateSizes([...currentSizes, trimmed]);
+    }
+    setCustomSize('');
+  };
+
   if (!isAddProductOpen) return null;
 
   return (
@@ -496,6 +516,167 @@ export default function AddProductModal({
                     className="w-full bg-[#FFF0F2]/40 border border-[#F7C5C0] focus:border-black rounded-xl px-3.5 py-2.5 text-xs text-on-surface font-medium focus:outline-none transition-all shadow-sm resize-none"
                   ></textarea>
                 </div>
+              </div>
+
+              {/* Section 4: Additional Features (Optional Product Variations) */}
+              <div className="bg-white p-4 rounded-2xl border border-[#F7C5C0] shadow-sm space-y-3">
+                <div 
+                  className="flex items-center justify-between cursor-pointer select-none"
+                  onClick={() => setIsAdditionalFeaturesOpen(!isAdditionalFeaturesOpen)}
+                >
+                  <h4 className="font-bold text-[11px] uppercase tracking-wider text-black flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-sm text-black">tune</span>
+                    <span>Additional Features</span>
+                    <span className="text-[10px] text-gray-500 font-normal normal-case ml-1">(Bangles, Sizes, Lengths)</span>
+                  </h4>
+                  <div className="flex items-center gap-1.5">
+                    {hasSizes && (
+                      <span className="bg-[#B78946] text-white px-2 py-0.5 rounded-full text-[9px] font-bold">
+                        {currentSizes.length} Size{currentSizes.length > 1 ? 's' : ''} Active
+                      </span>
+                    )}
+                    <span className="material-symbols-outlined text-base text-black transition-transform">
+                      {isAdditionalFeaturesOpen ? 'expand_less' : 'expand_more'}
+                    </span>
+                  </div>
+                </div>
+
+                {isAdditionalFeaturesOpen && (
+                  <div className="pt-2 border-t border-[#F7C5C0]/40 space-y-3 animate-fadeIn">
+                    
+                    {/* Bangle Sizing Option Button */}
+                    <div className="p-3 bg-[#FFF0F2]/50 border border-[#F7C5C0] rounded-xl flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="material-symbols-outlined text-base text-black">radio_button_checked</span>
+                        <div>
+                          <p className="text-xs font-bold text-black">Bangle Sizing &amp; Length Options</p>
+                          <p className="text-[10px] text-gray-600">Enable standard Indian wrist diameter sizing (2.2, 2.4, 2.6, 2.8) for this product</p>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (isBangleEnabled || hasSizes) {
+                            setIsBangleEnabled(false);
+                            updateSizes([]);
+                          } else {
+                            setIsBangleEnabled(true);
+                            if (currentSizes.length === 0) {
+                              updateSizes(['2.2', '2.4', '2.6', '2.8']);
+                            }
+                          }
+                        }}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border cursor-pointer ${
+                          isBangleEnabled || hasSizes
+                            ? 'bg-[#B78946] text-white border-[#9E6B2A] shadow-xs'
+                            : 'bg-white text-black border-[#F7C5C0] hover:bg-[#FCDAD7]/50'
+                        }`}
+                      >
+                        <span className="material-symbols-outlined text-sm">
+                          {(isBangleEnabled || hasSizes) ? 'check_circle' : 'add_circle'}
+                        </span>
+                        <span>{(isBangleEnabled || hasSizes) ? 'Bangle Enabled' : 'Enable Bangle'}</span>
+                      </button>
+                    </div>
+
+                    {/* Pre-fed sizes & custom size creator when enabled */}
+                    {(isBangleEnabled || hasSizes) && (
+                      <div className="space-y-3 pl-1">
+                        <div>
+                          <label className="block text-black font-bold text-[11px] uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                            <span>Pre-Fed Bangle Sizes (Click to Toggle):</span>
+                            <span className="text-[10px] text-gray-500 font-normal">Tap to add or remove</span>
+                          </label>
+                          <div className="flex flex-wrap gap-2">
+                            {['2.2', '2.4', '2.6', '2.8'].map((sz) => {
+                              const isSelected = currentSizes.includes(sz);
+                              return (
+                                <button
+                                  key={sz}
+                                  type="button"
+                                  onClick={() => {
+                                    if (isSelected) {
+                                      updateSizes(currentSizes.filter(s => s !== sz));
+                                    } else {
+                                      updateSizes([...currentSizes, sz]);
+                                    }
+                                  }}
+                                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border cursor-pointer flex items-center gap-1.5 ${
+                                    isSelected
+                                      ? 'bg-[#FCDAD7] text-black border-black/40 shadow-xs ring-1 ring-black/20'
+                                      : 'bg-white text-gray-700 border-[#F7C5C0] hover:border-black/30'
+                                  }`}
+                                >
+                                  <span>{isSelected ? '✓' : '+'}</span>
+                                  <span>Size {sz}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Custom Size Adder */}
+                        <div className="pt-1">
+                          <label className="block text-black font-bold text-[11px] uppercase tracking-wider mb-1">
+                            Add Custom Size / Length:
+                          </label>
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              placeholder="e.g. 2.10, Free Size, 2.12"
+                              value={customSize}
+                              onChange={(e) => setCustomSize(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  handleAddCustomSize();
+                                }
+                              }}
+                              className="flex-grow bg-[#FFF0F2]/40 border border-[#F7C5C0] focus:border-black rounded-xl px-3 py-2 text-xs text-on-surface font-semibold focus:outline-none transition-all"
+                            />
+                            <button
+                              type="button"
+                              onClick={handleAddCustomSize}
+                              className="px-3.5 py-2 bg-black text-[#FCDAD7] hover:bg-stone-900 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1 shrink-0"
+                            >
+                              <span className="material-symbols-outlined text-sm">add</span>
+                              <span>Add</span>
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Active Sizing Preview Chips */}
+                        {currentSizes.length > 0 && (
+                          <div className="pt-1">
+                            <span className="text-[10px] text-gray-500 font-bold block mb-1 uppercase tracking-wider">
+                              Selected Sizes for Storefront ({currentSizes.length}):
+                            </span>
+                            <div className="flex flex-wrap gap-1.5">
+                              {currentSizes.map((sz, idx) => (
+                                <span
+                                  key={idx}
+                                  className="inline-flex items-center gap-1 bg-[#FCDAD7] text-black border border-black/20 px-2.5 py-1 rounded-lg text-xs font-bold shadow-2xs"
+                                >
+                                  <span>{sz}</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => updateSizes(currentSizes.filter((_, i) => i !== idx))}
+                                    className="text-red-700 hover:text-red-900 ml-1 font-extrabold text-sm leading-none bg-red-100 hover:bg-red-200 w-4 h-4 rounded-full flex items-center justify-center cursor-pointer"
+                                    title="Remove size"
+                                  >
+                                    ×
+                                  </button>
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                  </div>
+                )}
               </div>
 
             </div>

@@ -267,7 +267,7 @@ export default function App() {
               amount: `₹${Number(o.total_amount).toLocaleString('en-IN')}`,
               status: o.status,
               paymentMethod: o.payment_method,
-              items: typeof o.items_json === 'string' ? JSON.parse(o.items_json).map(i => `${i.title || i.name}${i.selectedColor ? ` [Colour: ${i.selectedColor}]` : (i.colour ? ` [Colour: ${i.colour}]` : '')}${i.selectedSize ? ` [Size: ${i.selectedSize}]` : ''} (x${i.quantity || 1})`).join(', ') : 'Items',
+              items: typeof o.items_json === 'string' ? JSON.parse(o.items_json).map(i => `${i.title || i.name}${i.selectedColor ? ` [Colour: ${i.selectedColor}]` : (i.colour ? ` [Colour: ${i.colour}]` : '')}${(i.selectedSize || i.size) ? ` [Size: ${i.selectedSize || i.size}]` : ''} (x${i.quantity || 1})`).join(', ') : 'Items',
               itemsJson: o.items_json,
               date: new Date(o.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
             }));

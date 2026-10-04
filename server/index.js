@@ -1717,7 +1717,9 @@ app.get(['/api/products', '/api/admin/products'], async (req, res) => {
         videoUrl: p.video_url || '',
         video: p.video_url || '',
         video_muted: p.video_muted !== undefined && p.video_muted !== null ? Boolean(p.video_muted) : true,
-        videoMuted: p.video_muted !== undefined && p.video_muted !== null ? Boolean(p.video_muted) : true
+        videoMuted: p.video_muted !== undefined && p.video_muted !== null ? Boolean(p.video_muted) : true,
+        sizes: p.sizes_json ? (typeof p.sizes_json === 'string' ? (() => { try { return JSON.parse(p.sizes_json); } catch (_) { return []; } })() : (Array.isArray(p.sizes_json) ? p.sizes_json : [])) : [],
+        sizes_json: p.sizes_json || '[]'
       };
     });
 
@@ -1820,17 +1822,24 @@ app.post(['/api/products', '/api/admin/products'], requireAdminAuth, async (req,
     const rawVideo = video || videoUrl || video_url || '';
     const processedVideo = rawVideo ? saveBase64MediaToDisk(rawVideo, 'products') : '';
 
+    const rawSizes = req.body.sizes || [];
+    const sizesArr = Array.isArray(rawSizes)
+      ? rawSizes
+      : (typeof rawSizes === 'string' ? (() => { try { return JSON.parse(rawSizes); } catch (_) { return []; } })() : []);
+    const sanitizedSizes = sizesArr.map(s => String(s).trim()).filter(Boolean);
+    const sizesJson = JSON.stringify(sanitizedSizes);
+
     await db.run(
       `INSERT INTO products (
         id, product_code, title, category_id, category_label, subcategory_id, subcategory_label, selling_price, mrp, discount, 
         description, material, colour, care_instructions, delivery_time, 
-        images_json, img, badge, special_section, stock_quantity, in_stock, sold_out, video_url, video_muted
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        images_json, img, badge, special_section, stock_quantity, in_stock, sold_out, video_url, video_muted, sizes_json
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id, productCode, title, category, categoryLabel || category, resolvedSubId, resolvedSubLabel, sellingPrice, mrp || 0, discount || 0,
         description || '', material || '', colour || '', careInstructions || 'Store in a dry velvet box. Keep away from water and perfumes.', deliveryTime || '2-4 Business Days',
         JSON.stringify(processedImages), primaryImg, isSoldOut ? 'Sold Out' : (sec !== 'None' ? sec : (badge && badge !== 'New Arrival' && badge !== 'Best Seller' && badge !== 'Stock Clearance Sale' ? badge : '')),
-        sec, stockQty, isSoldOut ? 0 : 1, isSoldOut ? 1 : 0, processedVideo, isVideoMuted
+        sec, stockQty, isSoldOut ? 0 : 1, isSoldOut ? 1 : 0, processedVideo, isVideoMuted, sizesJson
       ]
     );
 
@@ -1947,19 +1956,29 @@ app.put(['/api/products/:id', '/api/admin/products/:id'], requireAdminAuth, asyn
       deleteLocalUploadFile(oldProduct.video_url);
     }
 
+    const rawSizes = req.body.sizes !== undefined ? req.body.sizes : undefined;
+    let sizesJson = null;
+    if (rawSizes !== undefined) {
+      const sizesArr = Array.isArray(rawSizes)
+        ? rawSizes
+        : (typeof rawSizes === 'string' ? (() => { try { return JSON.parse(rawSizes); } catch (_) { return []; } })() : []);
+      sizesJson = JSON.stringify(sizesArr.map(s => String(s).trim()).filter(Boolean));
+    }
+
     await db.run(
       `UPDATE products SET 
         product_code = ?, title = ?, category_id = ?, category_label = ?, subcategory_id = ?, subcategory_label = ?,
         selling_price = ?, mrp = ?, discount = ?, description = ?, material = ?, colour = ?,
         care_instructions = ?, delivery_time = ?, images_json = ?, img = ?, badge = ?,
-        special_section = ?, stock_quantity = ?, in_stock = ?, sold_out = ?, video_url = ?, video_muted = ?
+        special_section = ?, stock_quantity = ?, in_stock = ?, sold_out = ?, video_url = ?, video_muted = ?,
+        sizes_json = COALESCE(?, sizes_json)
        WHERE id = ?`,
       [
         productCode, title, category, categoryLabel || category, resolvedSubId, resolvedSubLabel,
         sellingPrice, mrp || 0, discount || 0, description || '', material || '', colour || '',
         careInstructions || 'Store in a dry velvet box. Keep away from water and perfumes.', deliveryTime || '2-4 Business Days', JSON.stringify(processedImages),
         primaryImg, isSoldOut ? 'Sold Out' : (sec !== 'None' ? sec : (badge && badge !== 'New Arrival' && badge !== 'Best Seller' && badge !== 'Stock Clearance Sale' ? badge : '')),
-        sec, stockQty, isSoldOut ? 0 : 1, isSoldOut ? 1 : 0, processedVideo, isVideoMuted, id
+        sec, stockQty, isSoldOut ? 0 : 1, isSoldOut ? 1 : 0, processedVideo, isVideoMuted, sizesJson, id
       ]
     );
 
@@ -2646,7 +2665,11 @@ app.post('/api/orders', async (req, res) => {
           title: product.title || item.title || item.name,
           name: product.title || item.title || item.name,
           price: dbPrice,
-          sellingPrice: dbPrice
+          sellingPrice: dbPrice,
+          selectedSize: item.selectedSize || item.size || '',
+          size: item.selectedSize || item.size || '',
+          selectedColor: item.selectedColor || item.colour || '',
+          colour: item.selectedColor || item.colour || ''
         });
       }
 
@@ -2931,7 +2954,11 @@ app.post('/api/payment/verify-payment', async (req, res) => {
           title: product.title || item.title || item.name,
           name: product.title || item.title || item.name,
           price: dbPrice,
-          sellingPrice: dbPrice
+          sellingPrice: dbPrice,
+          selectedSize: item.selectedSize || item.size || '',
+          size: item.selectedSize || item.size || '',
+          selectedColor: item.selectedColor || item.colour || '',
+          colour: item.selectedColor || item.colour || ''
         });
       }
 
@@ -3434,7 +3461,7 @@ app.get('/api/orders/my-orders', async (req, res) => {
         status: o.status,
         paymentMethod: o.payment_method,
         paymentStatus: o.payment_status,
-        items: typeof o.items_json === 'string' ? JSON.parse(o.items_json).map(i => `${i.title || i.name}${i.selectedColor ? ` [Colour: ${i.selectedColor}]` : (i.colour ? ` [Colour: ${i.colour}]` : '')}${i.selectedSize ? ` [Size: ${i.selectedSize}]` : ''} (x${i.quantity || 1})`).join(', ') : 'Items',
+        items: typeof o.items_json === 'string' ? JSON.parse(o.items_json).map(i => `${i.title || i.name}${i.selectedColor ? ` [Colour: ${i.selectedColor}]` : (i.colour ? ` [Colour: ${i.colour}]` : '')}${(i.selectedSize || i.size) ? ` [Size: ${i.selectedSize || i.size}]` : ''} (x${i.quantity || 1})`).join(', ') : 'Items',
         itemsJson: o.items_json,
         createdAt: o.created_at,
         date: new Date(o.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
@@ -3811,7 +3838,10 @@ app.patch('/api/orders/:id/modify', async (req, res) => {
           const idx = change.index;
           if (currentItems[idx]) {
             const prevItem = { ...currentItems[idx] };
-            if (change.selectedSize !== undefined) currentItems[idx].selectedSize = change.selectedSize;
+            if (change.selectedSize !== undefined) {
+              currentItems[idx].selectedSize = change.selectedSize;
+              currentItems[idx].size = change.selectedSize;
+            }
             if (change.selectedColor !== undefined) {
               currentItems[idx].selectedColor = change.selectedColor;
               currentItems[idx].colour = change.selectedColor;
@@ -3822,7 +3852,7 @@ app.patch('/api/orders/:id/modify', async (req, res) => {
               timestamp: new Date().toISOString(),
               actor,
               itemTitle: currentItems[idx].title || currentItems[idx].name,
-              previousVariant: { size: prevItem.selectedSize, color: prevItem.selectedColor || prevItem.colour },
+              previousVariant: { size: prevItem.selectedSize || prevItem.size, color: prevItem.selectedColor || prevItem.colour },
               newVariant: { size: currentItems[idx].selectedSize, color: currentItems[idx].selectedColor || currentItems[idx].colour }
             });
           }
@@ -3872,8 +3902,10 @@ app.patch('/api/orders/:id/modify', async (req, res) => {
             price: dbPrice,
             sellingPrice: dbPrice,
             quantity: addQty,
-            selectedSize: newItem.selectedSize || '',
+            selectedSize: newItem.selectedSize || newItem.size || '',
+            size: newItem.selectedSize || newItem.size || '',
             selectedColor: newItem.selectedColor || product.colour || '',
+            colour: newItem.selectedColor || product.colour || '',
             img: newItem.img || product.img
           });
 

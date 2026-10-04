@@ -1030,7 +1030,8 @@ export default function AdminPanel({
     specialSection: 'None',
     inStock: true,
     stockQuantity: 1,
-    videoMuted: true
+    videoMuted: true,
+    sizes: []
   });
 
   const [uploadedImages, setUploadedImages] = useState(['', '', '', '']);
@@ -1116,7 +1117,8 @@ export default function AdminPanel({
       videoUrl: uploadedVideo,
       video_url: uploadedVideo,
       videoMuted: newProd.videoMuted !== undefined ? newProd.videoMuted : true,
-      video_muted: newProd.videoMuted !== undefined ? newProd.videoMuted : true
+      video_muted: newProd.videoMuted !== undefined ? newProd.videoMuted : true,
+      sizes: (newProd.sizes || []).map(s => String(s).trim()).filter(Boolean)
     };
 
     if (onAddProduct) {
@@ -1142,7 +1144,8 @@ export default function AdminPanel({
           specialSection: 'None',
           inStock: true,
           stockQuantity: 1,
-          videoMuted: true
+          videoMuted: true,
+          sizes: []
         });
         setUploadedImages(['', '', '', '']);
         setUploadedVideo('');
@@ -1185,7 +1188,8 @@ export default function AdminPanel({
       specialSection: p.specialSection || p.special_section || 'None',
       inStock: p.inStock !== undefined ? p.inStock : (p.in_stock !== undefined ? p.in_stock : true),
       stockQuantity: p.stockQuantity || p.stock_quantity || 1,
-      videoMuted: p.video_muted !== undefined ? (p.video_muted === true || p.video_muted === 1 || p.video_muted === 'true') : (p.videoMuted !== undefined ? (p.videoMuted === true || p.videoMuted === 1 || p.videoMuted === 'true') : true)
+      videoMuted: p.video_muted !== undefined ? (p.video_muted === true || p.video_muted === 1 || p.video_muted === 'true') : (p.videoMuted !== undefined ? (p.videoMuted === true || p.videoMuted === 1 || p.videoMuted === 'true') : true),
+      sizes: p.sizes ? (Array.isArray(p.sizes) ? p.sizes : (typeof p.sizes === 'string' ? (() => { try { return JSON.parse(p.sizes); } catch (_) { return []; } })() : [])) : (p.sizes_json ? (typeof p.sizes_json === 'string' ? (() => { try { return JSON.parse(p.sizes_json); } catch (_) { return []; } })() : (Array.isArray(p.sizes_json) ? p.sizes_json : [])) : [])
     });
   };
 
@@ -1271,7 +1275,8 @@ export default function AdminPanel({
       videoUrl: editUploadedVideo,
       video_url: editUploadedVideo,
       videoMuted: editProdForm.videoMuted !== undefined ? editProdForm.videoMuted : true,
-      video_muted: editProdForm.videoMuted !== undefined ? editProdForm.videoMuted : true
+      video_muted: editProdForm.videoMuted !== undefined ? editProdForm.videoMuted : true,
+      sizes: (editProdForm.sizes || []).map(s => String(s).trim()).filter(Boolean)
     };
 
     if (onUpdateProduct) {

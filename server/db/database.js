@@ -78,6 +78,7 @@ export async function getDb() {
       ALTER TABLE products ADD COLUMN IF NOT EXISTS video_url TEXT;
       ALTER TABLE products ADD COLUMN IF NOT EXISTS video_muted BOOLEAN DEFAULT TRUE;
       ALTER TABLE products ADD COLUMN IF NOT EXISTS special_section VARCHAR(100) DEFAULT 'None';
+      ALTER TABLE products ADD COLUMN IF NOT EXISTS sizes_json TEXT DEFAULT '[]';
       ALTER TABLE products ALTER COLUMN stock_quantity SET DEFAULT 1;
       ALTER TABLE products ALTER COLUMN care_instructions SET DEFAULT 'Store in a dry velvet box. Keep away from water and perfumes.';
       ALTER TABLE users ADD COLUMN IF NOT EXISTS country VARCHAR(100) DEFAULT 'India';

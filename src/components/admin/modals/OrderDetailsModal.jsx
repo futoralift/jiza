@@ -250,9 +250,9 @@ export default function OrderDetailsModal({
                       <h4 className="font-bold text-on-surface text-[11px] line-clamp-1">{item.title || item.name}</h4>
                       <div className="flex flex-wrap gap-1.5 items-center mt-1 text-[10px]">
                         <span className="text-on-surface-variant font-semibold">Qty: {item.quantity || 1}</span>
-                        {item.selectedSize && (
-                          <span className="bg-gray-200/60 px-1.5 py-0.2 rounded text-on-surface-variant font-bold">
-                            Size: {item.selectedSize}
+                        {(item.selectedSize || item.size) && (
+                          <span className="bg-[#FCDAD7] text-black border border-black/20 px-2 py-0.5 rounded font-bold shadow-2xs">
+                            Size: {item.selectedSize || item.size}
                           </span>
                         )}
                         {(item.selectedColor || item.colour) && (

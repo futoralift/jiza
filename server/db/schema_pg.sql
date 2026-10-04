@@ -89,6 +89,7 @@ CREATE TABLE IF NOT EXISTS products (
     product_code VARCHAR(100) UNIQUE,
     video_url TEXT,
     video_muted BOOLEAN DEFAULT TRUE,
+    sizes_json TEXT DEFAULT '[]',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 

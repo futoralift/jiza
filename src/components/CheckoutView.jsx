@@ -849,6 +849,47 @@ export default function CheckoutView({ cartItems, totalAmount, onOrderSuccess, o
             </div>
           </div>
 
+          {/* Items Review in Checkout */}
+          <div className="p-4 bg-[#FFF5F6] border border-[#F8B3AC]/50 rounded-2xl space-y-2">
+            <div className="text-[11px] font-bold text-stone-800 uppercase tracking-wider mb-2 flex items-center justify-between">
+              <span>Order Items ({cartItems.reduce((acc, i) => acc + (i.quantity || 1), 0)})</span>
+              <span className="text-[10px] text-stone-500 font-normal">Review sizes & colours</span>
+            </div>
+            <div className="divide-y divide-[#FCDAD7]/60 max-h-48 overflow-y-auto pr-1">
+              {cartItems.map((ci, idx) => (
+                <div key={`${ci.id}-${ci.selectedSize || ''}-${ci.selectedColor || ''}-${idx}`} className="py-2 flex items-center justify-between gap-3 text-xs">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <img 
+                      src={ci.img || (ci.images && ci.images[0]) || '/logo-j.webp'} 
+                      alt={ci.title || ci.name} 
+                      className="w-10 h-10 object-cover rounded-lg border border-[#F8B3AC]/40 bg-white shrink-0" 
+                      onError={(e) => { e.target.onerror = null; e.target.src = '/logo-j.webp'; }}
+                    />
+                    <div className="min-w-0">
+                      <p className="font-semibold text-stone-900 truncate text-xs">{ci.title || ci.name}</p>
+                      <div className="flex items-center gap-1.5 flex-wrap mt-0.5 text-[10px]">
+                        <span className="text-stone-500">Qty: {ci.quantity || 1}</span>
+                        {(ci.selectedSize || ci.size) && (
+                          <span className="bg-[#FCDAD7] text-stone-900 font-bold px-1.5 py-0.5 rounded border border-black/10">
+                            Size: {ci.selectedSize || ci.size}
+                          </span>
+                        )}
+                        {(ci.selectedColor || ci.colour) && (
+                          <span className="bg-stone-100 text-stone-700 px-1.5 py-0.5 rounded border border-black/5">
+                            Colour: {ci.selectedColor || ci.colour}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <span className="font-mono font-bold text-stone-900 shrink-0">
+                    ₹{((ci.price || ci.sellingPrice || 0) * (ci.quantity || 1)).toLocaleString('en-IN')}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
           <form onSubmit={handlePlaceOrder} className="space-y-4">
             
             {/* UPI Option */}
