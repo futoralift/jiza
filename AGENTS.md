@@ -54,3 +54,9 @@ When requested to deploy updates or verify live production:
 ## 5. 🎨 Design & Aesthetic Guidelines
 - **Palette**: Soft royal blush pink (`#FCDAD7` / `#FFF0F2`), warm white backgrounds (`#FFFDFD`), gold accents (`#B78946`), high-contrast black typography.
 - **Mobile First**: All modals must fit viewport (`max-h-[85vh]`), sticky bottom action bars, touch gestures for image sliders, clean 2-column grids on mobile.
+
+---
+
+## 6. ☁️ Cloudflare Tooling & Platform Rules
+- When interacting with Cloudflare, use the `cf` CLI unless the project has a Wrangler configuration file.
+

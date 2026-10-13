@@ -15,6 +15,7 @@ import * as Sentry from '@sentry/node';
 import { sendWelcomeEmail, sendOrderConfirmationEmail } from './services/emailService.js';
 import { createRazorpayOrder, verifyRazorpaySignature, verifyRazorpayWebhookSignature, fetchRazorpayOrder, fetchRazorpayPayment } from './services/razorpayService.js';
 import { calculateShipping, getShippingConfig, saveShippingConfig, isIndia } from './services/shippingService.js';
+import * as cacheService from './services/cacheService.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1250,41 +1251,34 @@ app.get('/api/admin/customers/:id', requireAdminAuth, async (req, res) => {
 });
 
 // ======================================================
-// HIGH-SPEED IN-MEMORY CACHE ENGINE (100k+ Users / 1k+ Orders Day)
+// ENTERPRISE DUAL-TIER REDIS & IN-MEMORY CACHE ENGINE (100k+ Users / 1k+ Orders Day)
 // ======================================================
-const memoryCache = {
-  products: { data: null, timestamp: 0 },
-  categories: { data: null, timestamp: 0 },
-  rentalGallery: { data: null, timestamp: 0 }
-};
-const CACHE_TTL_MS = 60 * 1000; // 60 seconds TTL for catalog
-const RENTAL_CACHE_TTL_MS = 120 * 1000; // 120 seconds TTL for rental gallery
+const CACHE_TTL_SECONDS = 60; // 60 seconds TTL for catalog
+const RENTAL_CACHE_TTL_SECONDS = 120; // 120 seconds TTL for rental gallery
 
 function invalidateProductCache() {
-  memoryCache.products = { data: null, timestamp: 0 };
+  cacheService.invalidateProductCache().catch(() => {});
 }
 
 function invalidateCategoryCache() {
-  memoryCache.categories = { data: null, timestamp: 0 };
+  cacheService.invalidateCategoryCache().catch(() => {});
 }
 
 function invalidateRentalCache() {
-  memoryCache.rentalGallery = { data: null, timestamp: 0 };
+  cacheService.invalidateRentalCache().catch(() => {});
 }
 
 function invalidateApiCache() {
-  invalidateProductCache();
-  invalidateCategoryCache();
-  invalidateRentalCache();
+  cacheService.invalidateAllCache().catch(() => {});
 }
 
 // GET All Categories (with subcategories, display_order, active status, and auto product counts)
 app.get(['/api/categories', '/api/admin/categories'], async (req, res) => {
   try {
-    const now = Date.now();
-    if (memoryCache.categories.data && (now - memoryCache.categories.timestamp < CACHE_TTL_MS)) {
-      res.setHeader('X-Cache', 'HIT');
-      return res.json(memoryCache.categories.data);
+    const cached = await cacheService.getCache('cache:categories:all');
+    if (cached) {
+      res.setHeader('X-Cache', cacheService.isRedisActive() ? 'REDIS-HIT' : 'MEMORY-HIT');
+      return res.json(cached);
     }
 
     const db = await getDb();
@@ -1329,7 +1323,7 @@ app.get(['/api/categories', '/api/admin/categories'], async (req, res) => {
       };
     });
 
-    memoryCache.categories = { data: result, timestamp: now };
+    await cacheService.setCache('cache:categories:all', result, CACHE_TTL_SECONDS);
     res.setHeader('X-Cache', 'MISS');
     res.json(result);
   } catch (err) {
@@ -1680,10 +1674,10 @@ app.delete(['/api/subcategories/:id', '/api/admin/subcategories/:id'], requireAd
 // GET all products
 app.get(['/api/products', '/api/admin/products'], async (req, res) => {
   try {
-    const now = Date.now();
-    if (memoryCache.products.data && (now - memoryCache.products.timestamp < CACHE_TTL_MS)) {
-      res.setHeader('X-Cache', 'HIT');
-      return res.json(memoryCache.products.data);
+    const cached = await cacheService.getCache('cache:products:all');
+    if (cached) {
+      res.setHeader('X-Cache', cacheService.isRedisActive() ? 'REDIS-HIT' : 'MEMORY-HIT');
+      return res.json(cached);
     }
 
     const db = await getDb();
@@ -1723,7 +1717,7 @@ app.get(['/api/products', '/api/admin/products'], async (req, res) => {
       };
     });
 
-    memoryCache.products = { data: formatted, timestamp: now };
+    await cacheService.setCache('cache:products:all', formatted, CACHE_TTL_SECONDS);
     res.setHeader('X-Cache', 'MISS');
     res.json(formatted);
   } catch (err) {
@@ -2119,10 +2113,10 @@ app.patch(['/api/products/:id/special-section', '/api/admin/products/:id/special
 // GET Public Rental Gallery (Public Endpoint)
 app.get('/api/rental-gallery', async (req, res) => {
   try {
-    const now = Date.now();
-    if (memoryCache.rentalGallery.data && (now - memoryCache.rentalGallery.timestamp < RENTAL_CACHE_TTL_MS)) {
-      res.setHeader('X-Cache', 'HIT');
-      return res.json(memoryCache.rentalGallery.data);
+    const cached = await cacheService.getCache('cache:rental:gallery');
+    if (cached) {
+      res.setHeader('X-Cache', cacheService.isRedisActive() ? 'REDIS-HIT' : 'MEMORY-HIT');
+      return res.json(cached);
     }
 
     const db = await getDb();
@@ -2139,7 +2133,7 @@ app.get('/api/rental-gallery', async (req, res) => {
       items: formatted
     };
 
-    memoryCache.rentalGallery = { data: result, timestamp: now };
+    await cacheService.setCache('cache:rental:gallery', result, RENTAL_CACHE_TTL_SECONDS);
     res.setHeader('X-Cache', 'MISS');
     res.json(result);
   } catch (err) {
@@ -2283,15 +2277,36 @@ app.post(['/api/admin/upload-image', '/api/upload-image'], requireAdminAuth, (re
       chunks.push(chunk);
     });
 
-    req.on('end', () => {
+    req.on('end', async () => {
       if (aborted) return;
       if (totalBytes === 0) {
         return res.status(400).json({ error: 'Uploaded image file is empty.' });
       }
-      const filename = `products-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}.${ext}`;
-      const filePath = path.join(targetFolder, filename);
+
       const buffer = Buffer.concat(chunks);
-      fs.writeFile(filePath, buffer, (writeErr) => {
+      let outputBuffer = buffer;
+      let finalExt = ext;
+
+      // Server-side Sharp compression safeguard:
+      if (['jpg', 'jpeg', 'png', 'webp'].includes(ext)) {
+        try {
+          const sharpModule = await import('sharp');
+          const sharp = sharpModule.default || sharpModule;
+          outputBuffer = await sharp(buffer)
+            .rotate() // Auto-orient EXIF
+            .resize({ width: 1400, height: 1400, fit: 'inside', withoutEnlargement: true })
+            .webp({ quality: 82, effort: 4 })
+            .toBuffer();
+          finalExt = 'webp';
+        } catch (sharpErr) {
+          console.warn('Sharp server compression fallback to raw:', sharpErr.message);
+        }
+      }
+
+      const filename = `products-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}.${finalExt}`;
+      const filePath = path.join(targetFolder, filename);
+
+      fs.writeFile(filePath, outputBuffer, (writeErr) => {
         if (writeErr) {
           console.error('Error writing image to disk:', writeErr);
           if (!res.headersSent) {
@@ -2300,9 +2315,9 @@ app.post(['/api/admin/upload-image', '/api/upload-image'], requireAdminAuth, (re
           return;
         }
         const finalUrl = `/uploads/products/${filename}`;
-        console.log(`📸 Image uploaded: ${finalUrl} (${(totalBytes / 1024).toFixed(1)} KB)`);
+        console.log(`📸 Image uploaded & saved: ${finalUrl} (Raw: ${(totalBytes / 1024).toFixed(1)} KB -> Stored: ${(outputBuffer.length / 1024).toFixed(1)} KB)`);
         if (!res.headersSent) {
-          res.status(200).json({ success: true, url: finalUrl, filename, size: totalBytes });
+          res.status(200).json({ success: true, url: finalUrl, filename, size: outputBuffer.length });
         }
       });
     });
@@ -2390,6 +2405,25 @@ app.post(['/api/admin/upload-video', '/api/upload-video'], requireAdminAuth, (re
         console.log(`🎥 Video uploaded: ${finalUrl} (${(totalBytes / (1024 * 1024)).toFixed(2)} MB)`);
         if (!res.headersSent) {
           res.status(200).json({ success: true, url: finalUrl, filename, size: totalBytes });
+        }
+
+        // Asynchronous in-place ffmpeg compression to save VPS storage (does not delay client)
+        if (totalBytes > 2 * 1024 * 1024) {
+          import('child_process').then(({ exec }) => {
+            const tempCompressedPath = filePath + '.opt.mp4';
+            const ffmpegCmd = `ffmpeg -y -i "${filePath}" -vf "scale='min(720,iw)':-2" -vcodec libx264 -crf 28 -preset fast -acodec aac -b:a 96k -movflags +faststart "${tempCompressedPath}"`;
+            exec(ffmpegCmd, (fErr) => {
+              if (!fErr && fs.existsSync(tempCompressedPath) && fs.statSync(tempCompressedPath).size > 0) {
+                try {
+                  fs.renameSync(tempCompressedPath, filePath);
+                  const newSize = (fs.statSync(filePath).size / (1024 * 1024)).toFixed(2);
+                  console.log(`⚡ Video auto-compressed in background: ${filename} (reduced to ${newSize} MB)`);
+                } catch (_) {}
+              } else if (fs.existsSync(tempCompressedPath)) {
+                try { fs.unlinkSync(tempCompressedPath); } catch (_) {}
+              }
+            });
+          }).catch(() => {});
         }
       });
     });

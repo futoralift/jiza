@@ -698,29 +698,6 @@ export default function ProductDetailPage({
               </p>
             </div>
 
-            {/* ======================================================== */}
-            {/* DELIVERY & EXCHANGE POLICY BADGES (SIDE-BY-SIDE IN A ROW) */}
-            {/* ======================================================== */}
-            <div className="grid grid-cols-2 gap-2.5">
-              <button
-                type="button"
-                onClick={() => setActiveTab('shipping')}
-                className="flex items-center justify-center gap-1.5 py-2 px-2.5 bg-[#FCDAD7]/60 hover:bg-[#FCDAD7] text-stone-900 border border-black/15 rounded-xl font-bold text-[11px] sm:text-xs shadow-2xs transition-colors cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-base text-stone-800">local_shipping</span>
-                <span className="truncate">4–10 Days Delivery</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveTab('exchange')}
-                className="flex items-center justify-center gap-1.5 py-2 px-2.5 bg-red-50 hover:bg-red-100/70 text-red-700 border border-red-300 rounded-xl font-bold text-[11px] sm:text-xs shadow-2xs transition-colors cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-base text-red-600">published_with_changes</span>
-                <span className="truncate">Only Exchange • No Return</span>
-              </button>
-            </div>
-
             {/* Colors Selection (if applicable) */}
             {availableColors.length > 0 && (
               <div>
@@ -746,7 +723,7 @@ export default function ProductDetailPage({
               </div>
             )}
 
-            {/* Size / Length Selector (Rendered directly after Colour Selector) */}
+            {/* Size / Length Selector */}
             {productSizes && productSizes.length > 0 && (
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-black mb-2">
@@ -833,14 +810,14 @@ export default function ProductDetailPage({
             </div>
 
             {/* ======================================================== */}
-            {/* ACTION BUTTONS (2-IN-A-ROW MOBILE, 4-IN-A-ROW LAPTOP) */}
+            {/* ACTION BUTTONS (ALL 3 IN A SINGLE ROW) */}
             {/* ======================================================== */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-2.5 pt-1">
+            <div className="grid grid-cols-3 gap-2 sm:gap-2.5 pt-1">
               <button
                 type="button"
                 onClick={handleAdd}
                 disabled={isSoldOut || maxStock <= 0}
-                className={`w-full py-3 sm:py-3.5 px-2 rounded-xl sm:rounded-2xl font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 border transition-all cursor-pointer shadow-sm ${
+                className={`w-full py-3 sm:py-3.5 px-1.5 sm:px-2 rounded-xl sm:rounded-2xl font-bold text-[11px] sm:text-xs uppercase tracking-wider flex items-center justify-center gap-1 sm:gap-1.5 border transition-all cursor-pointer shadow-sm ${
                   isSoldOut || maxStock <= 0
                     ? 'bg-stone-200 text-stone-400 border-stone-300 cursor-not-allowed'
                     : isAdded
@@ -858,7 +835,7 @@ export default function ProductDetailPage({
                 type="button"
                 onClick={handleBuy}
                 disabled={isSoldOut || maxStock <= 0}
-                className={`w-full py-3 sm:py-3.5 px-2 rounded-xl sm:rounded-2xl font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-md ${
+                className={`w-full py-3 sm:py-3.5 px-1.5 sm:px-2 rounded-xl sm:rounded-2xl font-bold text-[11px] sm:text-xs uppercase tracking-wider flex items-center justify-center gap-1 sm:gap-1.5 transition-all cursor-pointer shadow-md ${
                   isSoldOut || maxStock <= 0
                     ? 'bg-stone-300 text-stone-500 cursor-not-allowed'
                     : 'bg-black hover:bg-stone-900 text-[#FCDAD7] active:scale-98'
@@ -871,27 +848,40 @@ export default function ProductDetailPage({
               <button
                 type="button"
                 onClick={() => onToggleWishlist(product.id)}
-                className={`w-full py-3 sm:py-3.5 px-2 rounded-xl sm:rounded-2xl border font-semibold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-2xs ${
+                className={`w-full py-3 sm:py-3.5 px-1.5 sm:px-2 rounded-xl sm:rounded-2xl border font-semibold text-[11px] sm:text-xs flex items-center justify-center gap-1 sm:gap-1.5 transition-all cursor-pointer shadow-2xs ${
                   isWishlisted
                     ? 'bg-rose-50 text-rose-700 border-rose-300'
                     : 'bg-white text-stone-800 border-black/15 hover:bg-[#FCDAD7]/30'
                 }`}
               >
-                <span className="material-symbols-outlined text-base" style={{ fontVariationSettings: `'FILL' ${isWishlisted ? 1 : 0}` }}>
+                <span className="material-symbols-outlined text-base sm:text-lg" style={{ fontVariationSettings: `'FILL' ${isWishlisted ? 1 : 0}` }}>
                   favorite
                 </span>
                 <span className="truncate">{isWishlisted ? 'Saved' : 'Wishlist'}</span>
               </button>
+            </div>
 
-              <a
-                href={`https://wa.me/918208822696?text=${encodeURIComponent(`Hello Jiza Jewellery Studio! I want to consult about "${product.title}" (Code: ${product.productCode || product.product_code || ''}).`)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full py-3 sm:py-3.5 px-2 rounded-xl sm:rounded-2xl border border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 font-semibold text-xs flex items-center justify-center gap-1.5 transition-all shadow-2xs"
+            {/* ======================================================== */}
+            {/* DELIVERY & EXCHANGE POLICY BADGES (SIDE-BY-SIDE IN A ROW) */}
+            {/* ======================================================== */}
+            <div className="grid grid-cols-2 gap-2.5">
+              <button
+                type="button"
+                onClick={() => setActiveTab('shipping')}
+                className="flex items-center justify-center gap-1.5 py-2 px-2.5 bg-[#FCDAD7]/60 hover:bg-[#FCDAD7] text-stone-900 border border-black/15 rounded-xl font-bold text-[11px] sm:text-xs shadow-2xs transition-colors cursor-pointer"
               >
-                <span className="material-symbols-outlined text-base text-emerald-600">chat</span>
-                <span className="truncate">WhatsApp</span>
-              </a>
+                <span className="material-symbols-outlined text-base text-stone-800">local_shipping</span>
+                <span className="truncate">4–10 Days Delivery</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab('exchange')}
+                className="flex items-center justify-center gap-1.5 py-2 px-2.5 bg-red-50 hover:bg-red-100/70 text-red-700 border border-red-300 rounded-xl font-bold text-[11px] sm:text-xs shadow-2xs transition-colors cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-base text-red-600">published_with_changes</span>
+                <span className="truncate">Only Exchange • No Return</span>
+              </button>
             </div>
 
             {/* Tabbed Accordion (Description, Material, Care & Detailed Exchange Policy) */}

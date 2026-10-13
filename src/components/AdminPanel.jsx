@@ -250,7 +250,49 @@ export default function AdminPanel({
   onExitAdmin
 }) {
   const isReadOnly = isReadOnlyAdmin(); // true for SUPER_READONLY_ADMIN (Agency), false for SUPER_ADMIN (Owner)
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTabRaw] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const tabParam = params.get('tab');
+      if (tabParam) return tabParam;
+      const stored = sessionStorage.getItem('jiza_admin_active_tab') || localStorage.getItem('jiza_admin_active_tab');
+      if (stored) return stored;
+    }
+    return 'overview';
+  });
+
+  const setActiveTab = (newTab) => {
+    setActiveTabRaw(newTab);
+    if (typeof window !== 'undefined') {
+      try {
+        sessionStorage.setItem('jiza_admin_active_tab', newTab);
+        localStorage.setItem('jiza_admin_active_tab', newTab);
+        const url = new URL(window.location.href);
+        if (newTab && newTab !== 'overview') {
+          url.searchParams.set('tab', newTab);
+        } else {
+          url.searchParams.delete('tab');
+        }
+        window.history.replaceState({ ...window.history.state, adminTab: newTab }, document.title, url.toString());
+      } catch (_) {}
+    }
+  };
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        sessionStorage.setItem('jiza_admin_active_tab', activeTab);
+        localStorage.setItem('jiza_admin_active_tab', activeTab);
+        const url = new URL(window.location.href);
+        if (activeTab && activeTab !== 'overview') {
+          url.searchParams.set('tab', activeTab);
+        } else {
+          url.searchParams.delete('tab');
+        }
+        window.history.replaceState({ ...window.history.state, adminTab: activeTab }, document.title, url.toString());
+      } catch (_) {}
+    }
+  }, [activeTab]);
   const [selectedPremiumFeature, setSelectedPremiumFeature] = useState(null);
   const [unlockedModuleIds, setUnlockedModuleIds] = useState([]);
   const [isContactDevModalOpen, setIsContactDevModalOpen] = useState(false);
@@ -565,11 +607,82 @@ export default function AdminPanel({
   const [imageUploadProgress, setImageUploadProgress] = useState({}); // { [slotIdx]: percent }
   const [editImageUploadProgress, setEditImageUploadProgress] = useState({});
 
-  // Direct Image Streaming Upload with Real-Time Progress Tracking
-  const uploadImageToServer = (file, onProgress) => {
+  // Automatic Client-Side Image Compression into WebP Blob/File
+  // Compresses any raw DSLR/phone photo (3-15MB) down to optimized WebP (~100-200KB) BEFORE uploading
+  const compressImageFile = (file, maxDim = 1200, quality = 0.82) => {
     return new Promise((resolve) => {
-      if (!file) return resolve('');
+      if (!file) return resolve(null);
+      // Skip if non-image, svg, or gif
+      if (!file.type || !file.type.startsWith('image/') || file.type === 'image/svg+xml' || file.type === 'image/gif') {
+        return resolve(file);
+      }
 
+      // If already a tiny WebP/JPEG under 120KB, no need to recompress
+      if (file.size <= 120 * 1024 && (file.type === 'image/webp' || file.type === 'image/jpeg')) {
+        return resolve(file);
+      }
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          let width = img.naturalWidth || img.width;
+          let height = img.naturalHeight || img.height;
+
+          if (width > maxDim || height > maxDim) {
+            if (width > height) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            } else {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+          }
+
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+            ctx.drawImage(img, 0, 0, width, height);
+          }
+
+          canvas.toBlob((blob) => {
+            if (blob && blob.size > 0) {
+              const origName = file.name || 'image.jpg';
+              const cleanName = origName.replace(/\.[^.]+$/, '') + '.webp';
+              const compressedFile = new File([blob], cleanName, { type: 'image/webp', lastModified: Date.now() });
+              console.log(`⚡ Pre-upload compression: ${origName} (${(file.size / 1024).toFixed(0)} KB -> ${(compressedFile.size / 1024).toFixed(0)} KB)`);
+              resolve(compressedFile);
+            } else {
+              resolve(file);
+            }
+          }, 'image/webp', quality);
+        };
+        img.onerror = () => resolve(file);
+        img.src = e.target.result;
+      };
+      reader.onerror = () => resolve(file);
+      reader.readAsDataURL(file);
+    });
+  };
+
+  // Direct Image Streaming Upload with Pre-Upload WebP Auto-Compression & Real-Time Progress Tracking
+  const uploadImageToServer = async (rawFile, onProgress) => {
+    if (!rawFile) return '';
+
+    // Automatically pre-compress image on client-side before sending
+    let file = rawFile;
+    try {
+      file = await compressImageFile(rawFile);
+    } catch (cErr) {
+      console.warn('Pre-upload compression fallback to original:', cErr);
+      file = rawFile;
+    }
+
+    return new Promise((resolve) => {
       const token = getAdminToken();
       const xhr = new XMLHttpRequest();
       const uploadUrl = API_BASE ? `${API_BASE}/api/admin/upload-image` : '/api/admin/upload-image';
@@ -579,7 +692,7 @@ export default function AdminPanel({
       if (token) {
         xhr.setRequestHeader('Authorization', `Bearer ${token}`);
       }
-      xhr.setRequestHeader('Content-Type', file.type || 'image/jpeg');
+      xhr.setRequestHeader('Content-Type', file.type || 'image/webp');
       xhr.setRequestHeader('X-File-Name', encodeURIComponent(file.name));
       xhr.setRequestHeader('X-File-Size', String(file.size));
 

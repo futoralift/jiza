@@ -50,6 +50,11 @@ export default function App() {
   const [showSplash, setShowSplash] = useState(() => {
     if (typeof window !== 'undefined') {
       const p = window.location.pathname;
+      const params = new URLSearchParams(window.location.search);
+      const isStoredAdmin = (localStorage.getItem(ADMIN_ROUTE_KEY) === 'true' || sessionStorage.getItem(ADMIN_ROUTE_KEY) === 'true') && Boolean(getAdminToken());
+      if (p.startsWith('/admin') || (isStoredAdmin && (p === '/admin' || params.get('view') === 'admin'))) {
+        return false;
+      }
       return p === '/' || p === '';
     }
     return false;
@@ -57,24 +62,72 @@ export default function App() {
   const [activeView, setActiveView] = useState(() => {
     if (typeof window !== 'undefined') {
       const p = window.location.pathname;
-      if (p === '/checkout') return 'checkout';
-      if (p === '/categories') return 'categories';
-      if (p === '/search') return 'search';
-      if (p === '/profile') return 'profile';
-      if (p === '/shipping-policy' || p === '/shipping') return 'shipping-policy';
-      if (p === '/rental-gallery') return 'rental-gallery';
-      if (p === '/faq') return 'faq';
-      if (p === '/cancellation-policy') return 'cancellation-policy';
-      if (p.startsWith('/product/')) return 'product';
+      const params = new URLSearchParams(window.location.search);
+      const hash = window.location.hash || '';
+      const token = getAdminToken();
+      const isStoredAdmin = localStorage.getItem(ADMIN_ROUTE_KEY) === 'true' || sessionStorage.getItem(ADMIN_ROUTE_KEY) === 'true';
+
+      // 1. Admin route detection on initial load / refresh
+      if (p.startsWith('/admin') || (isStoredAdmin && token && (p === '/admin' || params.get('view') === 'admin' || hash === '#admin'))) {
+        return 'admin';
+      }
+      if (p === '/checkout' || hash === '#checkout') return 'checkout';
+      if (p === '/categories' || hash === '#categories') return 'categories';
+      if (p.startsWith('/category/')) return 'subcategory';
+      if (p === '/search' || hash === '#search') return 'search';
+      if (p === '/profile' || hash === '#profile') return 'profile';
+      if (p === '/shipping-policy' || p === '/shipping' || hash === '#shipping-policy' || hash === '#shipping') return 'shipping-policy';
+      if (p === '/rental-gallery' || hash === '#rental-gallery') return 'rental-gallery';
+      if (p === '/faq' || hash === '#faq') return 'faq';
+      if (p === '/cancellation-policy' || hash === '#cancellation-policy') return 'cancellation-policy';
+      if (p === '/privacy' || hash === '#privacy') return 'privacy';
+      if (p === '/terms' || hash === '#terms') return 'terms';
+      if (p.startsWith('/product/') || p.startsWith('/products/') || params.get('product') || params.get('productId') || hash.startsWith('#product-')) return 'product';
     }
     return 'home';
   }); // 'home', 'search', 'categories', 'subcategory', 'profile', 'checkout', 'admin', '404'
-  const [previousView, setPreviousView] = useState('home');
-  const [activeCategoryId, setActiveCategoryId] = useState('maharashtrian');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('');
-  const [selectedSubCategory, setSelectedSubCategory] = useState('');
-  const [selectedSubCategoryId, setSelectedSubCategoryId] = useState('');
+  const [previousView, setPreviousView] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem('jiza_previous_view') || 'home';
+    }
+    return 'home';
+  });
+  const [activeCategoryId, setActiveCategoryId] = useState(() => {
+    if (typeof window !== 'undefined' && window.location.pathname.startsWith('/category/')) {
+      return decodeURIComponent(window.location.pathname.replace('/category/', '').trim()) || 'maharashtrian';
+    }
+    return 'maharashtrian';
+  });
+  const [searchQuery, setSearchQuery] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const q = new URLSearchParams(window.location.search).get('q');
+      return q || '';
+    }
+    return '';
+  });
+  const [selectedCategory, setSelectedCategory] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const p = window.location.pathname;
+      if (p.startsWith('/category/')) {
+        return decodeURIComponent(p.replace('/category/', '').trim());
+      }
+      const cat = new URLSearchParams(window.location.search).get('category');
+      return cat || '';
+    }
+    return '';
+  });
+  const [selectedSubCategory, setSelectedSubCategory] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return new URLSearchParams(window.location.search).get('sub') || '';
+    }
+    return '';
+  });
+  const [selectedSubCategoryId, setSelectedSubCategoryId] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return new URLSearchParams(window.location.search).get('subId') || '';
+    }
+    return '';
+  });
   const [selectedProduct, setSelectedProduct] = useState(null);
   
   // Category transition ripple circle state
@@ -88,19 +141,29 @@ export default function App() {
   const [cartNeedsBounce, setCartNeedsBounce] = useState(false);
 
   // ENTERPRISE ADMIN SECURITY STATE & RESTORATION
-  const [isAdminSecretRoute, setIsAdminSecretRoute] = useState(false);
+  const [isAdminSecretRoute, setIsAdminSecretRoute] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    const p = window.location.pathname;
+    const params = new URLSearchParams(window.location.search);
+    const secretKey = params.get('secretAdminKey') || params.get('adminSecret');
+    const isSecretMatched = secretKey === 'jiza-studio-secure-mgmt-x9872';
+    const isStoredAdminRoute = localStorage.getItem(ADMIN_ROUTE_KEY) === 'true' || sessionStorage.getItem(ADMIN_ROUTE_KEY) === 'true';
+    const token = getAdminToken();
+    return isSecretMatched || (Boolean(token) && isStoredAdminRoute) || p.startsWith('/admin');
+  });
   const [isAdminLoginOpen, setIsAdminLoginOpen] = useState(false);
   const [adminToken, setAdminToken] = useState(() => getAdminToken());
 
   useEffect(() => {
     // Strict Secret Non-Guessable Admin Path Verification & Persistent Session Restoration
+    const pathname = window.location.pathname || '';
     const params = new URLSearchParams(window.location.search);
     const secretKey = params.get('secretAdminKey') || params.get('adminSecret');
     const isSecretMatched = secretKey === 'jiza-studio-secure-mgmt-x9872';
     const isStoredAdminRoute = localStorage.getItem(ADMIN_ROUTE_KEY) === 'true' || sessionStorage.getItem(ADMIN_ROUTE_KEY) === 'true';
     const token = getAdminToken();
 
-    if (isSecretMatched) {
+    if (pathname.startsWith('/admin') || isSecretMatched) {
       setIsAdminSecretRoute(true);
       if (token) {
         setAdminToken(token);
@@ -112,6 +175,9 @@ export default function App() {
       // Restore authenticated session for logged in admins
       setIsAdminSecretRoute(true);
       setAdminToken(token);
+      if (pathname === '/admin' || params.get('view') === 'admin' || window.location.hash === '#admin') {
+        setActiveView('admin');
+      }
     }
   }, []);
 
@@ -453,25 +519,47 @@ export default function App() {
     if (!product) return;
     const fullProd = productsList.find(p => p.id === product.id) || product;
     setSelectedProduct(fullProd);
+    setPreviousView(activeView);
+    if (typeof window !== 'undefined') {
+      try {
+        sessionStorage.setItem('jiza_previous_view', activeView);
+        sessionStorage.setItem('jiza_in_app_nav', 'true');
+      } catch (_) {}
+    }
     setActiveView('product');
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
-
-    if (shouldPush && typeof window !== 'undefined' && window.history && window.history.pushState) {
-      const codeOrSlug = fullProd.product_code || fullProd.productCode || fullProd.id;
-      const cleanPath = `/product/${encodeURIComponent(codeOrSlug)}`;
-      window.history.pushState({ view: 'product', prodId: fullProd.id }, `${fullProd.title} | Jiza Jewellery Studio`, cleanPath);
-    }
   };
 
   const handleBackFromProduct = () => {
     setSelectedProduct(null);
-    if (typeof window !== 'undefined' && window.history && window.history.state?.view && window.history.state.view !== 'product') {
+
+    const storedPrev = (typeof window !== 'undefined' ? sessionStorage.getItem('jiza_previous_view') : '') || previousView;
+
+    // If user navigated within the website and has history entries, use window.history.back()
+    if (typeof window !== 'undefined' && window.history && window.history.length > 1 && storedPrev && storedPrev !== 'product') {
       window.history.back();
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+      return;
+    }
+
+    // Direct landing or external visit fallback: keep user safely inside the store!
+    if (storedPrev === 'search') {
+      setActiveView('search');
+    } else if (storedPrev === 'subcategory' && activeCategoryId) {
+      setActiveView('subcategory');
+    } else if (storedPrev === 'categories') {
+      setActiveView('categories');
+    } else if (storedPrev === 'profile') {
+      setActiveView('profile');
+    } else if (storedPrev === 'rental-gallery') {
+      setActiveView('rental-gallery');
+    } else if (selectedProduct?.category_id || selectedProduct?.category) {
+      const catId = selectedProduct.category_id || selectedProduct.category;
+      setActiveCategoryId(catId);
+      setSelectedCategory(catId);
+      setActiveView('subcategory');
     } else {
       setActiveView('home');
-      if (typeof window !== 'undefined' && window.history && window.history.pushState) {
-        window.history.pushState({ view: 'home' }, document.title, '/');
-      }
     }
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
   };
@@ -482,6 +570,19 @@ export default function App() {
     const pathname = window.location.pathname || '';
     const params = new URLSearchParams(window.location.search);
     const hash = window.location.hash || '';
+
+    // Admin direct route
+    if (pathname.startsWith('/admin')) {
+      const token = getAdminToken();
+      if (token) {
+        setIsAdminSecretRoute(true);
+        setActiveView('admin');
+      } else {
+        setIsAdminSecretRoute(true);
+        setIsAdminLoginOpen(true);
+      }
+      return;
+    }
 
     // Detect /product/:code or /products/:code
     let prodKey = '';
@@ -505,8 +606,42 @@ export default function App() {
       if (found) {
         setSelectedProduct(found);
         setActiveView('product');
+
+        // Prevent browser Back button from ejecting outside the website when landing directly
+        if (!sessionStorage.getItem('jiza_session_started')) {
+          sessionStorage.setItem('jiza_session_started', 'true');
+          try {
+            window.history.replaceState({ view: 'home', isFallback: true }, document.title, '/');
+            window.history.pushState({ view: 'product', prodId: found.id }, `${found.title} | Jiza Jewellery Studio`, window.location.pathname);
+          } catch (_) {}
+        }
         return;
       }
+    }
+
+    // Detect /category/:catId
+    if (pathname.startsWith('/category/')) {
+      const catId = decodeURIComponent(pathname.replace('/category/', '').trim());
+      if (catId) {
+        setActiveCategoryId(catId);
+        setSelectedCategory(catId);
+        setActiveView('subcategory');
+        return;
+      }
+    }
+
+    // Detect /search with query parameters
+    if (pathname === '/search' || hash === '#search') {
+      const q = params.get('q') || '';
+      const cat = params.get('category') || '';
+      const sub = params.get('sub') || '';
+      const subId = params.get('subId') || '';
+      if (q) setSearchQuery(q);
+      if (cat) setSelectedCategory(cat);
+      if (sub) setSelectedSubCategory(sub);
+      if (subId) setSelectedSubCategoryId(subId);
+      setActiveView('search');
+      return;
     }
 
     // Other standard views
@@ -514,8 +649,6 @@ export default function App() {
       setActiveView('categories');
     } else if (pathname === '/profile' || hash === '#profile') {
       setActiveView('profile');
-    } else if (pathname === '/search' || hash === '#search') {
-      setActiveView('search');
     } else if (pathname === '/checkout' || hash === '#checkout') {
       setActiveView('checkout');
     } else if (pathname === '/rental-gallery' || hash === '#rental-gallery') {
@@ -541,51 +674,75 @@ export default function App() {
       view: activeView,
       catId: activeCategoryId,
       prodId: selectedProduct?.id || null,
-      isCartOpen,
-      isWishlistOpen,
-      isAuthModalOpen
+      searchQuery,
+      selectedCategory,
+      selectedSubCategory,
+      selectedSubCategoryId,
+      previousView
     };
+
+    let targetPath = window.location.pathname;
+    let targetSearch = '';
+
+    if (activeView === 'product' && selectedProduct) {
+      const code = selectedProduct.product_code || selectedProduct.productCode || selectedProduct.id;
+      targetPath = `/product/${encodeURIComponent(code)}`;
+    } else if (activeView === 'subcategory' && activeCategoryId) {
+      targetPath = `/category/${encodeURIComponent(activeCategoryId)}`;
+    } else if (activeView === 'search') {
+      targetPath = '/search';
+      const qp = new URLSearchParams();
+      if (searchQuery) qp.set('q', searchQuery);
+      if (selectedCategory) qp.set('category', selectedCategory);
+      if (selectedSubCategory) qp.set('sub', selectedSubCategory);
+      if (selectedSubCategoryId) qp.set('subId', selectedSubCategoryId);
+      const qs = qp.toString();
+      if (qs) targetSearch = `?${qs}`;
+    } else if (activeView === 'admin') {
+      targetPath = '/admin';
+      const currentTab = sessionStorage.getItem('jiza_admin_active_tab');
+      if (currentTab && currentTab !== 'overview') {
+        targetSearch = `?tab=${encodeURIComponent(currentTab)}`;
+      }
+    } else if (activeView === 'shipping-policy') {
+      targetPath = '/shipping-policy';
+    } else if (activeView === 'checkout') {
+      targetPath = '/checkout';
+    } else if (activeView === 'categories') {
+      targetPath = '/categories';
+    } else if (activeView === 'profile') {
+      targetPath = '/profile';
+    } else if (activeView === 'rental-gallery') {
+      targetPath = '/rental-gallery';
+    } else if (activeView === 'faq') {
+      targetPath = '/faq';
+    } else if (activeView === 'privacy') {
+      targetPath = '/privacy';
+    } else if (activeView === 'terms') {
+      targetPath = '/terms';
+    } else if (activeView === 'cancellation-policy') {
+      targetPath = '/cancellation-policy';
+    } else if (activeView === 'home' && !targetPath.startsWith('/admin')) {
+      targetPath = '/';
+    }
+
+    const fullTargetUrl = `${targetPath}${targetSearch}`;
+    const currentFullUrl = `${window.location.pathname}${window.location.search}`;
 
     if (
       !currentState ||
       currentState.view !== newState.view ||
-      currentState.catId !== newState.catId ||
       currentState.prodId !== newState.prodId ||
-      currentState.isCartOpen !== newState.isCartOpen ||
-      currentState.isWishlistOpen !== newState.isWishlistOpen ||
-      currentState.isAuthModalOpen !== newState.isAuthModalOpen
+      currentState.catId !== newState.catId ||
+      currentFullUrl !== fullTargetUrl
     ) {
-      let targetPath = window.location.pathname;
-      if (activeView === 'product' && selectedProduct) {
-        const code = selectedProduct.product_code || selectedProduct.productCode || selectedProduct.id;
-        targetPath = `/product/${encodeURIComponent(code)}`;
-      } else if (activeView === 'shipping-policy') {
-        targetPath = '/shipping-policy';
-      } else if (activeView === 'checkout') {
-        targetPath = '/checkout';
-      } else if (activeView === 'categories') {
-        targetPath = '/categories';
-      } else if (activeView === 'search') {
-        targetPath = '/search';
-      } else if (activeView === 'profile') {
-        targetPath = '/profile';
-      } else if (activeView === 'rental-gallery') {
-        targetPath = '/rental-gallery';
-      } else if (activeView === 'faq') {
-        targetPath = '/faq';
-      } else if (activeView === 'privacy') {
-        targetPath = '/privacy';
-      } else if (activeView === 'terms') {
-        targetPath = '/terms';
-      } else if (activeView === 'cancellation-policy') {
-        targetPath = '/cancellation-policy';
-      } else if (activeView === 'home' && !targetPath.startsWith('/admin')) {
-        targetPath = '/';
+      if (currentFullUrl === fullTargetUrl && currentState?.view === newState.view) {
+        window.history.replaceState(newState, '', fullTargetUrl);
+      } else {
+        window.history.pushState(newState, '', fullTargetUrl);
       }
-
-      window.history.pushState(newState, '', targetPath);
     }
-  }, [activeView, activeCategoryId, selectedProduct, isCartOpen, isWishlistOpen, isAuthModalOpen]);
+  }, [activeView, activeCategoryId, selectedProduct, searchQuery, selectedCategory, selectedSubCategory, selectedSubCategoryId]);
 
   // Back/Forward PopState Event Listener
   useEffect(() => {
@@ -626,21 +783,37 @@ export default function App() {
       const state = event.state;
       if (state && state.view) {
         setActiveView(state.view);
-        if (state.view === 'product' && state.prodId) {
-          const found = productsList.find(p => p.id === state.prodId);
-          if (found) setSelectedProduct(found);
+        if (state.view === 'product') {
+          if (state.prodId) {
+            const found = productsList.find(p => p.id === state.prodId);
+            if (found) setSelectedProduct(found);
+          }
         } else {
           setSelectedProduct(null);
         }
-        if (state.catId) setActiveCategoryId(state.catId);
+        if (state.catId) {
+          setActiveCategoryId(state.catId);
+          setSelectedCategory(state.catId);
+        }
+        if (state.searchQuery !== undefined) setSearchQuery(state.searchQuery);
+        if (state.selectedCategory !== undefined) setSelectedCategory(state.selectedCategory);
+        if (state.selectedSubCategory !== undefined) setSelectedSubCategory(state.selectedSubCategory);
+        if (state.selectedSubCategoryId !== undefined) setSelectedSubCategoryId(state.selectedSubCategoryId);
         return;
       }
 
       // Inspect pathname fallback if state.view is missing
-      if (pathname === '/checkout') {
+      if (pathname.startsWith('/admin')) {
+        setActiveView('admin');
+      } else if (pathname === '/checkout') {
         setActiveView('checkout');
       } else if (pathname === '/categories') {
         setActiveView('categories');
+      } else if (pathname.startsWith('/category/')) {
+        const catId = decodeURIComponent(pathname.replace('/category/', '').trim());
+        setActiveCategoryId(catId);
+        setSelectedCategory(catId);
+        setActiveView('subcategory');
       } else if (pathname === '/search') {
         setActiveView('search');
       } else if (pathname === '/profile') {

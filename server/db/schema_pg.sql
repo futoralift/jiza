@@ -258,9 +258,14 @@ CREATE TABLE IF NOT EXISTS rental_gallery (
 
 -- High-Performance Composite Indexes for 100k+ users/year & 1k+ orders/day
 CREATE INDEX IF NOT EXISTS idx_products_sold_out_created ON products(sold_out, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_products_cat_sold_created ON products(category_id, sold_out, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_products_subcat_sold_created ON products(subcategory_id, sold_out, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_orders_user_email_created ON orders(user_id, customer_email, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_orders_customer_email_created ON orders(customer_email, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_orders_order_code_lookup ON orders(order_code);
 CREATE INDEX IF NOT EXISTS idx_reviews_user_email_created ON product_reviews(user_id, customer_email, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_customer_problems_user_email_created ON customer_problems(user_id, customer_email, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_rental_gallery_created ON rental_gallery(created_at DESC);
+
 
 
