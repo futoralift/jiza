@@ -1,4 +1,5 @@
 import React from 'react';
+import { getMediaUrl } from '../../../config';
 
 export default function RentalGalleryTab({
   rentalGalleryList = [],
@@ -147,7 +148,12 @@ export default function RentalGalleryTab({
             {rentalGalleryList.map((item, idx) => (
               <div key={item.id} className="bg-[#FFF0F2]/40 border border-[#F7C5C0] rounded-2xl overflow-hidden shadow-xs flex flex-col justify-between group">
                 <div className="relative aspect-square overflow-hidden bg-white">
-                  <img src={item.image_url} alt={`Rental ${idx + 1}`} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                  <img
+                    src={getMediaUrl(item.image_url)}
+                    alt={`Rental ${idx + 1}`}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    onError={(e) => { e.target.onerror = null; e.target.src = '/logo-j.webp'; }}
+                  />
                   <span className="absolute top-2 left-2 bg-black/70 text-white font-mono font-bold text-[9px] px-2 py-0.5 rounded-md backdrop-blur-xs">
                     #{idx + 1}
                   </span>

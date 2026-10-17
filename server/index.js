@@ -2159,7 +2159,7 @@ app.get('/api/admin/rental-gallery', requireAdminAuth, async (req, res) => {
 });
 
 // POST Admin Upload Rental Gallery Images (Protected - Image Only CMS)
-app.post('/api/admin/rental-gallery', requireAdminAuth, async (req, res) => {
+app.post(['/api/admin/rental-gallery', '/api/admin/rental-gallery/upload'], requireAdminAuth, async (req, res) => {
   try {
     const db = await getDb();
     const { images } = req.body;

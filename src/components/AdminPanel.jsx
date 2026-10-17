@@ -413,7 +413,7 @@ export default function AdminPanel({
 
       for (let i = 0; i < allUrls.length; i += CHUNK_SIZE) {
         const chunk = allUrls.slice(i, i + CHUNK_SIZE);
-        const res = await adminFetch('/api/admin/rental-gallery/upload', {
+        const res = await adminFetch('/api/admin/rental-gallery', {
           method: 'POST',
           body: JSON.stringify({ images: chunk })
         });

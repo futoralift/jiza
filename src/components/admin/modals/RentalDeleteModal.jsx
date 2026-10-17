@@ -1,4 +1,5 @@
 import React from 'react';
+import { getMediaUrl } from '../../../config';
 
 export default function RentalDeleteModal({
   rentalDeleteModalItem,
@@ -17,9 +18,10 @@ export default function RentalDeleteModal({
 
         <div className="flex items-center justify-center py-2">
           <img
-            src={rentalDeleteModalItem.image_url}
+            src={getMediaUrl(rentalDeleteModalItem.image_url)}
             alt="Rental Delete Preview"
             className="w-36 h-36 object-cover rounded-2xl border border-outline-variant shadow-md bg-white"
+            onError={(e) => { e.target.onerror = null; e.target.src = '/logo-j.webp'; }}
           />
         </div>
 
