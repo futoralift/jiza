@@ -113,32 +113,45 @@ export default function EditProductModal({
                         if (!val) return;
                         const preset = STANDARD_PRODUCT_PRESETS.find(p => p.label === val);
                         if (preset) {
-                          const catObj = activeCategories.find(c => c.id === preset.category);
-                          const catName = catObj?.name || preset.category;
-                          const subObjs = catObj ? (catObj.subCategoryObjects || []) : [];
-                          
-                          // Match by id or label or keyword
-                          let matchedSub = subObjs.find(s => s.id === preset.subcategory || s.name === preset.subcategoryLabel);
-                          if (!matchedSub && subObjs.length > 0) {
-                            const hint = (preset.subcategoryLabel || preset.subcategory || preset.label || '').toLowerCase();
-                            if (hint.includes('long')) {
-                              matchedSub = subObjs.find(s => s.name.toLowerCase().includes('long') || s.id.toLowerCase().includes('long'));
-                            } else if (hint.includes('short')) {
-                              matchedSub = subObjs.find(s => s.name.toLowerCase().includes('short') || s.id.toLowerCase().includes('short'));
+                          const catObj = activeCategories.find(c => c.id === preset.category || c.name?.toLowerCase() === (preset.category || '').toLowerCase());
+                          if (catObj) {
+                            const catName = catObj?.name || preset.category;
+                            const subObjs = catObj ? (catObj.subCategoryObjects || []) : [];
+                            
+                            // Match by id or label or keyword
+                            let matchedSub = subObjs.find(s => s.id === preset.subcategory || s.name === preset.subcategoryLabel);
+                            if (!matchedSub && subObjs.length > 0) {
+                              const hint = (preset.subcategoryLabel || preset.subcategory || preset.label || '').toLowerCase();
+                              if (hint.includes('long')) {
+                                matchedSub = subObjs.find(s => s.name.toLowerCase().includes('long') || s.id.toLowerCase().includes('long'));
+                              } else if (hint.includes('short')) {
+                                matchedSub = subObjs.find(s => s.name.toLowerCase().includes('short') || s.id.toLowerCase().includes('short'));
+                              }
+                              if (!matchedSub) matchedSub = subObjs[0];
                             }
-                            if (!matchedSub) matchedSub = subObjs[0];
+
+                            const finalSubId = matchedSub ? matchedSub.id : (preset.subcategory || 'general');
+                            const finalSubName = matchedSub ? matchedSub.name : (preset.subcategoryLabel || 'General');
+
+                            setEditProdForm({
+                              ...editProdForm,
+                              title: preset.label,
+                              category: catObj.id,
+                              categoryLabel: catName,
+                              subcategory: finalSubId,
+                              subcategoryLabel: finalSubName
+                            });
+                          } else {
+                            // If category doesn't exist, just apply the title preset without disrupting existing category
+                            setEditProdForm({
+                              ...editProdForm,
+                              title: preset.label
+                            });
                           }
-
-                          const finalSubId = matchedSub ? matchedSub.id : (preset.subcategory || 'general');
-                          const finalSubName = matchedSub ? matchedSub.name : (preset.subcategoryLabel || 'General');
-
+                        } else {
                           setEditProdForm({
                             ...editProdForm,
-                            title: preset.label,
-                            category: preset.category,
-                            categoryLabel: catName,
-                            subcategory: finalSubId,
-                            subcategoryLabel: finalSubName
+                            title: val
                           });
                         }
                       }}
@@ -168,6 +181,10 @@ export default function EditProductModal({
                       <optgroup label="American Diamond">
                         <option value="American diamond long set">American diamond long set</option>
                         <option value="American diamond short necklace">American diamond short necklace</option>
+                      </optgroup>
+                      <optgroup label="Mangalsutra">
+                        <option value="Short Mangalsutra">Short Mangalsutra</option>
+                        <option value="Long Mangalsutra">Long Mangalsutra</option>
                       </optgroup>
                     </select>
                   </div>

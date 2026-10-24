@@ -121,4 +121,6 @@ export const STANDARD_PRODUCT_PRESETS = [
   { label: 'Victorian short necklace', category: 'victorian', subcategory: 'victorian-short-sets', subcategoryLabel: 'Short Sets' },
   { label: 'American diamond long set', category: 'american-diamond', subcategory: 'american-diamond-long-sets', subcategoryLabel: 'AD Golden Short' },
   { label: 'American diamond short necklace', category: 'american-diamond', subcategory: 'american-diamond-short-sets', subcategoryLabel: 'AD Silver Short' },
+  { label: 'Short Mangalsutra', category: 'mangalsutra', subcategory: 'short-mangalsutra', subcategoryLabel: 'Short Mangalsutra' },
+  { label: 'Long Mangalsutra', category: 'mangalsutra', subcategory: 'long-mangalsutra', subcategoryLabel: 'Long Mangalsutra' },
 ];
