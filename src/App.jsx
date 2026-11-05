@@ -31,6 +31,7 @@ const LegalPagesView = lazy(() => import('./components/LegalPagesView'));
 const RentalGalleryView = lazy(() => import('./components/RentalGalleryView'));
 const CancellationPolicyView = lazy(() => import('./components/CancellationPolicyView'));
 const ShippingPolicyView = lazy(() => import('./components/ShippingPolicyView'));
+const TrackOrderView = lazy(() => import('./components/TrackOrderView'));
 
 function hasArrayChanged(prev, next, checkKeys = ['id', 'stockQuantity', 'sellingPrice', 'status', 'totalSpent', 'totalOrders']) {
   if (!prev || !next) return prev !== next;
@@ -72,6 +73,7 @@ export default function App() {
         return 'admin';
       }
       if (p === '/checkout' || hash === '#checkout') return 'checkout';
+      if (p === '/track-order' || p === '/track' || params.get('view') === 'track-order' || hash === '#track-order') return 'track-order';
       if (p === '/categories' || hash === '#categories') return 'categories';
       if (p.startsWith('/category/')) return 'subcategory';
       if (p === '/search' || hash === '#search') return 'search';
@@ -208,6 +210,9 @@ export default function App() {
       title = "My Account & Orders | Jiza Jewellery Studio";
     } else if (activeView === 'checkout') {
       title = "Secure Checkout | Jiza Jewellery Studio";
+    } else if (activeView === 'track-order') {
+      title = "Track Order Status | Jiza Jewellery Studio";
+      desc = "Live parcel dispatch and delivery updates for Jiza Jewellery Studio.";
     } else if (activeView === 'search') {
       title = `Search: ${searchQuery || 'Jewellery'} | Jiza Jewellery Studio`;
     } else if (activeView === 'faq') {
@@ -326,6 +331,7 @@ export default function App() {
               id: o.id,
               orderCode: o.order_code,
               userId: o.user_id,
+              isGuest: o.is_guest === 1 || !o.user_id,
               customerName: o.customer_name,
               customerEmail: o.customer_email,
               customerPhone: o.customer_phone,
@@ -403,12 +409,37 @@ export default function App() {
 
   // Auth Modal State & Triggers
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authModalInitialTab, setAuthModalInitialTab] = useState('signup');
   const [pendingAuthAction, setPendingAuthAction] = useState(null);
   const [authModalMessage, setAuthModalMessage] = useState('');
 
-  // Cart & Drawers State — must be declared before any useEffect that uses them
-  const [cartItems, setCartItems] = useState([]);
-  const [wishlistIds, setWishlistIds] = useState([]);
+  // Guest Checkout Data (Persisted in sessionStorage so refreshes during checkout don't lose it)
+  const [guestCheckoutData, setGuestCheckoutData] = useState(() => {
+    try {
+      const stored = sessionStorage.getItem('jiza_guest_checkout');
+      return stored ? JSON.parse(stored) : null;
+    } catch (e) {
+      return null;
+    }
+  });
+
+  // Cart & Drawers State — initialize from localStorage for guests
+  const [cartItems, setCartItems] = useState(() => {
+    try {
+      const stored = localStorage.getItem('jiza_guest_cart');
+      return stored ? JSON.parse(stored) : [];
+    } catch (e) {
+      return [];
+    }
+  });
+  const [wishlistIds, setWishlistIds] = useState(() => {
+    try {
+      const stored = localStorage.getItem('jiza_guest_wishlist');
+      return stored ? JSON.parse(stored) : [];
+    } catch (e) {
+      return [];
+    }
+  });
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isWishlistOpen, setIsWishlistOpen] = useState(false);
   const [isCartLoaded, setIsCartLoaded] = useState(false);
@@ -418,10 +449,21 @@ export default function App() {
   // Load Cart & Wishlist on mount/login
   useEffect(() => {
     if (!currentUser) {
-      setCartItems([]);
-      setWishlistIds([]);
-      setIsCartLoaded(false);
-      setIsWishlistLoaded(false);
+      // For Guests: Load from browser localStorage
+      try {
+        const storedCart = localStorage.getItem('jiza_guest_cart');
+        if (storedCart) {
+          const parsed = JSON.parse(storedCart);
+          if (Array.isArray(parsed)) setCartItems(parsed);
+        }
+        const storedWishlist = localStorage.getItem('jiza_guest_wishlist');
+        if (storedWishlist) {
+          const parsedW = JSON.parse(storedWishlist);
+          if (Array.isArray(parsedW)) setWishlistIds(parsedW);
+        }
+      } catch (e) {}
+      setIsCartLoaded(true);
+      setIsWishlistLoaded(true);
       return;
     }
 
@@ -469,9 +511,15 @@ export default function App() {
     loadCartAndWishlist();
   }, [currentUser]);
 
-  // Sync Cart to database (must be after cartItems useState and only after loading)
+  // Sync Cart: to database if user logged in, to localStorage if guest
   useEffect(() => {
-    if (!currentUser || !isCartLoaded) return;
+    if (!isCartLoaded) return;
+    if (!currentUser) {
+      try {
+        localStorage.setItem('jiza_guest_cart', JSON.stringify(cartItems));
+      } catch (e) {}
+      return;
+    }
     const syncCart = async () => {
       try {
         await fetch(`${API_BASE}/api/cart`, {
@@ -487,9 +535,15 @@ export default function App() {
     return () => clearTimeout(delay);
   }, [cartItems, currentUser, isCartLoaded]);
 
-  // Sync Wishlist to database (must be after wishlistIds useState and only after loading)
+  // Sync Wishlist: to database if user logged in, to localStorage if guest
   useEffect(() => {
-    if (!currentUser || !isWishlistLoaded) return;
+    if (!isWishlistLoaded) return;
+    if (!currentUser) {
+      try {
+        localStorage.setItem('jiza_guest_wishlist', JSON.stringify(wishlistIds));
+      } catch (e) {}
+      return;
+    }
     const syncWishlist = async () => {
       try {
         await fetch(`${API_BASE}/api/wishlist`, {
@@ -651,6 +705,8 @@ export default function App() {
       setActiveView('profile');
     } else if (pathname === '/checkout' || hash === '#checkout') {
       setActiveView('checkout');
+    } else if (pathname === '/track-order' || pathname === '/track' || params.get('view') === 'track-order' || hash === '#track-order') {
+      setActiveView('track-order');
     } else if (pathname === '/rental-gallery' || hash === '#rental-gallery') {
       setActiveView('rental-gallery');
     } else if (pathname === '/faq' || hash === '#faq') {
@@ -708,6 +764,16 @@ export default function App() {
       targetPath = '/shipping-policy';
     } else if (activeView === 'checkout') {
       targetPath = '/checkout';
+    } else if (activeView === 'track-order') {
+      targetPath = '/track-order';
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const qp = new URLSearchParams();
+        if (params.get('orderId')) qp.set('orderId', params.get('orderId'));
+        if (params.get('phone')) qp.set('phone', params.get('phone'));
+        const qs = qp.toString();
+        if (qs) targetSearch = `?${qs}`;
+      } catch (e) {}
     } else if (activeView === 'categories') {
       targetPath = '/categories';
     } else if (activeView === 'profile') {
@@ -807,6 +873,8 @@ export default function App() {
         setActiveView('admin');
       } else if (pathname === '/checkout') {
         setActiveView('checkout');
+      } else if (pathname === '/track-order' || pathname === '/track') {
+        setActiveView('track-order');
       } else if (pathname === '/categories') {
         setActiveView('categories');
       } else if (pathname.startsWith('/category/')) {
@@ -972,13 +1040,6 @@ export default function App() {
   };
 
   const handleToggleWishlist = (productId) => {
-    if (!currentUser) {
-      setPendingAuthAction({ type: 'TOGGLE_WISHLIST', productId });
-      setAuthModalMessage('Please create an account or sign in to add items to your Wishlist.');
-      setIsAuthModalOpen(true);
-      return;
-    }
-
     setWishlistIds((prev) => {
       if (prev.includes(productId)) {
         showToast('Removed from Wishlist');
@@ -990,15 +1051,9 @@ export default function App() {
     });
   };
 
-  // Centralized Add to Cart with Auth Interception, Stock Limit Checks & Central Fly-to-Cart Animation
+  // Centralized Add to Cart with Guest Support, Stock Limit Checks & Central Fly-to-Cart Animation
   const handleAddToCart = (product, qty = 1, size = 'Standard', selectedColor = '', clickMeta = null) => {
     const chosenColor = selectedColor || (product.colour ? product.colour.split(',')[0].trim() : '');
-    if (!currentUser) {
-      setPendingAuthAction({ type: 'ADD_TO_CART', product, qty, size, selectedColor: chosenColor });
-      setAuthModalMessage(`Please create an account or sign in to add "${product.title}" to your Shopping Bag.`);
-      setIsAuthModalOpen(true);
-      return;
-    }
 
     // Real-time stock limit check
     const liveProd = productsList.find(p => p.id === product.id) || product;
@@ -1071,15 +1126,9 @@ export default function App() {
     showToast(`Added "${product.title}" (${chosenColor ? chosenColor + ' | ' : ''}${size}) to Shopping Bag 🛍️`);
   };
 
-  // Direct Buy Now Action (Add to Cart + Instant Checkout Navigation)
+  // Direct Buy Now Action (Add to Cart + Instant Checkout Navigation / Guest Prompt)
   const handleBuyNow = (product, qty = 1, size = 'Standard', selectedColor = '', clickMeta = null) => {
     const chosenColor = selectedColor || (product.colour ? product.colour.split(',')[0].trim() : '');
-    if (!currentUser) {
-      setPendingAuthAction({ type: 'BUY_NOW', product, qty, size, selectedColor: chosenColor });
-      setAuthModalMessage(`Please create an account or sign in to buy "${product.title || product.name}".`);
-      setIsAuthModalOpen(true);
-      return;
-    }
 
     // Real-time stock limit check
     const liveProd = productsList.find(p => p.id === product.id) || product;
@@ -1104,12 +1153,19 @@ export default function App() {
       }
     });
 
-    // Close overlays & modals
+    // Close overlays & drawers
     setSelectedProduct(null);
     setIsCartOpen(false);
     setIsWishlistOpen(false);
 
-    // Direct transition to Checkout
+    if (!currentUser) {
+      setAuthModalInitialTab('signup');
+      setAuthModalMessage(`Create an account or continue as guest to purchase "${product.title || product.name}".`);
+      setIsAuthModalOpen(true);
+      return;
+    }
+
+    // Direct transition to Checkout for authenticated customers
     setActiveView('checkout');
     window.scrollTo({ top: 0, behavior: 'smooth' });
     showToast(`Proceeding to Checkout for "${product.title || product.name}" ⚡`);
@@ -1167,9 +1223,37 @@ export default function App() {
     setCurrentUser(userProfile);
     sessionStorage.setItem('jiza_current_user', JSON.stringify(userProfile));
 
-    // Restore cart and wishlist from database
-    if (cartItemsFromDb.length > 0) setCartItems(cartItemsFromDb);
-    if (wishlistIdsFromDb.length > 0) setWishlistIds(wishlistIdsFromDb);
+    // Merge any items customer placed in guest cart before logging in
+    let finalCart = Array.isArray(cartItemsFromDb) ? [...cartItemsFromDb] : [];
+    try {
+      const guestCart = JSON.parse(localStorage.getItem('jiza_guest_cart') || '[]');
+      if (Array.isArray(guestCart) && guestCart.length > 0) {
+        for (const gItem of guestCart) {
+          const matchIdx = finalCart.findIndex(
+            (m) => m.id === gItem.id && m.selectedSize === gItem.selectedSize && (m.selectedColor || '') === (gItem.selectedColor || '')
+          );
+          if (matchIdx > -1) {
+            finalCart[matchIdx].quantity = Math.max(finalCart[matchIdx].quantity, gItem.quantity);
+          } else {
+            finalCart.push(gItem);
+          }
+        }
+        localStorage.removeItem('jiza_guest_cart');
+      }
+    } catch (e) {}
+
+    // Merge any items customer placed in guest wishlist before logging in
+    let finalWishlist = Array.isArray(wishlistIdsFromDb) ? [...wishlistIdsFromDb] : [];
+    try {
+      const guestWishlist = JSON.parse(localStorage.getItem('jiza_guest_wishlist') || '[]');
+      if (Array.isArray(guestWishlist) && guestWishlist.length > 0) {
+        finalWishlist = Array.from(new Set([...finalWishlist, ...guestWishlist]));
+        localStorage.removeItem('jiza_guest_wishlist');
+      }
+    } catch (e) {}
+
+    if (finalCart.length > 0) setCartItems(finalCart);
+    if (finalWishlist.length > 0) setWishlistIds(finalWishlist);
     
     // Add customer to Admin Customer list immediately
     setRegisteredCustomers((prev) => {
@@ -1184,46 +1268,13 @@ export default function App() {
     if (pendingAuthAction) {
       if (pendingAuthAction.type === 'ADD_TO_CART') {
         const { product, qty, size, selectedColor: color } = pendingAuthAction;
-        const chosenColor = color || (product.colour ? product.colour.split(',')[0].trim() : '');
-        setCartItems((prev) => {
-          const existingIndex = prev.findIndex(
-            (item) => item.id === product.id && item.selectedSize === size && (item.selectedColor || '') === chosenColor
-          );
-          if (existingIndex > -1) {
-            const copy = [...prev];
-            copy[existingIndex].quantity += qty;
-            return copy;
-          } else {
-            return [...prev, { ...product, quantity: qty, selectedSize: size, selectedColor: chosenColor }];
-          }
-        });
+        handleAddToCart(product, qty, size, color);
       } else if (pendingAuthAction.type === 'BUY_NOW') {
         const { product, qty, size, selectedColor: color } = pendingAuthAction;
-        const chosenColor = color || (product.colour ? product.colour.split(',')[0].trim() : '');
-        setCartItems((prev) => {
-          const existingIndex = prev.findIndex(
-            (item) => item.id === product.id && item.selectedSize === size && (item.selectedColor || '') === chosenColor
-          );
-          if (existingIndex > -1) {
-            const copy = [...prev];
-            copy[existingIndex].quantity = Math.max(copy[existingIndex].quantity, qty);
-            return copy;
-          } else {
-            return [...prev, { ...product, quantity: qty, selectedSize: size, selectedColor: chosenColor }];
-          }
-        });
-        setSelectedProduct(null);
-        setIsCartOpen(false);
-        setIsWishlistOpen(false);
-        setActiveView('checkout');
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        handleBuyNow(product, qty, size, color);
       } else if (pendingAuthAction.type === 'TOGGLE_WISHLIST') {
         const { productId } = pendingAuthAction;
-        setWishlistIds((prev) => {
-          if (prev.includes(productId)) return prev;
-          return [...prev, productId];
-        });
-        showToast('Added to Saved Wishlist ❤️');
+        handleToggleWishlist(productId);
       } else if (pendingAuthAction.type === 'NAVIGATE') {
         setActiveView(pendingAuthAction.view);
       }
@@ -1233,9 +1284,13 @@ export default function App() {
 
   const handleLogout = () => {
     setCurrentUser(null);
+    setGuestCheckoutData(null);
     setCartItems([]);
     setWishlistIds([]);
     sessionStorage.removeItem('jiza_current_user');
+    sessionStorage.removeItem('jiza_guest_checkout');
+    localStorage.removeItem('jiza_guest_cart');
+    localStorage.removeItem('jiza_guest_wishlist');
     setActiveView('home');
     showToast('Logged out successfully.');
   };
@@ -1287,15 +1342,26 @@ export default function App() {
   };
 
   const handleProceedToCheckout = () => {
+    setIsCartOpen(false);
     if (!currentUser) {
-      setIsCartOpen(false);
-      setPendingAuthAction({ type: 'NAVIGATE', view: 'checkout' });
-      setAuthModalMessage('Please sign in or create an account to proceed with checkout.');
+      setAuthModalInitialTab('signup');
+      setAuthModalMessage('Create an account or continue as guest to complete your checkout.');
       setIsAuthModalOpen(true);
       return;
     }
-    setIsCartOpen(false);
     setActiveView('checkout');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleGuestCheckout = (guestInfo) => {
+    setGuestCheckoutData(guestInfo);
+    try {
+      sessionStorage.setItem('jiza_guest_checkout', JSON.stringify(guestInfo));
+    } catch (e) {}
+    setIsAuthModalOpen(false);
+    setActiveView('checkout');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    showToast(`Welcome, ${guestInfo.fullName || 'Guest'}! Proceeding to checkout.`);
   };
 
   // ======================================================
@@ -1310,6 +1376,11 @@ export default function App() {
       // If order was already finalized & verified on backend via Razorpay (/api/payment/verify-payment)
       if (newOrderObj && newOrderObj.id) {
         setCartItems([]);
+        try {
+          localStorage.removeItem('jiza_guest_cart');
+          sessionStorage.removeItem('jiza_guest_checkout');
+        } catch (e) {}
+        setGuestCheckoutData(null);
         showToast(`Order ${newOrderObj.id} placed & verified successfully! 🎉`);
         fetchDbOrders();
         // Refresh products list from DB to get updated stock & badges
@@ -1347,6 +1418,11 @@ export default function App() {
       }
 
       setCartItems([]);
+      try {
+        localStorage.removeItem('jiza_guest_cart');
+        sessionStorage.removeItem('jiza_guest_checkout');
+      } catch (e) {}
+      setGuestCheckoutData(null);
       setOrdersList((prev) => [newOrderObj, ...prev]);
       showToast(`Order ${newOrderObj.id} placed successfully! 🎉`);
       fetchDbOrders();
@@ -1743,10 +1819,17 @@ export default function App() {
                 onOrderSuccess={handleOrderSuccess}
                 onBackToCart={() => setIsCartOpen(true)}
                 currentUser={currentUser}
+                guestCheckoutData={guestCheckoutData}
                 setActiveView={(view) => {
                   setPreviousView('checkout');
                   setActiveView(view);
                 }}
+              />
+            )}
+
+            {activeView === 'track-order' && (
+              <TrackOrderView 
+                setActiveView={setActiveView}
               />
             )}
           </div>
@@ -1820,6 +1903,9 @@ export default function App() {
               setPendingAuthAction(null);
             }}
             onLoginSuccess={handleLoginSuccess}
+            onGuestCheckout={handleGuestCheckout}
+            initialTab={authModalInitialTab}
+            allowGuest={true}
             pendingActionMessage={authModalMessage}
             registeredCustomers={registeredCustomers}
           />

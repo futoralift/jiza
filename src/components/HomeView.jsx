@@ -836,6 +836,14 @@ export default function HomeView({
               </li>
               <li
                 className="hover:underline hover:text-black cursor-pointer transition-colors font-bold text-black flex items-center gap-1.5"
+                onClick={() => setActiveView('track-order')}
+              >
+                <span className="material-symbols-outlined text-[14px]">track_changes</span>
+                <span>Track Your Order</span>
+                <span className="text-[9px] bg-[#B78946] text-white px-1.5 py-0.2 rounded-full font-bold">Live Status</span>
+              </li>
+              <li
+                className="hover:underline hover:text-black cursor-pointer transition-colors font-bold text-black flex items-center gap-1.5"
                 onClick={() => setActiveView('shipping-policy')}
               >
                 <span className="material-symbols-outlined text-[14px]">local_shipping</span>

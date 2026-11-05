@@ -396,9 +396,20 @@ export default function OrdersTab({
                                 + {extraCount} more item(s)
                               </span>
                             )}
-                            <p className="text-[10px] text-on-surface-variant font-medium mt-0.5">
-                              {o.customerName || o.customer_name || 'Customer'} {o.customerPhone ? `(${o.customerPhone})` : ''}
-                            </p>
+                            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                              <p className="text-[10px] text-on-surface-variant font-medium">
+                                {o.customerName || o.customer_name || 'Customer'} {o.customerPhone ? `(${o.customerPhone})` : ''}
+                              </p>
+                              {(o.isGuest || o.is_guest === 1 || (!o.userId && !o.user_id)) ? (
+                                <span className="text-[9px] font-semibold bg-stone-100 text-stone-700 px-1.5 py-0.2 rounded border border-stone-300">
+                                  Guest
+                                </span>
+                              ) : (
+                                <span className="text-[9px] font-semibold bg-emerald-50 text-emerald-800 px-1.5 py-0.2 rounded border border-emerald-200">
+                                  Registered
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </td>

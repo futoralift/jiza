@@ -89,7 +89,7 @@ export default function CancellationPolicyView({ setActiveView }) {
               Backend Enforced Policy:
             </p>
             <p className="text-on-surface-variant">
-              The 2-hour countdown starts automatically from the database timestamp when your order payment is verified. Live countdown timers are displayed in your <strong>Profile &gt; My Orders</strong> dashboard.
+              The 2-hour countdown starts automatically from the database timestamp when your order payment is verified. Live countdown timers are displayed in your <strong>Profile &gt; My Orders</strong> dashboard. For <strong>Guest Orders</strong>, you can track, modify delivery address, or cancel directly from the <strong>Track Order</strong> portal using your Order ID and 10-digit mobile number.
             </p>
           </div>
         </section>

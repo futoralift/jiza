@@ -126,6 +126,16 @@ CREATE TABLE IF NOT EXISTS orders (
     modified_at TIMESTAMP WITH TIME ZONE,
     cancelled_at TIMESTAMP WITH TIME ZONE,
     items_json TEXT NOT NULL,
+    billing_address TEXT,
+    billing_city VARCHAR(100),
+    billing_pincode VARCHAR(20),
+    billing_state VARCHAR(100),
+    billing_country VARCHAR(100) DEFAULT 'India',
+    billing_is_same INTEGER DEFAULT 0,
+    is_guest INTEGER DEFAULT 0,
+    terms_agreed INTEGER DEFAULT 1,
+    tracking_number VARCHAR(100),
+    courier_name VARCHAR(100),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -135,6 +145,8 @@ CREATE INDEX IF NOT EXISTS idx_orders_user ON orders(user_id);
 CREATE INDEX IF NOT EXISTS idx_orders_razorpay_order_id ON orders(razorpay_order_id);
 CREATE INDEX IF NOT EXISTS idx_orders_fulfillment_type ON orders(fulfillment_type);
 CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_orders_order_code_phone ON orders(order_code, customer_phone);
+CREATE INDEX IF NOT EXISTS idx_orders_is_guest ON orders(is_guest);
 
 -- 17. STORE SETTINGS TABLE
 CREATE TABLE IF NOT EXISTS store_settings (

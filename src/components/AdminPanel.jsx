@@ -1720,10 +1720,12 @@ export default function AdminPanel({
 
       return {
         'Order ID': o.order_code || o.id,
+        'Order Type': (o.isGuest || o.is_guest === 1 || (!o.userId && !o.user_id)) ? 'Guest' : 'Registered',
         'Customer Name': o.customerName || o.customer_name || 'N/A',
         'Customer Phone': o.customerPhone || o.customer_phone || 'N/A',
         'Customer Email': o.customerEmail || o.customer_email || 'N/A',
         'Delivery Address': fullAddress,
+        'Billing Address': o.billing_address || fullAddress,
         'Pincode': pin,
         'Product Codes': productCodes,
         'Purchased Items': itemDetails,
@@ -1774,11 +1776,15 @@ export default function AdminPanel({
     if (!customer) return [];
     return ordersList.filter(o => {
       const oEmail = (o.customerEmail || o.customer_email || '').toLowerCase().trim();
-      const oPhone = (o.customerPhone || o.customer_phone || '').replace(/\s+/g, '');
+      const oPhone = (o.customerPhone || o.customer_phone || '').replace(/\D/g, '').slice(-10);
       const cEmail = (customer.email || '').toLowerCase().trim();
-      const cPhone = (customer.phone || '').replace(/\s+/g, '');
+      const cPhone = (customer.phone || '').replace(/\D/g, '').slice(-10);
 
-      return (cEmail && oEmail === cEmail) || (cPhone && oPhone === cPhone);
+      return (
+        (customer.id && (o.userId === customer.id || o.user_id === customer.id)) ||
+        (cEmail && oEmail === cEmail) || 
+        (cPhone && oPhone && oPhone === cPhone)
+      );
     });
   };
 

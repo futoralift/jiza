@@ -113,12 +113,22 @@ export async function getDb() {
       ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_estimate VARCHAR(100);
       ALTER TABLE orders ADD COLUMN IF NOT EXISTS courier_name VARCHAR(100);
       ALTER TABLE orders ADD COLUMN IF NOT EXISTS tracking_number VARCHAR(100);
+      ALTER TABLE orders ADD COLUMN IF NOT EXISTS billing_address TEXT;
+      ALTER TABLE orders ADD COLUMN IF NOT EXISTS billing_city VARCHAR(100);
+      ALTER TABLE orders ADD COLUMN IF NOT EXISTS billing_pincode VARCHAR(20);
+      ALTER TABLE orders ADD COLUMN IF NOT EXISTS billing_state VARCHAR(100);
+      ALTER TABLE orders ADD COLUMN IF NOT EXISTS billing_country VARCHAR(100) DEFAULT 'India';
+      ALTER TABLE orders ADD COLUMN IF NOT EXISTS billing_is_same INTEGER DEFAULT 0;
+      ALTER TABLE orders ADD COLUMN IF NOT EXISTS is_guest INTEGER DEFAULT 0;
+      ALTER TABLE orders ADD COLUMN IF NOT EXISTS terms_agreed INTEGER DEFAULT 1;
     `);
 
     // Safely create indexes (ignore if already exist)
     for (const idxSql of [
       'CREATE INDEX IF NOT EXISTS idx_orders_shipping_charge_status ON orders(shipping_charge_status)',
-      'CREATE INDEX IF NOT EXISTS idx_orders_shipping_country ON orders(shipping_country)'
+      'CREATE INDEX IF NOT EXISTS idx_orders_shipping_country ON orders(shipping_country)',
+      'CREATE INDEX IF NOT EXISTS idx_orders_order_code_phone ON orders(order_code, customer_phone)',
+      'CREATE INDEX IF NOT EXISTS idx_orders_is_guest ON orders(is_guest)'
     ]) {
       try { await client.query(idxSql); } catch (_) {}
     }

@@ -85,7 +85,22 @@ export default function LegalPagesView({ type, setActiveView }) {
 
             <section className="space-y-2">
               <h2 className="font-headline-sm text-base md:text-lg font-bold border-b border-outline-variant/30 pb-2">
-                4. Data Storage, Security, &amp; Retention
+                4. Guest Checkout &amp; No Automatic Account Creation (Privacy Respected)
+              </h2>
+              <p>
+                When you choose <strong>"Continue as Guest"</strong> during checkout, Jiza Jewellery Studio strictly respects your privacy and personal data autonomy. In full compliance with the <strong>Digital Personal Data Protection (DPDP) Act, 2023</strong>:
+              </p>
+              <ul className="list-disc pl-5 space-y-1">
+                <li>We do <strong>NOT</strong> automatically create a customer account, password, or permanent profile in our database without your explicit opt-in.</li>
+                <li>Your contact details and delivery address are collected and used solely to process your payment, pack your insured jewellery shipment, and facilitate live delivery tracking.</li>
+                <li>Guests can easily track their order in real-time, update their delivery address, or cancel their order within the 2-hour policy window using only their <strong>Order ID</strong> and <strong>10-digit Mobile Number</strong> on our public Track Order portal.</li>
+                <li>If you subsequently decide to register an account using the same email or mobile number, your past guest orders will seamlessly link to your personal order history.</li>
+              </ul>
+            </section>
+
+            <section className="space-y-2">
+              <h2 className="font-headline-sm text-base md:text-lg font-bold border-b border-outline-variant/30 pb-2">
+                5. Data Storage, Security, &amp; Retention
               </h2>
               <p>
                 All personal data is encrypted in transit using 256-bit TLS/SSL protocols and stored securely in a relational PostgreSQL database hosted on a protected Hostinger KVM VPS. 
@@ -149,11 +164,16 @@ export default function LegalPagesView({ type, setActiveView }) {
 
             <section className="space-y-2">
               <h2 className="font-headline-sm text-base md:text-lg font-bold border-b border-outline-variant/30 pb-2">
-                2. User Account Security
+                2. User Accounts &amp; Guest Purchases (No Auto-Account Creation)
               </h2>
               <p>
-                To purchase items, save wishlists, or view order histories, you must register a customer profile. You are responsible for ensuring that the email address and mobile phone number provided are accurate. Since access relies on these contact credentials, you agree to safeguard your contact details and notify us immediately of any unauthorized access to your account.
+                Customers may purchase items either by registering an authenticated profile or by opting to <strong>"Continue as Guest"</strong>:
               </p>
+              <ul className="list-disc pl-5 space-y-1">
+                <li><strong>Registered Accounts:</strong> Allow you to save items across sessions, manage saved delivery addresses, and view comprehensive order histories.</li>
+                <li><strong>Guest Checkout:</strong> We respect your consent and privacy. Choosing guest checkout will <strong>NOT</strong> create an account or store an unrequested profile. Your 10-digit mobile number and Order ID serve as your verification credentials to access live parcel tracking and exercise self-service modifications within our 2-hour policy window.</li>
+                <li>You agree that all information provided during checkout (name, delivery address, phone, and billing details) is truthful and accurate to ensure successful delivery.</li>
+              </ul>
             </section>
 
             <section className="space-y-2">

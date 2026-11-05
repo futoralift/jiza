@@ -80,6 +80,17 @@ export default function MobileNavDrawer({
       }
     },
     {
+      id: 'track-order',
+      label: 'Track Order',
+      icon: 'track_changes',
+      badge: 'Live Status',
+      badgeColor: 'bg-[#B78946] text-white text-[9px]',
+      onClick: () => {
+        setActiveView('track-order');
+        onClose();
+      }
+    },
+    {
       id: 'my-orders',
       label: 'My Orders',
       icon: 'receipt_long',

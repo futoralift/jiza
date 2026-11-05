@@ -107,6 +107,13 @@ export default function Header({
             </button>
 
             <button 
+              onClick={() => setActiveView('track-order')} 
+              className={`hidden md:inline-block transition-all duration-200 ${activeView === 'track-order' ? 'text-black font-bold border-b-2 border-black scale-105' : 'text-black font-semibold hover:opacity-70'}`}
+            >
+              Track Order
+            </button>
+
+            <button 
               onClick={onAccountClick} 
               className={`hidden md:inline-block transition-all duration-200 ${activeView === 'profile' ? 'text-black font-bold border-b-2 border-black scale-105' : 'text-black font-semibold hover:opacity-70'}`}
             >

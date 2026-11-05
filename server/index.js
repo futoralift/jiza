@@ -823,7 +823,12 @@ app.post('/api/auth/register', async (req, res) => {
     );
 
     if (existing) {
-      return res.status(400).json({ error: 'An account with this Email or Mobile Number already exists. Please Sign In.' });
+      return res.status(400).json({ 
+        error: 'An account with this Email or Mobile Number already exists. Switching to Sign In...',
+        alreadyExists: true,
+        email: existing.email || cleanEmail,
+        phone: existing.phone || cleanPhone
+      });
     }
 
     // Generate sequential Customer ID
@@ -847,6 +852,26 @@ app.post('/api/auth/register', async (req, res) => {
       ]
     );
 
+    // Automatically associate past guest orders with this newly registered account
+    await db.run(
+      `UPDATE orders 
+       SET user_id = ? 
+       WHERE (user_id IS NULL OR user_id = '') 
+         AND (
+           LOWER(customer_email) = ? OR 
+           REPLACE(REPLACE(REPLACE(customer_phone, ' ', ''), '-', ''), '+91', '') = ?
+         )`,
+      [id, cleanEmail, cleanPhone]
+    );
+
+    // Calculate aggregated stats from any linked past orders
+    const stats = await db.get(
+      `SELECT COALESCE(COUNT(id), 0) as total_orders, COALESCE(SUM(total_amount), 0) as total_spent 
+       FROM orders 
+       WHERE user_id = ? OR LOWER(customer_email) = ?`,
+      [id, cleanEmail]
+    );
+
     const user = {
       id,
       name: name.trim(),
@@ -857,8 +882,8 @@ app.post('/api/auth/register', async (req, res) => {
       pincode: pincode ? pincode.trim() : '',
       role: 'customer',
       joinedDate: joinedStr,
-      totalSpent: 0,
-      totalOrders: 0
+      totalSpent: Number(stats?.total_spent || 0),
+      totalOrders: Number(stats?.total_orders || 0)
     };
 
     res.status(201).json({
@@ -917,7 +942,7 @@ app.post('/api/auth/login', async (req, res) => {
       SELECT COALESCE(COUNT(o.id), 0) as total_orders,
              COALESCE(SUM(o.total_amount), 0) as total_spent
       FROM orders o
-      WHERE o.user_id = ? OR o.customer_email = ?
+      WHERE o.user_id = ? OR LOWER(o.customer_email) = LOWER(?)
     `;
     const stats = await db.get(statsQuery, [user.id, user.email]);
 
@@ -986,7 +1011,7 @@ app.get('/api/admin/customers', requireAdminAuth, async (req, res) => {
                COALESCE(COUNT(o.id), 0) as total_orders,
                COALESCE(SUM(o.total_amount), 0) as total_spent
         FROM users u
-        LEFT JOIN orders o ON u.id = o.user_id OR u.email = o.customer_email
+        LEFT JOIN orders o ON u.id = o.user_id OR LOWER(u.email) = LOWER(o.customer_email)
         ${whereClause}
         GROUP BY u.id, u.name, u.email, u.phone, u.address, u.city, u.pincode, u.created_at
         ORDER BY u.created_at DESC
@@ -1022,7 +1047,7 @@ app.get('/api/admin/customers', requireAdminAuth, async (req, res) => {
              COALESCE(COUNT(o.id), 0) as total_orders,
              COALESCE(SUM(o.total_amount), 0) as total_spent
       FROM users u
-      LEFT JOIN orders o ON u.id = o.user_id OR u.email = o.customer_email
+      LEFT JOIN orders o ON u.id = o.user_id OR LOWER(u.email) = LOWER(o.customer_email)
       ${whereClause}
       GROUP BY u.id, u.name, u.email, u.phone, u.address, u.city, u.pincode, u.created_at
       ORDER BY u.created_at DESC
@@ -1187,7 +1212,7 @@ app.get('/api/admin/customers/:id', requireAdminAuth, async (req, res) => {
     }
 
     // Fetch order list
-    const orders = await db.all('SELECT * FROM orders WHERE user_id = ? OR customer_email = ? ORDER BY created_at DESC', [customer.id, customer.email]);
+    const orders = await db.all('SELECT * FROM orders WHERE user_id = ? OR LOWER(customer_email) = LOWER(?) ORDER BY created_at DESC', [customer.id, customer.email]);
 
     // Fetch review list
     const reviews = await db.all('SELECT * FROM product_reviews WHERE user_id = ? OR customer_email = ? ORDER BY created_at DESC', [customer.id, customer.email]);
@@ -2655,6 +2680,16 @@ app.post('/api/orders', async (req, res) => {
       return res.status(200).json({ message: 'Order already created (idempotent)', orderId: generatedId });
     }
 
+    const isGuest = (req.body.isGuest !== undefined) ? (req.body.isGuest ? 1 : 0) : (uId ? 0 : 1);
+    const termsAgreed = (req.body.termsAgreed !== undefined) ? (req.body.termsAgreed ? 1 : 0) : 1;
+    const billingIsSame = (req.body.billingIsSame !== undefined) ? (req.body.billingIsSame ? 1 : 0) : (req.body.billingData ? 0 : 1);
+    const billingData = req.body.billingData || {};
+    const billingAddress = billingData.address || (billingIsSame ? addrSnap.fullFormattedAddress : '');
+    const billingCity = billingData.city || (billingIsSame ? addrSnap.city : '');
+    const billingPincode = billingData.pincode || (billingIsSame ? addrSnap.pincode : '');
+    const billingState = billingData.state || (billingIsSame ? addrSnap.state : '');
+    const billingCountry = billingData.country || (billingIsSame ? addrSnap.country : 'India');
+
     // Transaction-safe validation and updates
     const result = await db.transaction(async (tx) => {
       let calculatedTotal = 0;
@@ -2735,13 +2770,17 @@ app.post('/api/orders', async (req, res) => {
           id, order_code, user_id, customer_name, customer_email, customer_phone, 
           shipping_address, shipping_address_line1, shipping_address_line2,
           shipping_city, shipping_state, shipping_pincode, shipping_country,
-          total_amount, payment_method, fulfillment_type, pickup_details_json, modification_history_json, items_json
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '[]', ?)`,
+          total_amount, payment_method, fulfillment_type, pickup_details_json, modification_history_json, items_json,
+          billing_address, billing_city, billing_pincode, billing_state, billing_country,
+          billing_is_same, is_guest, terms_agreed
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '[]', ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           generatedId, generatedId, uId, actualCustomerName, actualCustomerEmail, actualCustomerPhone,
           addrSnap.fullFormattedAddress, addrSnap.line1, addrSnap.line2,
           addrSnap.city, addrSnap.state, addrSnap.pincode, addrSnap.country,
-          calculatedTotal, paymentMethod || 'UPI', actualFulfillment, pickupDataJson, JSON.stringify(snapshotItems)
+          calculatedTotal, paymentMethod || 'UPI', actualFulfillment, pickupDataJson, JSON.stringify(snapshotItems),
+          billingAddress, billingCity, billingPincode, billingState, billingCountry,
+          billingIsSame, isGuest, termsAgreed
         ]
       );
 
@@ -2942,6 +2981,16 @@ app.post('/api/payment/verify-payment', async (req, res) => {
       if (userExists) uId = userExists.id;
     }
 
+    const isGuest = (req.body.isGuest !== undefined) ? (req.body.isGuest ? 1 : 0) : (uId ? 0 : 1);
+    const termsAgreed = (req.body.termsAgreed !== undefined) ? (req.body.termsAgreed ? 1 : 0) : 1;
+    const billingIsSame = (req.body.billingIsSame !== undefined) ? (req.body.billingIsSame ? 1 : 0) : (req.body.billingData ? 0 : 1);
+    const billingData = req.body.billingData || {};
+    const billingAddress = billingData.address || (billingIsSame ? addressStr : '');
+    const billingCity = billingData.city || (billingIsSame ? addrSnap.city : '');
+    const billingPincode = billingData.pincode || (billingIsSame ? addrSnap.pincode : '');
+    const billingState = billingData.state || (billingIsSame ? addrSnap.state : '');
+    const billingCountry = billingData.country || (billingIsSame ? destinationCountry : 'India');
+
     // Load shipping config from DB
     const shippingConfig = await getShippingConfig(db);
 
@@ -3041,8 +3090,10 @@ app.post('/api/payment/verify-payment', async (req, res) => {
           razorpay_order_id, razorpay_payment_id, razorpay_signature,
           fulfillment_type, pickup_details_json, modification_history_json, items_json,
           shipping_method, shipping_charge, shipping_charge_status, shipping_subtotal,
-          shipping_customer_contact_status, delivery_estimate, shipping_policy_version
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Paid', 'Razorpay', 'paid', ?, ?, ?, ?, ?, '[]', ?, ?, ?, ?, ?, ?, ?, ?)`,
+          shipping_customer_contact_status, delivery_estimate, shipping_policy_version,
+          billing_address, billing_city, billing_pincode, billing_state, billing_country,
+          billing_is_same, is_guest, terms_agreed
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Paid', 'Razorpay', 'paid', ?, ?, ?, ?, ?, '[]', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           generatedId, generatedId, uId, customerName, customerEmail, customerPhone,
           addressStr, addrSnap.line1, addrSnap.line2, addrSnap.city, addrSnap.state, addrSnap.pincode, destinationCountry,
@@ -3050,7 +3101,9 @@ app.post('/api/payment/verify-payment', async (req, res) => {
           razorpay_signature, actualFulfillment, pickupDataJson, JSON.stringify(snapshotItems),
           shippingResult.method, shippingResult.shippingCharge, shippingResult.shippingChargeStatus, calculatedSubtotal,
           shippingResult.isInternational ? 'pending' : 'not_required',
-          shippingResult.deliveryEstimate || '', 'v1'
+          shippingResult.deliveryEstimate || '', 'v1',
+          billingAddress, billingCity, billingPincode, billingState, billingCountry,
+          billingIsSame, isGuest, termsAgreed
         ]
       );
 
@@ -3099,7 +3152,8 @@ app.post('/api/payment/verify-payment', async (req, res) => {
       shippingCharge: result.shippingCharge,
       shippingChargeStatus: result.shippingChargeStatus,
       isInternational: result.isInternational,
-      deliveryEstimate: result.deliveryEstimate
+      deliveryEstimate: result.deliveryEstimate,
+      isGuest: Boolean(isGuest)
     });
 
   } catch (err) {
@@ -3445,7 +3499,7 @@ app.get('/api/orders/my-orders', async (req, res) => {
     }
 
     const orders = await db.all(
-      `SELECT * FROM orders WHERE user_id = ? OR customer_email = ? ORDER BY created_at DESC`,
+      `SELECT * FROM orders WHERE user_id = ? OR LOWER(customer_email) = LOWER(?) ORDER BY created_at DESC`,
       [userId || '', email || '']
     );
 
@@ -3505,6 +3559,273 @@ app.get('/api/orders/my-orders', async (req, res) => {
     res.json(formatted);
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// ======================================================
+// PUBLIC ORDER TRACKING & 2-HOUR GUEST ACTIONS API
+// ======================================================
+
+// POST Public Track Order (Order ID + Mobile Number)
+app.post('/api/orders/track', async (req, res) => {
+  try {
+    const db = await getDb();
+    const { orderCode, phone, phoneOrEmail } = req.body;
+    const rawContact = String(phone || phoneOrEmail || '').trim();
+
+    if (!orderCode || !rawContact) {
+      return res.status(400).json({ error: 'Please enter both your Order ID and 10-digit mobile number.' });
+    }
+
+    const cleanOrderCode = String(orderCode).trim().toUpperCase();
+    const cleanPhone = rawContact.replace(/\D/g, '').slice(-10);
+    const cleanEmail = rawContact.toLowerCase();
+
+    if (cleanPhone.length !== 10 && !rawContact.includes('@')) {
+      return res.status(400).json({ error: 'Please enter a valid 10-digit mobile number.' });
+    }
+
+    // Query matching order_code AND phone (with email fallback)
+    const order = await db.get(
+      `SELECT * FROM orders 
+       WHERE (UPPER(order_code) = ? OR UPPER(id) = ?) 
+         AND (
+           REPLACE(REPLACE(REPLACE(customer_phone, ' ', ''), '-', ''), '+91', '') LIKE ? OR 
+           customer_phone LIKE ? OR
+           LOWER(customer_email) = ?
+         )`,
+      [cleanOrderCode, cleanOrderCode, `%${cleanPhone}%`, `%${cleanPhone}%`, cleanEmail]
+    );
+
+    if (!order) {
+      return res.status(404).json({ 
+        error: 'No order found matching this Order ID and 10-digit mobile number. Please check your Order ID (e.g. JIZA-XXXXXX) and phone number.' 
+      });
+    }
+
+    const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
+    const createdAtMs = new Date(order.created_at).getTime();
+    const elapsedMs = Date.now() - createdAtMs;
+    const remainingSeconds = Math.max(0, Math.floor((TWO_HOURS_MS - elapsedMs) / 1000));
+    const isModifiable = !['Shipped', 'Delivered', 'Cancelled'].includes(order.status) && elapsedMs <= TWO_HOURS_MS;
+
+    let items = [];
+    try {
+      items = JSON.parse(order.items_json);
+    } catch (_) { }
+
+    let pickupDetails = null;
+    try {
+      if (order.pickup_details_json) pickupDetails = JSON.parse(order.pickup_details_json);
+    } catch (_) { }
+
+    let modificationHistory = [];
+    try {
+      if (order.modification_history_json) modificationHistory = JSON.parse(order.modification_history_json);
+    } catch (_) { }
+
+    res.json({
+      success: true,
+      order: {
+        id: order.id,
+        orderCode: order.order_code,
+        status: order.status,
+        paymentStatus: order.payment_status,
+        paymentMethod: order.payment_method,
+        totalAmount: `₹${Number(order.total_amount).toLocaleString('en-IN')}`,
+        rawAmount: Number(order.total_amount),
+        customerName: order.customer_name,
+        customerEmail: order.customer_email,
+        customerPhone: order.customer_phone,
+        fulfillmentType: order.fulfillment_type || 'ship',
+        pickupDetails,
+        shippingAddress: order.shipping_address,
+        shippingCity: order.shipping_city,
+        shippingState: order.shipping_state,
+        shippingPincode: order.shipping_pincode,
+        shippingCountry: order.shipping_country || 'India',
+        deliveryEstimate: order.delivery_estimate,
+        courierName: order.courier_name,
+        trackingNumber: order.tracking_number,
+        createdAt: order.created_at,
+        date: new Date(order.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
+        isModifiable,
+        remainingSeconds,
+        twoHourWindowExpiresAt: new Date(createdAtMs + TWO_HOURS_MS).toISOString(),
+        modificationHistory,
+        items
+      }
+    });
+
+  } catch (err) {
+    console.error('Error tracking order:', err);
+    res.status(500).json({ error: 'Failed to retrieve order tracking information.' });
+  }
+});
+
+// PUT Public Modify Address for Tracked Order (within 2-hour window)
+app.put('/api/orders/track/modify-address', async (req, res) => {
+  try {
+    const db = await getDb();
+    const { orderCode, phone, phoneOrEmail, address, city, state, pincode, country } = req.body;
+    const rawContact = String(phone || phoneOrEmail || '').trim();
+
+    if (!orderCode || !rawContact || !address || !city) {
+      return res.status(400).json({ error: 'Order ID, 10-digit mobile number, and new delivery address are required.' });
+    }
+
+    const cleanOrderCode = String(orderCode).trim().toUpperCase();
+    const cleanPhone = rawContact.replace(/\D/g, '').slice(-10);
+    const cleanEmail = rawContact.toLowerCase();
+
+    const order = await db.get(
+      `SELECT * FROM orders 
+       WHERE (UPPER(order_code) = ? OR UPPER(id) = ?) 
+         AND (
+           REPLACE(REPLACE(REPLACE(customer_phone, ' ', ''), '-', ''), '+91', '') LIKE ? OR 
+           customer_phone LIKE ? OR
+           LOWER(customer_email) = ?
+         )`,
+      [cleanOrderCode, cleanOrderCode, `%${cleanPhone}%`, `%${cleanPhone}%`, cleanEmail]
+    );
+
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found or contact verification failed.' });
+    }
+
+    const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
+    const elapsedMs = Date.now() - new Date(order.created_at).getTime();
+    if (elapsedMs > TWO_HOURS_MS || ['Shipped', 'Delivered', 'Cancelled'].includes(order.status)) {
+      return res.status(400).json({ error: 'The 2-hour address modification window has expired or this order has already shipped.' });
+    }
+
+    const cleanPin = pincode ? String(pincode).trim() : (order.shipping_pincode || '');
+    const cleanCountry = country || order.shipping_country || 'India';
+    const formattedAddress = `${address.trim()}, ${city.trim()}${state ? ', ' + state.trim() : ''} - ${cleanPin}, ${cleanCountry}`;
+
+    let history = [];
+    try {
+      if (order.modification_history_json) history = JSON.parse(order.modification_history_json);
+    } catch (_) { }
+
+    history.push({
+      modifiedAt: new Date().toISOString(),
+      type: 'address_update',
+      previousAddress: order.shipping_address,
+      newAddress: formattedAddress
+    });
+
+    await db.run(
+      `UPDATE orders 
+       SET shipping_address = ?, shipping_city = ?, shipping_state = ?, shipping_pincode = ?, shipping_country = ?,
+           modification_history_json = ?, modified_at = CURRENT_TIMESTAMP
+       WHERE id = ?`,
+      [formattedAddress, city.trim(), state ? state.trim() : '', cleanPin, cleanCountry, JSON.stringify(history), order.id]
+    );
+
+    invalidateApiCache();
+
+    res.json({
+      success: true,
+      message: 'Delivery address updated successfully!',
+      shippingAddress: formattedAddress
+    });
+
+  } catch (err) {
+    console.error('Error modifying address:', err);
+    res.status(500).json({ error: 'Failed to update delivery address.' });
+  }
+});
+
+// POST Public Cancel Order (within 2-hour window)
+app.post('/api/orders/track/cancel', async (req, res) => {
+  try {
+    const db = await getDb();
+    const { orderCode, phone, phoneOrEmail, reason } = req.body;
+    const rawContact = String(phone || phoneOrEmail || '').trim();
+
+    if (!orderCode || !rawContact) {
+      return res.status(400).json({ error: 'Order ID and 10-digit mobile number are required.' });
+    }
+
+    const cleanOrderCode = String(orderCode).trim().toUpperCase();
+    const cleanPhone = rawContact.replace(/\D/g, '').slice(-10);
+    const cleanEmail = rawContact.toLowerCase();
+
+    const order = await db.get(
+      `SELECT * FROM orders 
+       WHERE (UPPER(order_code) = ? OR UPPER(id) = ?) 
+         AND (
+           REPLACE(REPLACE(REPLACE(customer_phone, ' ', ''), '-', ''), '+91', '') LIKE ? OR 
+           customer_phone LIKE ? OR
+           LOWER(customer_email) = ?
+         )`,
+      [cleanOrderCode, cleanOrderCode, `%${cleanPhone}%`, `%${cleanPhone}%`, cleanEmail]
+    );
+
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found or contact verification failed.' });
+    }
+
+    if (order.status === 'Cancelled') {
+      return res.status(400).json({ error: 'This order is already cancelled.' });
+    }
+
+    const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
+    const elapsedMs = Date.now() - new Date(order.created_at).getTime();
+    if (elapsedMs > TWO_HOURS_MS || ['Shipped', 'Delivered'].includes(order.status)) {
+      return res.status(400).json({ error: 'The 2-hour cancellation window has expired or this order has already shipped.' });
+    }
+
+    // Atomically cancel order and restore product inventory
+    await db.transaction(async (tx) => {
+      let items = [];
+      try { items = JSON.parse(order.items_json); } catch (_) { }
+
+      for (const item of items) {
+        if (item.id) {
+          const qty = Number(item.quantity || 1);
+          await tx.run(
+            `UPDATE products 
+             SET stock_quantity = stock_quantity + ?,
+                 in_stock = 1,
+                 sold_out = 0,
+                 badge = CASE WHEN badge = 'Sold Out' THEN 'Standard' ELSE badge END
+             WHERE id = ?`,
+            [qty, item.id]
+          );
+        }
+      }
+
+      let history = [];
+      try {
+        if (order.modification_history_json) history = JSON.parse(order.modification_history_json);
+      } catch (_) { }
+
+      history.push({
+        modifiedAt: new Date().toISOString(),
+        type: 'order_cancellation',
+        reason: reason || 'Customer requested cancellation via Track Order portal'
+      });
+
+      await tx.run(
+        `UPDATE orders 
+         SET status = 'Cancelled', cancelled_at = CURRENT_TIMESTAMP, modification_history_json = ?
+         WHERE id = ?`,
+        [JSON.stringify(history), order.id]
+      );
+    });
+
+    invalidateApiCache();
+
+    res.json({
+      success: true,
+      message: 'Order cancelled successfully! Your refund will be processed within 5-7 business days.'
+    });
+
+  } catch (err) {
+    console.error('Error cancelling order:', err);
+    res.status(500).json({ error: 'Failed to cancel order.' });
   }
 });
 
@@ -4028,7 +4349,7 @@ app.get('/api/reviews/pending-prompt', async (req, res) => {
     }
 
     const orders = await db.all(
-      `SELECT * FROM orders WHERE (user_id = ? OR customer_email = ?) AND status = 'Delivered' ORDER BY created_at DESC`,
+      `SELECT * FROM orders WHERE (user_id = ? OR LOWER(customer_email) = LOWER(?)) AND status = 'Delivered' ORDER BY created_at DESC`,
       [userId || '', email || '']
     );
 
@@ -4038,7 +4359,7 @@ app.get('/api/reviews/pending-prompt', async (req, res) => {
 
     // Batch-query existing reviews & prompts to eliminate N+1 DB roundtrips in loop
     const existingReviews = await db.all(
-      `SELECT order_id, product_id FROM product_reviews WHERE user_id = ? OR customer_email = ?`,
+      `SELECT order_id, product_id FROM product_reviews WHERE user_id = ? OR LOWER(customer_email) = LOWER(?)`,
       [userId || '', email || '']
     );
     const reviewedSet = new Set(existingReviews.map(r => `${r.order_id}_${r.product_id}`));

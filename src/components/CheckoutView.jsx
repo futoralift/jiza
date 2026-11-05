@@ -3,8 +3,9 @@ import { API_BASE } from '../config';
 import InternationalShippingNotice from './InternationalShippingNotice';
 import { COUNTRIES, isIndia as checkIsIndia } from '../data/countries';
 
-export default function CheckoutView({ cartItems, totalAmount, onOrderSuccess, onBackToCart, currentUser, setActiveView }) {
+export default function CheckoutView({ cartItems, totalAmount, onOrderSuccess, onBackToCart, currentUser, setActiveView, guestCheckoutData }) {
   const [step, setStep] = useState(1); // 1: Delivery, 2: Payment, 3: Success Confirmation
+  const [isCopied, setIsCopied] = useState(false);
   
   // Delivery Fulfillment Type: 'ship' (Home Delivery) vs 'pickup' (Studio Pickup)
   const [fulfillmentType, setFulfillmentType] = useState('ship');
@@ -27,15 +28,16 @@ export default function CheckoutView({ cartItems, totalAmount, onOrderSuccess, o
   });
 
   // Shipping details state (for Ship to Address)
+  const activeInitial = currentUser || guestCheckoutData;
   const [shippingData, setShippingData] = useState({
-    fullName: currentUser?.name || '',
-    phone: currentUser?.phone || '',
-    email: currentUser?.email || '',
-    address: currentUser?.address || '',
-    city: currentUser?.city || '',
-    state: currentUser?.state || '',
-    pincode: currentUser?.pincode || '',
-    country: currentUser?.country || 'India'
+    fullName: activeInitial?.name || activeInitial?.fullName || '',
+    phone: activeInitial?.phone || '',
+    email: activeInitial?.email || '',
+    address: activeInitial?.address || '',
+    city: activeInitial?.city || '',
+    state: activeInitial?.state || '',
+    pincode: activeInitial?.pincode || '',
+    country: activeInitial?.country || 'India'
   });
 
   // Handle country change and show international notice ONLY when non-India is selected
@@ -51,9 +53,9 @@ export default function CheckoutView({ cartItems, totalAmount, onOrderSuccess, o
 
   // Pickup Contact details (when customer chooses Pickup)
   const [pickupDetails, setPickupDetails] = useState({
-    pickupPersonName: currentUser?.name || '',
-    pickupPersonPhone: currentUser?.phone || '',
-    email: currentUser?.email || '',
+    pickupPersonName: activeInitial?.name || activeInitial?.fullName || '',
+    pickupPersonPhone: activeInitial?.phone || '',
+    email: activeInitial?.email || '',
     notes: ''
   });
 
@@ -96,29 +98,30 @@ export default function CheckoutView({ cartItems, totalAmount, onOrderSuccess, o
     }
   };
 
-  // Sync user profile when currentUser changes
+  // Sync user/guest profile when currentUser or guestCheckoutData changes
   useEffect(() => {
-    if (currentUser) {
+    const activeData = currentUser || guestCheckoutData;
+    if (activeData) {
       setShippingData(prev => ({
         ...prev,
-        fullName: prev.fullName || currentUser.name || '',
-        phone: prev.phone || currentUser.phone || '',
-        email: prev.email || currentUser.email || '',
-        address: prev.address || currentUser.address || '',
-        city: prev.city || currentUser.city || '',
-        state: prev.state || currentUser.state || '',
-        pincode: prev.pincode || currentUser.pincode || '',
-        country: prev.country || currentUser.country || 'India'
+        fullName: prev.fullName || activeData.name || activeData.fullName || '',
+        phone: prev.phone || activeData.phone || '',
+        email: prev.email || activeData.email || '',
+        address: prev.address || activeData.address || '',
+        city: prev.city || activeData.city || '',
+        state: prev.state || activeData.state || '',
+        pincode: prev.pincode || activeData.pincode || '',
+        country: prev.country || activeData.country || 'India'
       }));
 
       setPickupDetails(prev => ({
         ...prev,
-        pickupPersonName: prev.pickupPersonName || currentUser.name || '',
-        pickupPersonPhone: prev.pickupPersonPhone || currentUser.phone || '',
-        email: prev.email || currentUser.email || ''
+        pickupPersonName: prev.pickupPersonName || activeData.name || activeData.fullName || '',
+        pickupPersonPhone: prev.pickupPersonPhone || activeData.phone || '',
+        email: prev.email || activeData.email || ''
       }));
     }
-  }, [currentUser]);
+  }, [currentUser, guestCheckoutData]);
 
   // Handle Step 1 Validation & Next
   const handleStep1Submit = (e) => {
@@ -265,6 +268,10 @@ export default function CheckoutView({ cartItems, totalAmount, onOrderSuccess, o
                 shippingData: { ...effectiveCustomerInfo, country: effectiveCustomerInfo.country },
                 fulfillmentType,
                 country: effectiveCustomerInfo.country,
+                isGuest: !currentUser,
+                termsAgreed: Boolean(guestCheckoutData?.termsAgreed || true),
+                billingIsSame: Boolean(guestCheckoutData?.billingIsSame),
+                billingData: guestCheckoutData?.billingData || null,
                 pickupDetails: {
                   ...storePickupSettings,
                   pickupPersonName: effectiveCustomerInfo.fullName,
@@ -513,6 +520,8 @@ export default function CheckoutView({ cartItems, totalAmount, onOrderSuccess, o
                     <label className="font-label-sm text-xs text-black block mb-1 font-bold">Full Name *</label>
                     <input 
                       type="text" 
+                      id="checkout-fullName"
+                      autoComplete="name"
                       required
                       value={shippingData.fullName}
                       onChange={(e) => setShippingData({...shippingData, fullName: e.target.value})}
@@ -529,11 +538,16 @@ export default function CheckoutView({ cartItems, totalAmount, onOrderSuccess, o
                       </span>
                       <input 
                         type="tel" 
+                        id="checkout-phone"
+                        autoComplete="tel"
+                        inputMode="tel"
                         required
                         maxLength={10}
-                        inputMode="numeric"
                         value={shippingData.phone}
-                        onChange={(e) => setShippingData({...shippingData, phone: e.target.value.replace(/\D/g, '').slice(0, 10)})}
+                        onChange={(e) => {
+                          const raw = e.target.value.replace(/\D/g, '');
+                          setShippingData({...shippingData, phone: raw.length > 10 ? raw.slice(-10) : raw});
+                        }}
                         placeholder="10-digit Mobile Number"
                         className="w-full bg-transparent px-3.5 py-2.5 text-xs text-black focus:outline-none font-semibold font-mono tracking-wider"
                       />
@@ -545,10 +559,12 @@ export default function CheckoutView({ cartItems, totalAmount, onOrderSuccess, o
                   <label className="font-label-sm text-xs text-black block mb-1 font-bold">Email Address (for Order Updates &amp; Tracking) *</label>
                   <input 
                     type="email" 
+                    id="checkout-email"
+                    autoComplete="email"
+                    inputMode="email"
                     required
                     value={shippingData.email}
                     onChange={(e) => setShippingData({...shippingData, email: e.target.value})}
-                    placeholder="name@example.com"
                     className="w-full bg-[#FFF9F9] border border-[#F8B3AC]/60 rounded-xl px-3.5 py-2.5 text-xs text-black focus:outline-none focus:border-black focus:bg-white font-medium"
                   />
                 </div>
@@ -557,10 +573,12 @@ export default function CheckoutView({ cartItems, totalAmount, onOrderSuccess, o
                   <label className="font-label-sm text-xs text-black block mb-1 font-bold">Flat / House No / Building / Street Address *</label>
                   <input 
                     type="text" 
+                    id="checkout-address"
+                    autoComplete="street-address"
                     required
                     value={shippingData.address}
                     onChange={(e) => setShippingData({...shippingData, address: e.target.value})}
-                    placeholder="e.g. Flat 402, Royal Residency, Suncity Road"
+                    placeholder="Flat/House No., Building, Street"
                     className="w-full bg-[#FFF9F9] border border-[#F8B3AC]/60 rounded-xl px-3.5 py-2.5 text-xs text-black focus:outline-none focus:border-black focus:bg-white font-medium"
                   />
                 </div>
@@ -570,6 +588,8 @@ export default function CheckoutView({ cartItems, totalAmount, onOrderSuccess, o
                     <label className="font-label-sm text-xs text-black block mb-1 font-bold">City *</label>
                     <input 
                       type="text" 
+                      id="checkout-city"
+                      autoComplete="address-level2"
                       required
                       value={shippingData.city}
                       onChange={(e) => setShippingData({...shippingData, city: e.target.value})}
@@ -582,6 +602,8 @@ export default function CheckoutView({ cartItems, totalAmount, onOrderSuccess, o
                     <label className="font-label-sm text-xs text-black block mb-1 font-bold">State {!isInternational ? '*' : ''}</label>
                     <input 
                       type="text" 
+                      id="checkout-state"
+                      autoComplete="address-level1"
                       required={!isInternational}
                       value={shippingData.state}
                       onChange={(e) => setShippingData({...shippingData, state: e.target.value})}
@@ -596,6 +618,9 @@ export default function CheckoutView({ cartItems, totalAmount, onOrderSuccess, o
                     </label>
                     <input 
                       type="text" 
+                      id="checkout-pincode"
+                      autoComplete="postal-code"
+                      inputMode="numeric"
                       required={!isInternational}
                       maxLength={isInternational ? 20 : 6}
                       value={shippingData.pincode}
@@ -723,7 +748,10 @@ export default function CheckoutView({ cartItems, totalAmount, onOrderSuccess, o
                         maxLength={10}
                         inputMode="numeric"
                         value={pickupDetails.pickupPersonPhone || shippingData.phone}
-                        onChange={(e) => setPickupDetails({...pickupDetails, pickupPersonPhone: e.target.value.replace(/\D/g, '').slice(0, 10)})}
+                        onChange={(e) => {
+                          const raw = e.target.value.replace(/\D/g, '');
+                          setPickupDetails({...pickupDetails, pickupPersonPhone: raw.length > 10 ? raw.slice(-10) : raw});
+                        }}
                         placeholder="10-digit Phone Number"
                         className="w-full bg-transparent px-3.5 py-2.5 text-xs text-black focus:outline-none font-semibold font-mono tracking-wider"
                       />
@@ -738,7 +766,6 @@ export default function CheckoutView({ cartItems, totalAmount, onOrderSuccess, o
                     required
                     value={pickupDetails.email || shippingData.email}
                     onChange={(e) => setPickupDetails({...pickupDetails, email: e.target.value})}
-                    placeholder="name@example.com"
                     className="w-full bg-[#FFF9F9] border border-[#F8B3AC]/60 rounded-xl px-3.5 py-2.5 text-xs text-black focus:outline-none focus:border-black focus:bg-white font-medium"
                   />
                 </div>
@@ -976,10 +1003,49 @@ export default function CheckoutView({ cartItems, totalAmount, onOrderSuccess, o
             <h2 className="font-headline-md text-2xl text-black font-bold">
               Thank You for Shopping with Jiza!
             </h2>
-            <p className="font-body-md text-xs text-gray-600 mt-1.5">
-              Your order reference is <strong className="text-black font-mono font-bold text-sm">{orderId}</strong>. We have sent a confirmation email &amp; SMS to {shippingData.email}.
+            
+            {/* Copyable Order ID Badge */}
+            <div className="flex items-center justify-center gap-2 my-3">
+              <div className="bg-[#FFF0F2] border-2 border-black/20 rounded-xl px-4 py-2 font-mono font-bold text-lg text-black tracking-wider shadow-xs">
+                {orderId}
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (orderId && navigator.clipboard) {
+                    navigator.clipboard.writeText(orderId);
+                    setIsCopied(true);
+                    setTimeout(() => setIsCopied(false), 2500);
+                  }
+                }}
+                className="px-3.5 py-2.5 bg-[#FCDAD7] hover:bg-[#F9C5C0] text-black font-bold text-xs rounded-xl border border-black/20 shadow-xs cursor-pointer active:scale-95 transition-all flex items-center gap-1.5"
+                title="Copy Order Code"
+              >
+                <span className="material-symbols-outlined text-base">{isCopied ? 'done' : 'content_copy'}</span>
+                <span>{isCopied ? 'Copied! ✓' : 'Copy'}</span>
+              </button>
+            </div>
+
+            <p className="font-body-md text-xs text-gray-600 mt-1">
+              We have sent your invoice and live tracking link to <strong className="text-black">{shippingData.email}</strong>.
             </p>
           </div>
+
+          {/* RED TEXT WARNING BOX FOR GUEST ORDERS (SCREENSHOT / COPY REMINDER) */}
+          {!currentUser && (
+            <div className="bg-red-50 border-2 border-red-500 rounded-2xl p-4 text-center shadow-xs">
+              <div className="flex items-center justify-center gap-1.5 text-red-700 font-bold text-xs uppercase tracking-wider mb-1">
+                <span className="material-symbols-outlined text-base">warning</span>
+                <span>IMPORTANT (PLEASE SAVE YOUR ORDER ID)</span>
+              </div>
+              <p className="text-xs text-red-900 font-bold leading-relaxed">
+                Please take a screenshot of this screen or copy your Order ID now!
+              </p>
+              <p className="text-[11px] text-red-800 mt-1 font-medium">
+                You will need your Order ID (<span className="font-mono font-bold underline">{orderId}</span>) and Mobile Number ({shippingData.phone}) to track your delivery status from the "Track Order" link in our menu.
+              </p>
+            </div>
+          )}
 
           {/* 2-Hour Window Notice */}
           <div className="p-3.5 bg-[#FFF0F2] border border-[#F8B3AC] rounded-2xl text-left text-xs space-y-1">
@@ -988,7 +1054,7 @@ export default function CheckoutView({ cartItems, totalAmount, onOrderSuccess, o
               <span>2-Hour Modification Window Active</span>
             </div>
             <p className="text-[11px] text-stone-800 leading-relaxed">
-              You can modify delivery/pickup details, change product sizes, add items, or cancel this order within the next 2 hours from your <strong>Profile</strong>.
+              You can modify delivery details or cancel this order within the next 2 hours {currentUser ? <span>from your <strong>Profile</strong></span> : <span>directly using the <strong>Track Order</strong> portal</span>}.
             </p>
           </div>
 
@@ -1084,16 +1150,33 @@ export default function CheckoutView({ cartItems, totalAmount, onOrderSuccess, o
             </div>
           </div>
 
-          <div className="flex gap-3">
-            <button 
-              onClick={() => { if (typeof setActiveView === 'function') setActiveView('profile'); else window.location.href = '/profile'; }}
-              className="flex-grow py-3 bg-[#FCDAD7] hover:bg-[#F9C5C0] text-black font-label-md font-bold text-xs rounded-xl shadow border border-black/20 transition-transform active:scale-95 cursor-pointer"
-            >
-              View Order in Profile
-            </button>
+          <div className="flex flex-col sm:flex-row gap-3">
+            {currentUser ? (
+              <button 
+                onClick={() => { if (typeof setActiveView === 'function') setActiveView('profile'); else window.location.href = '/profile'; }}
+                className="flex-grow py-3.5 bg-[#FCDAD7] hover:bg-[#F9C5C0] text-black font-label-md font-bold text-xs rounded-xl shadow border border-black/20 transition-transform active:scale-95 cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                <span className="material-symbols-outlined text-base">person</span>
+                <span>View Order in Profile</span>
+              </button>
+            ) : (
+              <button 
+                onClick={() => {
+                  try {
+                    window.history.pushState({}, '', `/track-order?orderId=${encodeURIComponent(orderId)}&phone=${encodeURIComponent(shippingData.phone)}`);
+                  } catch (_) {}
+                  if (typeof setActiveView === 'function') setActiveView('track-order');
+                  else window.location.href = `/track-order?orderId=${encodeURIComponent(orderId)}&phone=${encodeURIComponent(shippingData.phone)}`;
+                }}
+                className="flex-grow py-3.5 bg-black hover:bg-black/90 text-white font-label-md font-bold text-xs rounded-xl shadow border border-black transition-transform active:scale-95 cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                <span className="material-symbols-outlined text-base">local_shipping</span>
+                <span>Track Live Order Status</span>
+              </button>
+            )}
             <button 
               onClick={() => { if (typeof setActiveView === 'function') setActiveView('home'); else window.location.href = '/'; }}
-              className="px-5 py-3 border border-black/20 hover:bg-[#FCDAD7]/40 text-black font-bold text-xs rounded-xl transition-colors cursor-pointer"
+              className="px-5 py-3.5 border border-black/20 hover:bg-[#FCDAD7]/40 text-black font-bold text-xs rounded-xl transition-colors cursor-pointer"
             >
               Continue Shopping
             </button>

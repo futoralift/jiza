@@ -202,7 +202,7 @@ export async function sendOrderConfirmationEmail({
               <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
                 <tr>
                   <td style="padding: 4px 0; color: #666;">Order ID:</td>
-                  <td style="padding: 4px 0; text-align: right; font-weight: bold; color: #1a1816;">${orderId}</td>
+                  <td style="padding: 4px 0; text-align: right; font-weight: bold; color: #1a1816; font-family: monospace; font-size: 15px;">${orderId}</td>
                 </tr>
                 <tr>
                   <td style="padding: 4px 0; color: #666;">Order Date:</td>
@@ -217,6 +217,15 @@ export async function sendOrderConfirmationEmail({
                   <td style="padding: 4px 0; text-align: right; font-weight: bold; color: #2e7d32;">PAID (Verified)</td>
                 </tr>
               </table>
+            </div>
+
+            <div style="text-align: center; margin: 25px 0; padding: 18px; background-color: #fcf9f2; border: 1px dashed #d4af37; border-radius: 10px;">
+              <p style="margin: 0 0 10px 0; font-size: 13px; color: #555; font-weight: 600;">Track your package dispatch, courier partner, and live delivery updates anytime:</p>
+              <a href="https://jizajewellery.com/?view=track-order&orderId=${encodeURIComponent(orderId)}&phone=${encodeURIComponent(customerPhone)}" 
+                 style="display: inline-block; background-color: #1a1816; color: #ffffff; font-weight: bold; text-decoration: none; padding: 12px 26px; border-radius: 8px; font-size: 14px; letter-spacing: 0.5px; border: 1px solid #d4af37;">
+                🚚 Track My Order Live
+              </a>
+              <p style="font-size: 11px; color: #888; margin-top: 8px; margin-bottom: 0;">Order Code: <strong style="color: #1a1816; font-family: monospace;">${orderId}</strong></p>
             </div>
 
             <h3 style="font-size: 16px; color: #1a1816; margin-top: 25px; margin-bottom: 12px;">Order Items</h3>

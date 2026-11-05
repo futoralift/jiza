@@ -53,6 +53,11 @@ export default function OrderDetailsModal({
                 }`}>
                   {isPickup ? '🏪 Store Pickup' : '🚚 Home Delivery'}
                 </span>
+                {Boolean(selectedOrderDetails.is_guest || selectedOrderDetails.isGuest) && (
+                  <span className="px-2 py-0.2 rounded-full text-[10px] font-bold border bg-stone-100 text-stone-800 border-stone-300">
+                    👤 Guest Checkout
+                  </span>
+                )}
               </div>
               <p className="text-[10px] text-gray-500 font-sans mt-0.5">
                 Placed: {createdTime ? new Date(createdTime).toLocaleString('en-IN') : 'Recent'}
@@ -178,6 +183,23 @@ export default function OrderDetailsModal({
                       </p>
                     );
                   })()}
+                </div>
+              )}
+
+              {/* Billing Address Snapshot if separate */}
+              {selectedOrderDetails.billing_address && !selectedOrderDetails.billing_is_same && (
+                <div className="space-y-1 bg-white p-3 rounded-xl border border-stone-200 mt-2">
+                  <p className="font-bold text-[11px] uppercase tracking-wider text-stone-700 flex items-center gap-1">
+                    <span className="material-symbols-outlined text-sm text-stone-600">receipt</span>
+                    <span>Separate Billing Address:</span>
+                  </p>
+                  <p className="text-gray-800 font-mono text-[11px] whitespace-pre-line leading-relaxed">
+                    {[
+                      selectedOrderDetails.billing_address,
+                      [selectedOrderDetails.billing_city, selectedOrderDetails.billing_state].filter(Boolean).join(', ') + (selectedOrderDetails.billing_pincode ? ` - ${selectedOrderDetails.billing_pincode}` : ''),
+                      selectedOrderDetails.billing_country || 'India'
+                    ].filter(Boolean).join('\n')}
+                  </p>
                 </div>
               )}
             </div>
