@@ -533,7 +533,7 @@ export default function HomeView({
               <img src="/rental2.webp" alt="Rental 2" className="w-full h-full object-cover" loading="lazy" />
             </div>
             <div className="w-20 h-20 md:w-28 md:h-28 rounded-2xl overflow-hidden border-2 border-white shadow-md transform rotate-3 group-hover:rotate-0 transition-transform duration-300">
-              <img src="/kundan-square.webp" alt="Rental 3" className="w-full h-full object-cover" loading="lazy" />
+              <img src="/rental3.webp" alt="Rental 3" className="w-full h-full object-cover" loading="lazy" />
             </div>
           </div>
 

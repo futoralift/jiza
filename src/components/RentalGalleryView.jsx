@@ -24,7 +24,7 @@ const RENTAL_ITEMS = [
     id: 3,
     title: "Heritage Kundan & Emerald Multi-Layer Haar",
     category: "Kundan Collection",
-    image: "/kundan-square.webp",
+    image: "/rental3.webp",
     description: "Multi-row green emerald bead strands paired with a heavy Kundan central pendant. Traditional royal Rajasthani bridal style.",
     tag: "Bridal Statement Piece"
   },
